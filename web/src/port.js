@@ -270,22 +270,46 @@ export async function patch(targetData, profile, opts = {}) {
   const donorStyles = Number(manifest.donor_styles_item);
   if (payloads.has(donorStyles)) {
     let blob = payloads.get(donorStyles);
+    // Measuring the photo is an enhancement, never a requirement. A decoder that is
+    // missing, blocked or simply broken must cost quality, not the whole port - so
+    // failures here fall back to the donor values rather than propagating.
+    // A decoder that returns the wrong number of samples is worse than one that
+    // throws: the statistics would come out silently wrong. Check the size.
+    const measure = async (req) => {
+      const rgb = await opts.decode(targetData, req);
+      const need = req.width * req.height * 3;
+      if (!rgb || rgb.length !== need)
+        throw new Error(`decoder returned ${rgb ? rgb.length : 0} bytes, expected ${need}`);
+      return rgb;
+    };
+
     let sorted = null;
+    report.decoded = false;
     if (opts.decode && opts.sceneStats !== "donor") {
-      const rgb = await opts.decode(targetData, { width: 256, height: 192 });
-      sorted = Array.from(linearLumaFromRgb(rgb)).sort((a, b) => a - b);
+      try {
+        const rgb = await measure({ width: 256, height: 192 });
+        sorted = Array.from(linearLumaFromRgb(rgb)).sort((a, b) => a - b);
+        report.decoded = true;
+      } catch (e) {
+        sorted = null;
+        report.decodeError = (e && e.message) || String(e);
+      }
     }
     const [b1, sr] = applySceneStatistics(blob, sorted ? (opts.sceneStats || "target") : "donor", sorted);
     blob = b1;
     report.sceneStats = sr;
-    if (opts.decode && opts.lightMaps === "target") {
-      const grid = await opts.decode(targetData, {
-        width: LIGHTMAP_N, height: LIGHTMAP_N, angle: targetAngle, mirror: targetMirror,
-      });
-      const [c, dmap] = buildLightMaps(linearLumaFromRgb(grid));
-      const [b2, mr] = applyLightMaps(blob, c, dmap);
-      blob = b2;
-      report.lightMaps = mr;
+    if (opts.decode && opts.lightMaps === "target" && report.decoded) {
+      try {
+        const grid = await measure({
+          width: LIGHTMAP_N, height: LIGHTMAP_N, angle: targetAngle, mirror: targetMirror,
+        });
+        const [c, dmap] = buildLightMaps(linearLumaFromRgb(grid));
+        const [b2, mr] = applyLightMaps(blob, c, dmap);
+        blob = b2;
+        report.lightMaps = mr;
+      } catch (e) {
+        report.decodeError = (e && e.message) || String(e);
+      }
     }
     if (report.mattes.transplanted.length) {
       const [b3, before] = setPersonMasksValid(blob);

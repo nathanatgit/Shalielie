@@ -22,11 +22,20 @@ async function getProfile(name) {
   return profileCache.get(name);
 }
 
+// Probe with a real decode of a real photo. Checking only that the script loaded
+// says nothing about whether it can actually decode, and a decoder that loads but
+// cannot decode is the failure mode that is hardest to notice.
 let decodeAvailable = null;
-async function ensureDecode() {
+async function ensureDecode(bytes) {
   if (decodeAvailable !== null) return decodeAvailable;
-  try { await loadLibheif(); decodeAvailable = true; }
-  catch { decodeAvailable = false; }
+  try {
+    await loadLibheif();
+    await decodeToRgb(bytes, { width: 8, height: 8 });
+    decodeAvailable = true;
+  } catch (e) {
+    console.warn("image analysis unavailable, using neutral settings:", e);
+    decodeAvailable = false;
+  }
   return decodeAvailable;
 }
 
@@ -86,14 +95,17 @@ async function handleFile(file) {
     const name = selectProfile(profileIndex, d.primaryTiles.length, d.hdrTiles.length);
     const profile = await getProfile(name);
 
-    const canDecode = quality.checked ? await ensureDecode() : false;
+    const canDecode = quality.checked ? await ensureDecode(bytes) : false;
     ui.set(T("st.working"));
     const opts = canDecode
       ? { decode: decodeToRgb, sceneStats: "target", lightMaps: "target" }
       : { sceneStats: "donor" };
     const { data, report } = await patch(bytes, profile, opts);
+    // patch() degrades rather than failing when the decoder misbehaves, so trust
+    // what it reports it actually did, not what we asked for.
+    if (report.decodeError) console.warn("decoder unavailable:", report.decodeError);
 
-    const bits = [T(canDecode ? "st.matched" : "st.neutral")];
+    const bits = [T(report.decoded ? "st.matched" : "st.neutral")];
     if (report.mattes.added.some((m) => m.startsWith("depth"))) bits.push(T("st.portrait"));
     else if (report.mattes.transplanted.length) bits.push(T("st.people"));
     ui.set(`${T("st.ready")} — ${bits.join(lang === "zh" ? "、" : ", ")}`, "ok");
@@ -104,9 +116,12 @@ async function handleFile(file) {
     const shareFile = new File([data], outName, { type: "image/heic" });
     if (navigator.canShare && navigator.canShare({ files: [shareFile] })) ui.share(shareFile);
     ui.link(new Blob([data], { type: "image/heic" }), outName);
-  } catch {
+  } catch (e) {
     // Past the format sniff, every remaining rejection means the same thing to a
-    // visitor: this is a HEIC, but not one this build can handle.
+    // visitor: this is a HEIC, but not one this build can handle. The real reason
+    // still goes to the console, because "unsupported" on every photo is exactly
+    // how a bug elsewhere would look.
+    console.error("could not port", file.name, e);
     ui.set(T("err.unsupported"), "err");
   }
 }
