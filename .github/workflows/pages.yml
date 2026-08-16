@@ -25,16 +25,18 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The site is static: no build step, nothing to install. Guard instead
       # against the two mistakes that would matter — shipping a personal photo,
       # or shipping a page whose profiles are missing.
+      # The parentheses matter: without them -print binds to the last -iname only.
       - name: Check the site contains no photos
         run: |
-          if find web -iname '*.heic' -o -iname '*.heif' | grep -q .; then
-            echo "::error::web/ contains HEIC files; they must not be published"
-            find web -iname '*.heic' -o -iname '*.heif'
+          found=$(find web \( -iname '*.heic' -o -iname '*.heif' \) -print)
+          if [ -n "$found" ]; then
+            echo "::error::web/ contains photo files; they must not be published"
+            echo "$found"
             exit 1
           fi
 
@@ -44,7 +46,11 @@ jobs:
             test -s "$f" || { echo "::error::missing $f"; exit 1; }
           done
 
+      # enablement turns Pages on if it is not already, so a fresh clone of this
+      # repo deploys without anyone visiting the settings page first.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web
