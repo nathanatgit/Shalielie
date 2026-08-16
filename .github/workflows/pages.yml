@@ -1,0 +1,52 @@
+name: Deploy browser build to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it mid-publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The site is static: no build step, nothing to install. Guard instead
+      # against the two mistakes that would matter — shipping a personal photo,
+      # or shipping a page whose profiles are missing.
+      - name: Check the site contains no photos
+        run: |
+          if find web -iname '*.heic' -o -iname '*.heif' | grep -q .; then
+            echo "::error::web/ contains HEIC files; they must not be published"
+            find web -iname '*.heic' -o -iname '*.heif'
+            exit 1
+          fi
+
+      - name: Check the donor profiles are present
+        run: |
+          for f in web/profiles/index.json web/profiles/48-12.zip web/profiles/45-15.zip; do
+            test -s "$f" || { echo "::error::missing $f"; exit 1; }
+          done
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deploy
+        uses: actions/deploy-pages@v4

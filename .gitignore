@@ -45,9 +45,6 @@ noSmartStyle-people/
 #
 # Delete the line that applies when you are ready to publish that piece.
 # ---------------------------------------------------------------------------
-# Browser build + GitHub Pages demo.
-web/
-
 # Superseded by photographic_style_port.py.
 smartstyle_port_v0_1.py
 VERSION_v0_1.txt
@@ -59,6 +56,15 @@ PhotographicStyle_HEIC_Porting_Experimental_Facts.md
 # Legacy release artifacts; donor profiles are embedded in the script now.
 SmartStyle_Port_v0_1_bundle.zip
 IMG_0307_SmartStyle_donor_profile_v0_1.zip
+
+# ---------------------------------------------------------------------------
+# Generated
+#
+# The artifact bundle is rebuilt from web/ by artifact/build.py; the browser
+# test fixtures are patched personal photos and stay local.
+# ---------------------------------------------------------------------------
+artifact/build/
+tests/web/ref/
 
 # ---------------------------------------------------------------------------
 # Editor / OS

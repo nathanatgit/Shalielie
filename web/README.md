@@ -1,0 +1,129 @@
+# Photographic Style Port — browser build
+
+The static site published to GitHub Pages. Everything runs in the visitor's browser; photos
+are never uploaded.
+
+This directory is the deploy root and contains only site files. The Claude Artifact bundle
+lives in `../artifact/` and the Node tests in `../tests/web/` — neither is served, and
+nothing here depends on either.
+
+## Deploying
+
+`.github/workflows/pages.yml` publishes this directory on every push that touches it. Enable
+it once under **Settings → Pages → Source → GitHub Actions**. There is no build step; the
+workflow only checks two things before uploading:
+
+- no `.heic`/`.heif` anywhere under `web/` — a guard against publishing a personal photo
+- the two donor profiles are present and non-empty
+
+To serve it locally instead:
+
+```bash
+python -m http.server -d web 8000
+```
+
+Everything uses relative paths, so a project subpath like `https://user.github.io/repo/`
+works without configuration.
+
+## What it ships
+
+| | |
+|---|---|
+| Size | ~140 KB total, including both donor profiles |
+| Requests | `index.html`, `app.js`, seven modules, one profile per photo layout |
+| External | one optional script — see below |
+| Headers | none needed; nothing uses `SharedArrayBuffer` |
+
+## The one external dependency
+
+Measuring a photo's own tone and light needs a HEIC decoder, and browsers other than Safari
+do not have one. `src/decode.js` loads libheif from jsDelivr for that, lazily — only when the
+analysis option is on, and only on the first photo.
+
+Nothing is uploaded to it; it is a script fetch. If it fails, or if you switch it off, the
+port still runs and falls back to donor statistics and flat light maps — which is exactly the
+configuration that reproduces the Python output byte for byte, so the fallback is the tested
+path rather than a degraded guess.
+
+To remove the dependency entirely, vendor the library and point `LIBHEIF_URL` at it:
+
+```bash
+npm pack libheif-js && tar -xzf libheif-js-*.tgz
+cp package/libheif/libheif.js package/libheif/libheif.wasm web/vendor/
+```
+
+## Why there is no HEVC encoder
+
+The Python tool re-encodes the linearthumbnail as 10-bit Main10 HEVC with ffmpeg. Browsers
+have no dependable HEVC encoder, so a faithful port would have had to ship ffmpeg.wasm at
+25–30 MB.
+
+That turned out to be unnecessary. Reusing the photo's own embedded thumbnail as the
+linearthumbnail — `--linear-thumb reuse-thumbnail` in the Python tool — was validated
+on-device, so this build uses it unconditionally and needs no encoder at all.
+
+## iPhone notes
+
+Two iOS behaviours are handled explicitly:
+
+- **Picking from the Photo Library gives you a JPEG.** iOS transcodes on the way in and
+  throws away everything the port needs. The file input therefore sets no `accept`
+  attribute, so **Browse** is offered and files chosen from Files arrive untouched. Uploads
+  are sniffed by magic bytes and a transcoded one is named as such rather than failing
+  obscurely.
+- **Getting the result back into Photos.** Where the browser supports sharing files, a
+  **Save to Photos** button hands the finished `.heic` to the native share sheet, so
+  **Save Image** puts it straight in the library. A normal download sits alongside it.
+
+## Correctness
+
+The browser port is checked against the Python implementation:
+
+```bash
+node tests/web/compare.mjs        # the modules this site loads
+node tests/web/compare_bundle.mjs # the concatenated artifact bundle
+```
+
+```
+IMG_5037: BYTE-IDENTICAL (2427596)
+IMG_5048: BYTE-IDENTICAL (1810154)
+IMG_5049: BYTE-IDENTICAL (1858089)
+IMG_4995: EQUIVALENT (styles plist repacked, all items match)
+IMG_4997: EQUIVALENT (styles plist repacked, all items match)
+IMG_4999: EQUIVALENT (styles plist repacked, all items match)
+```
+
+Three are byte-for-byte identical. The other three differ only in how the styles plist is
+packed — `plistlib` and this bplist writer lay objects out differently — so that one item is
+compared semantically: every key and value matches, including the binary `c`/`d` maps. All
+other items are byte-identical.
+
+The fixtures are patched personal photos and are deliberately not in the repository, so the
+tests only run once you generate your own:
+
+```bash
+python photographic_style_port.py patch IN.HEIC tests/web/ref/NAME_ref.HEIC \
+  --linear-thumb reuse-thumbnail --scene-stats donor --light-maps flat
+```
+
+## Layout
+
+| File | Role |
+|---|---|
+| `src/box.js` | ISO-BMFF box reading and writing |
+| `src/heif.js` | Item graph: `iloc`/`iinf`/`iref`/`ipma`/`ipco`, discovery, surgery |
+| `src/bplist.js` | Apple binary plist reader and writer |
+| `src/exif.js` | MakerNote `0x54` injection, preserving the target's Exif |
+| `src/styles.js` | Scene statistics, `c`/`d` light maps, person-mask hint |
+| `src/zip.js` | Donor profile reader, via `DecompressionStream` |
+| `src/port.js` | The patch pipeline |
+| `src/decode.js` | Optional libheif decoding, isolated behind one callback |
+| `profiles/` | The two donor profiles, exported from the Python build |
+
+`src/port.js` takes the decoder as a callback, so nothing but `decode.js` knows libheif
+exists — which is also why `port.js` runs unchanged under Node for the comparison tests.
+
+## Not supported
+
+Photos without an embedded thumbnail or HDR gain map are rejected, as in the Python tool, and
+only the two known tile layouts (48/12 and 45/15) have profiles.

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photographic Style Port</title>
+<meta name="description" content="Adds the iPhone 16-generation Photographic Styles editing state to a HEIC from an older iPhone. Runs entirely in your browser — photos are never uploaded.">
+<meta name="color-scheme" content="light dark">
+<meta property="og:title" content="Photographic Style Port">
+<meta property="og:description" content="Adds iPhone 16-generation Photographic Styles to a HEIC from an older iPhone, entirely in your browser.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f6df6'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='white' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='white'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #ffffff; --fg: #16181d; --muted: #5b6270; --line: #e3e6ec;
+    --panel: #f7f8fa; --accent: #2f6df6; --ok: #0f7b4f; --err: #b3261e;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+            "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei",
+            "Noto Sans SC", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161a; --fg: #e8eaef; --muted: #9aa2b1; --line: #2a2e37;
+      --panel: #1b1e24; --accent: #6f9bff; --ok: #4ac68b; --err: #ff8a80;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161a; --fg: #e8eaef; --muted: #9aa2b1; --line: #2a2e37;
+    --panel: #1b1e24; --accent: #6f9bff; --ok: #4ac68b; --err: #ff8a80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--sans); font-size: 15px; line-height: 1.6;
+    padding: 2.5rem 1.25rem 4rem;
+  }
+  main { max-width: 46rem; margin: 0 auto; }
+  .top { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+  h1 { font-size: 1.6rem; margin: 0 0 .3rem; letter-spacing: -.02em; text-wrap: balance; }
+  #lang {
+    font: inherit; font-size: .82rem; font-weight: 600; color: var(--accent);
+    background: transparent; border: 1px solid var(--line); border-radius: 7px;
+    padding: .25rem .7rem; cursor: pointer; white-space: nowrap; flex: none;
+  }
+  #lang:hover { border-color: var(--accent); }
+  #lang:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sub { color: var(--muted); margin: 0 0 1.75rem; }
+  #drop {
+    border: 1.5px dashed var(--line); border-radius: 12px; background: var(--panel);
+    padding: 2.5rem 1.5rem; text-align: center; cursor: pointer; transition: .15s;
+  }
+  #drop:hover, #drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--panel)); }
+  #drop:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  #drop strong { display: block; font-size: 1.05rem; margin-bottom: .25rem; }
+  #drop span { color: var(--muted); font-size: .9rem; }
+  input[type=file] { display: none; }
+  .opts { margin: 1rem 0 0; display: flex; align-items: flex-start; gap: .55rem; }
+  .opts label { color: var(--muted); font-size: .9rem; }
+  #list { margin-top: 1.5rem; display: flex; flex-direction: column; gap: .5rem; }
+  .row {
+    display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .25rem 1rem;
+    align-items: center; padding: .7rem .9rem; border: 1px solid var(--line);
+    border-radius: 9px; background: var(--panel);
+  }
+  .row .name { font-weight: 600; overflow-wrap: anywhere; }
+  .row .status { grid-column: 1; color: var(--muted); font-size: .87rem; overflow-wrap: anywhere; }
+  .row .status.ok { color: var(--ok); }
+  .row .status.err { color: var(--err); }
+  .row .act { grid-row: 1 / span 2; display: flex; flex-direction: column; gap: .35rem; }
+  .dl {
+    display: inline-block; padding: .4rem .8rem; border-radius: 7px; border: 1px solid transparent;
+    background: var(--accent); color: #fff; text-decoration: none; font: inherit;
+    font-size: .875rem; font-weight: 600; white-space: nowrap; text-align: center; cursor: pointer;
+  }
+  .dl.alt { background: transparent; color: var(--accent); border-color: var(--line); }
+  .dl.alt:hover { border-color: var(--accent); }
+  .notes { margin-top: 2.5rem; border-top: 1px solid var(--line); padding-top: 1.25rem;
+           color: var(--muted); font-size: .875rem; }
+  .notes h2 { font-size: .95rem; color: var(--fg); margin: 1.25rem 0 .4rem; }
+  .notes p { margin: .4rem 0; }
+  .steps { margin: .4rem 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .3rem; }
+  .steps b, .notes b, #drop b { color: var(--fg); font-weight: 640; }
+  .err { color: var(--err); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <h1 data-i18n="meta.title">Photographic Style Port</h1>
+    <button id="lang" type="button" data-i18n="lang.name">中文</button>
+  </div>
+  <p class="sub" data-i18n="app.lede"></p>
+
+  <div id="drop" role="button" tabindex="0">
+    <strong data-i18n="drop.big"></strong>
+    <span data-i18n="drop.small"></span>
+  </div>
+  <input type="file" id="file" multiple>
+
+  <div class="opts">
+    <input type="checkbox" id="quality" checked>
+    <label for="quality" data-i18n="opt.quality"></label>
+  </div>
+
+  <div id="list"></div>
+  <p id="boot"></p>
+
+  <div class="notes">
+    <h2 data-i18n="h.iphone"></h2>
+    <ol class="steps">
+      <li data-i18n="s.1"></li>
+      <li data-i18n="s.2"></li>
+      <li data-i18n="s.3"></li>
+      <li data-i18n="s.4"></li>
+    </ol>
+    <p data-i18n="p.iphone"></p>
+
+    <h2 data-i18n="h.computer"></h2>
+    <p data-i18n="p.computer"></p>
+
+    <h2 data-i18n="h.rejected"></h2>
+    <p data-i18n="p.rejected"></p>
+
+    <h2 data-i18n="h.knowing"></h2>
+    <p data-i18n="p.knowing"></p>
+
+    <p><span data-i18n="p.version"></span> <span id="version"></span></p>
+  </div>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -12,6 +12,18 @@ works by reading and rewriting the ISO-BMFF item graph of photo files, and it is
 
 Shalielie is my reply (a Chinese word pronouciation) to those Apple shareholder in spirit.
 
+## Use it in a browser
+
+There is a browser build that needs no install and no command line — drop a photo in, get the
+patched one back. It runs entirely on your machine; nothing is uploaded.
+
+**https://nathanatgit.github.io/Shalielie/**
+
+It is the same porting logic as the Python tool, checked against it byte for byte — see
+[`web/README.md`](web/README.md) for how that is verified, and for the two iPhone quirks it
+works around. The command-line tool below remains the reference implementation and is the one
+to use for batches or for the encoder-based linearthumbnail.
+
 ## Install
 
 Needs **Python 3.12+**. [uv](https://docs.astral.sh/uv/) is the shortest path:
