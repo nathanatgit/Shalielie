@@ -1,10 +1,13 @@
 # Photographic Style Port
 
-**v0.4.4** — an experimental tool that gives an iPhone 15 HEIC the metadata an iPhone 16/17
+Current version: v0.4.4
+
+This is an experimental tool that gives an iPhone 15 HEIC the metadata an iPhone 16/17
 photo carries, so that Apple Photos offers the **Photographic Styles** palette (风格/ or most people would simply call it 调色盘) on it.
 
 It is an independent HEIC interoperability tool, not an Apple-supported format converter. It
 works by reading and rewriting the ISO-BMFF item graph of photo files, and it is experimental.
+
 **Keep your originals.**
 
 Shalielie is my reply (a Chinese word pronouciation) to those Apple shareholder in spirit.
