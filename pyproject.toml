@@ -1,0 +1,23 @@
+[project]
+name = "photographic-style-port"
+version = "0.4.4"
+description = "Experimental HEIC Photographic Style porter (iPhone 15 -> iPhone 16/17)"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+
+# photographic_style_port.py is standard library only, by design. Nothing here is
+# imported by it.
+dependencies = []
+
+[dependency-groups]
+# pillow-heif exists solely to back tools/heif_convert_shim.py, which supplies the
+# `heif-convert` binary libheif would otherwise provide. Drop this group if you have
+# a real libheif on PATH.
+shim = ["pillow-heif>=1.5.0"]
+
+[tool.uv]
+# Not an installable package -- the porter is a single script run directly.
+package = false
+default-groups = ["shim"]

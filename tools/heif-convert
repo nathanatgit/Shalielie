@@ -1,0 +1,9 @@
+#!/bin/sh
+# heif-convert stand-in for macOS/Linux -- see heif_convert_shim.py.
+# Prefer a real libheif build if you have one; this only exists because Windows
+# has no libheif package. Put this directory on PATH:
+#   export PATH="$PWD/tools:$PATH"
+DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PY="$DIR/../.venv/bin/python"
+[ -x "$PY" ] || PY=python3
+exec "$PY" "$DIR/heif_convert_shim.py" "$@"

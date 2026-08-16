@@ -1,0 +1,72 @@
+# ---------------------------------------------------------------------------
+# Python / uv
+# ---------------------------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------------------------------------------------------------------------
+# Patch output
+#
+# Every `patch` run writes OUT.HEIC + OUT.HEIC.report.json, and OUT.zip with
+# --zip. None of it is source.
+# ---------------------------------------------------------------------------
+*_out/
+*_test/
+*.HEIC.report.json
+*_SmartStyle.HEIC
+*_SmartStyle.zip
+*_PhotographicStyle.HEIC
+*_PhotographicStyle.zip
+*_reuseThumb.HEIC
+*_reuseThumb.zip
+
+# ---------------------------------------------------------------------------
+# Sample photos
+#
+# The HEICs this was developed against are personal originals, tens of MB each.
+# They are deliberately not distributed; supply your own.
+# ---------------------------------------------------------------------------
+Smartstyle/
+noSmartStyle/
+noSmartStyle-people/
+*.HEIC
+*.heic
+*.HEIF
+*.heif
+
+# ---------------------------------------------------------------------------
+# Not published yet
+#
+# Delete the line that applies when you are ready to publish that piece.
+# ---------------------------------------------------------------------------
+# Browser build + GitHub Pages demo.
+web/
+
+# Superseded by photographic_style_port.py.
+smartstyle_port_v0_1.py
+VERSION_v0_1.txt
+
+# Per-version notes and findings, folded into README.md.
+README_PhotographicStyle_Port_v0_*.md
+PhotographicStyle_HEIC_Porting_Experimental_Facts.md
+
+# Legacy release artifacts; donor profiles are embedded in the script now.
+SmartStyle_Port_v0_1_bundle.zip
+IMG_0307_SmartStyle_donor_profile_v0_1.zip
+
+# ---------------------------------------------------------------------------
+# Editor / OS
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+.claude/settings.local.json
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp

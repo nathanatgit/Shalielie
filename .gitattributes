@@ -1,0 +1,42 @@
+# Normalize line endings on commit, check out native. Developed on Windows, so
+# without this the LF-only files below would land in the repo as CRLF.
+* text=auto eol=lf
+
+*.py        text eol=lf diff=python
+*.js        text eol=lf
+*.mjs       text eol=lf
+*.json      text eol=lf
+*.toml      text eol=lf
+*.md        text eol=lf diff=markdown
+*.html      text eol=lf diff=html
+*.css       text eol=lf
+*.txt       text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+.gitignore  text eol=lf
+.gitattributes text eol=lf
+
+# Shell wrapper must stay LF or /bin/sh will not run it.
+tools/heif-convert text eol=lf
+
+# Windows wrappers must stay CRLF or cmd.exe mis-parses them.
+*.cmd       text eol=crlf
+*.bat       text eol=crlf
+*.ps1       text eol=crlf
+
+# Never munge, never diff as text.
+*.HEIC      binary
+*.heic      binary
+*.HEIF      binary
+*.heif      binary
+*.zip       binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.mp4       binary
+*.mov       binary
+*.wasm      binary
+
+# Machine-generated: keep out of language stats and collapse in diffs.
+uv.lock         linguist-generated=true -diff
+requirements.txt linguist-generated=true
