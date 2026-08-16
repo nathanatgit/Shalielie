@@ -2,7 +2,7 @@
 
 Current version: v0.4.4
 
-This is an experimental tool that gives an iPhone 15 HEIC the metadata an iPhone 16/17
+This is an experimental tool that gives an iPhone HEIC the metadata an iPhone 16/17
 photo carries, so that Apple Photos offers the **Photographic Styles** palette (风格/ or most people would simply call it 调色盘) on it.
 
 It is an independent HEIC interoperability tool, not an Apple-supported format converter. It
