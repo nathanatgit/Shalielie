@@ -1,5 +1,26 @@
-// UI strings. One table per language keeps the two versions from drifting;
-// elements carry data-i18n keys and are filled in at load and on switch.
+// Every word the page shows, in both languages. This is the only file with
+// user-facing copy in it; index.html holds no text of its own.
+//
+// EDITING
+//   Change the text to the right of a key. Keys are shared between en and zh, so
+//   whatever you add to one you must add to the other, and whatever you rename
+//   you must rename in index.html too.
+//   Run `node tests/web/check-i18n.mjs` afterwards; it catches exactly those two
+//   mistakes. Preview with `python -m http.server -d web 8000`, then reload.
+//
+//   A few tags are allowed inside a string — <b>, <br>, <code> — because the
+//   values are inserted as HTML. Do not paste anything untrusted in here.
+//
+// WHERE EACH KEY APPEARS
+//   lang.name    the switch button; it names the language you switch TO
+//   meta.title   browser tab and the big heading
+//   app.lede     the paragraph under the heading
+//   drop.*       the drop area
+//   opt.quality  the checkbox label
+//   st.*         status text on a finished row
+//   err.*        the only two failures a visitor can see
+//   btn.*        buttons on a finished row
+//   h.* s.* p.*  the notes at the bottom: heading, numbered step, paragraph
 
 export const STRINGS = {
   en: {

@@ -75,6 +75,24 @@ Two iOS behaviours are handled explicitly:
   **Save to Photos** button hands the finished `.heic` to the native share sheet, so
   **Save Image** puts it straight in the library. A normal download sits alongside it.
 
+## Editing the copy
+
+Every word the page shows, in both languages, is in `src/i18n.js`. `index.html` has no text
+of its own — elements carry `data-i18n` keys and are filled in at load and when the language
+button is pressed.
+
+```bash
+python -m http.server -d web 8000   # then edit src/i18n.js and reload
+node tests/web/check-i18n.mjs       # after editing
+```
+
+The checker catches the two mistakes that are otherwise invisible until someone switches
+language: a key added to one language but not the other, and a key `index.html` asks for that
+no longer exists.
+
+Adding a third language means adding a block to `STRINGS` with the same keys; the button
+cycles between exactly two, so more than that needs a small change to the switch in `app.js`.
+
 ## Correctness
 
 The browser port is checked against the Python implementation:
