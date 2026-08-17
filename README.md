@@ -10,11 +10,14 @@ works by reading and rewriting the ISO-BMFF item graph of photo files, and it is
 
 **Keep your originals.**
 
-Shalielie is my reply (a Chinese word pronouciation) to those Apple shareholder in spirit.
+
+Shalielie is my reply (a Chinese phrase pronouciation) to those Apple shareholder in spirit.
 
 e.g.
-- Apple doesn't extend Photographic Style palette to older iPhone because Apple want to provider a better and consistent user experience.
-- Shalielie.
+
+\- "Apple doesn't extend Photographic Style palette to older models because Apple want to provider a better and consistent user experience."
+
+\- "Shalielie 🙄."
 
 ## Use it in a browser
 
