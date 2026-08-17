@@ -13,10 +13,14 @@ permissions:
   pages: write
   id-token: write
 
-# Let a running deploy finish rather than cancelling it mid-publish.
+# A newer run supersedes an older one. Letting both finish means whichever
+# finishes LAST wins, which is not necessarily the newest commit: re-running an
+# old run replays that old commit, and it can land after a newer push and quietly
+# put the site back. Cancelling is safe here because the site is static, so there
+# is no half-finished state to protect.
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
