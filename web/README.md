@@ -3,6 +3,11 @@
 The static site published to GitHub Pages. Everything runs in the visitor's browser; photos
 are never uploaded.
 
+`countVisit()` in `app.js` is the site's only outbound request: a fire-and-forget ping to
+`abacus.jasoncameron.dev` on load, once per browser session, feeding the visits badge in the
+top-level README. It sends no photo data and no identifiers. The counter namespace is public,
+so treat the number as a rough signal — anyone who knows the URL can increment it.
+
 This directory is the deploy root and contains only site files. The Claude Artifact bundle
 lives in `../artifact/` and the Node tests in `../tests/web/` — neither is served, and
 nothing here depends on either.

@@ -1,5 +1,8 @@
 # Photographic Style Port
 
+[![Release downloads](https://img.shields.io/github/downloads/nathanatgit/Shalielie/total?label=release%20downloads&color=blue)](https://github.com/nathanatgit/Shalielie/releases)
+[![Web app visits](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fabacus.jasoncameron.dev%2Fget%2Fnathanatgit-shalielie%2Fweb&query=%24.value&label=web%20app%20visits&color=blue)](https://nathanatgit.github.io/Shalielie/)
+
 Current version: v0.4.4
 
 This is an experimental tool that gives an iPhone HEIC the metadata an iPhone 16/17
