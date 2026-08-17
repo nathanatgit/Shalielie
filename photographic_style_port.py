@@ -2776,6 +2776,7 @@ def cmd_inspect(args):
 
 def build_parser():
     p = argparse.ArgumentParser(description=f"Photographic Style Port v{VERSION}")
+    p.add_argument("--version", action="version", version=f"Photographic Style Port {VERSION}")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     a = sub.add_parser("extract-donor", help="Extract reusable Photographic Style donor profile ZIP")

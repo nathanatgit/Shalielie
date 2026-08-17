@@ -1,0 +1,187 @@
+name: Build binary release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: binary-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Verify release version
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      # Keep the three public version declarations synchronized. On a tag run,
+      # the tag is the fourth declaration and must be v<project.version>.
+      - name: Check version metadata
+        id: version
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          project_version = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+          source = Path("photographic_style_port.py").read_text(encoding="utf-8")
+          match = re.search(r'^VERSION = "([^"]+)"$', source, re.MULTILINE)
+          script_version = match.group(1) if match else None
+          readme_match = re.search(r'^Current version: v([^\s]+)$',
+                                   Path("README.md").read_text(encoding="utf-8"), re.MULTILINE)
+          readme_version = readme_match.group(1) if readme_match else None
+
+          declared = {
+              "pyproject.toml": project_version,
+              "photographic_style_port.py": script_version,
+              "README.md": readme_version,
+          }
+          mismatches = [f"{name}: {version!r}" for name, version in declared.items()
+                        if version != project_version]
+          if mismatches:
+              print(f"::error::Version declarations disagree with {project_version}: "
+                    + ", ".join(mismatches))
+              sys.exit(1)
+
+          if os.environ.get("GITHUB_REF_TYPE") == "tag":
+              expected_tag = f"v{project_version}"
+              actual_tag = os.environ.get("GITHUB_REF_NAME")
+              if actual_tag != expected_tag:
+                  print(f"::error::Release tag {actual_tag!r} must be {expected_tag!r}")
+                  sys.exit(1)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              print(f"version={project_version}", file=output)
+          print(f"Building Photographic Style Port {project_version}")
+          PY
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            target: windows-x86_64
+            executable: photographic-style-port.exe
+            archive: zip
+          - runner: ubuntu-22.04
+            target: linux-x86_64
+            executable: photographic-style-port
+            archive: tar.gz
+          - runner: macos-15-intel
+            target: macos-x86_64
+            executable: photographic-style-port
+            archive: tar.gz
+          - runner: macos-15
+            target: macos-arm64
+            executable: photographic-style-port
+            archive: tar.gz
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      - name: Install packager
+        run: python -m pip install --disable-pip-version-check pyinstaller==6.21.0
+
+      - name: Build one-file executable
+        run: >-
+          python -m PyInstaller
+          --clean
+          --noconfirm
+          --onefile
+          --name photographic-style-port
+          photographic_style_port.py
+
+      # These commands exercise argparse, the embedded Python runtime, and both
+      # embedded donor-profile ZIPs without needing a personal HEIC fixture.
+      - name: Smoke-test executable
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ needs.prepare.outputs.version }}
+          EXECUTABLE: ${{ matrix.executable }}
+        run: |
+          actual="$("./dist/$EXECUTABLE" --version)"
+          test "$actual" = "Photographic Style Port $EXPECTED_VERSION"
+          "./dist/$EXECUTABLE" profiles > packaged-profiles.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          profiles = json.loads(Path("packaged-profiles.json").read_text(encoding="utf-8"))
+          assert {profile["name"] for profile in profiles} == {"45-15", "48-12"}
+          PY
+
+      - name: Package executable
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TARGET: ${{ matrix.target }}
+          EXECUTABLE: ${{ matrix.executable }}
+          ARCHIVE: ${{ matrix.archive }}
+        run: |
+          package="photographic-style-port-$VERSION-$TARGET"
+          mkdir -p "release/$package"
+          cp "dist/$EXECUTABLE" README.md LICENSE "release/$package/"
+          if [ "$ARCHIVE" = "zip" ]; then
+            (cd release && python -m zipfile -c "$package.zip" "$package")
+          else
+            tar -C release -czf "release/$package.tar.gz" "$package"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.target }}
+          path: release/*.${{ matrix.archive }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [prepare, build]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: binary-*
+          path: release
+          merge-multiple: true
+
+      - name: Write checksums
+        working-directory: release
+        run: sha256sum * > SHA256SUMS.txt
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release/* --clobber
+          else
+            flags=(--verify-tag --generate-notes --title "Photographic Style Port $TAG")
+            if [[ "$TAG" == *-* ]]; then flags+=(--prerelease); fi
+            gh release create "$TAG" release/* "${flags[@]}"
+          fi

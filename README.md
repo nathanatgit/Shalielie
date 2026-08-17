@@ -31,7 +31,34 @@ It is the same porting logic as the Python tool, checked against it byte for byt
 works around. The command-line tool below remains the reference implementation and is the one
 to use for batches or for the encoder-based linearthumbnail.
 
-## Install
+## Download a binary
+
+Each tagged release provides a Python-free command-line executable for:
+
+- Windows x86-64
+- Linux x86-64
+- macOS x86-64 (Intel)
+- macOS arm64 (Apple silicon)
+
+Download the archive for your system from the GitHub Releases page, extract it, and run
+`photographic-style-port` (`photographic-style-port.exe` on Windows). The executable includes
+the Python runtime and both built-in donor profiles; use `--version` to check which release you
+have.
+
+The default, phone-validated patch mode still calls `ffmpeg` and `heif-convert`. For a completely
+standalone run, use the validated no-encoder mode:
+
+```bash
+photographic-style-port patch IN.HEIC OUT.HEIC \
+  --linear-thumb reuse-thumbnail --scene-stats donor --light-maps flat
+```
+
+The `Build binary release` GitHub Actions workflow builds and smoke-tests all four targets on
+manual runs. Pushing a tag such as `v0.4.4` also creates the GitHub release and uploads the four
+archives plus `SHA256SUMS.txt`. The tag must match the versions declared in `pyproject.toml`,
+`photographic_style_port.py`, and this README.
+
+## Install from source
 
 Needs **Python 3.12+**. [uv](https://docs.astral.sh/uv/) is the shortest path:
 
