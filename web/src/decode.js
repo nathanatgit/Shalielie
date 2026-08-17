@@ -9,17 +9,39 @@ const LIBHEIF_URL = "https://cdn.jsdelivr.net/npm/libheif-js@1.18.2/libheif/libh
 
 let libheifPromise = null;
 
-export function loadLibheif() {
-  if (libheifPromise) return libheifPromise;
-  libheifPromise = new Promise((resolve, reject) => {
-    if (globalThis.libheif) return resolve(globalThis.libheif);
+function injectScript() {
+  return new Promise((resolve, reject) => {
+    if (globalThis.libheif) return resolve();
     const s = document.createElement("script");
     s.src = LIBHEIF_URL;
-    s.onload = () => (globalThis.libheif ? resolve(globalThis.libheif)
+    s.onload = () => (globalThis.libheif ? resolve()
       : reject(new Error("libheif loaded but did not register")));
     s.onerror = () => reject(new Error("could not load libheif"));
     document.head.appendChild(s);
   });
+}
+
+/**
+ * Resolve to the libheif module itself.
+ *
+ * The bundle is UMD with no browser-global branch, so a plain <script> leaves
+ * only its top-level `var libheif` on window — and that is a lazy FACTORY, not
+ * the module. Calling it is what yields HeifDecoder; skipping the call is why
+ * `libheif.HeifDecoder is not a constructor`.
+ */
+export async function loadLibheif() {
+  if (libheifPromise) return libheifPromise;
+  libheifPromise = (async () => {
+    await injectScript();
+    const raw = globalThis.libheif;
+    const mod = typeof raw === "function" ? raw() : raw;
+    // The wasm build resolves asynchronously; the asm.js build is ready at once.
+    const resolved = mod && typeof mod.then === "function" ? await mod : mod;
+    if (resolved && typeof resolved.ready?.then === "function") await resolved.ready;
+    if (!resolved || typeof resolved.HeifDecoder !== "function")
+      throw new Error("libheif loaded but exposes no HeifDecoder");
+    return resolved;
+  })().catch((e) => { libheifPromise = null; throw e; });
   return libheifPromise;
 }
 
