@@ -25,9 +25,9 @@
 export const STRINGS = {
   en: {
     "lang.name": "中文",
-    "meta.title": "Photographic Style Port",
-    "app.lede": "Adds the iPhone 16 and above generation Photographic Styles editing state to a HEIC "
-      + "from an older iPhone. Everything runs in your browser — your photos are never uploaded.",
+    "meta.title": "Photographic Style Palette Port",
+    "app.lede": "Adds the iPhone 16 and above generation Photographic Styles palatte editing state to a HEIC "
+      + "from an older iPhone. Everything runs in your browser — your photos are never saved beyond your browser.",
     "drop.big": "Drop HEIC photos here",
     "drop.small": "on iPhone choose <b>Browse</b>, not Photo Library — the Photo Library "
       + "converts HEIC to JPEG",
@@ -53,7 +53,7 @@ export const STRINGS = {
     "s.2": "Come back here, tap the box above and choose <b>Browse</b>, then pick that file.",
     "s.3": "When it finishes, tap <b>Save to Photos</b> and choose <b>Save Image</b>.",
     "s.4": "Open the new photo in Photos and tap <b>Edit</b> — the styles palette is there.",
-    "p.iphone": "Step 1 is the part people skip. Picking straight from your Photo Library "
+    "p.iphone": "Step 1 should never be skipped. Picking straight from your Photo Library "
       + "hands this page a converted copy with the original data stripped out, and there is "
       + "nothing left to work with.",
     "h.computer": "On a computer",
@@ -68,15 +68,15 @@ export const STRINGS = {
     "p.knowing": "Your picture itself is untouched — it is not re-encoded, so what comes back "
       + "looks exactly like what went in. Everything happens on your own device; no photo is "
       + "uploaded. This is unofficial software that works by rewriting parts of the file"
-      + " so keep your originals.",
+      + " so keep your originals. (Upload live photo content in iOS through web is not supported, this will be missing after processing.)",
     "p.version": "Version",
   },
 
   zh: {
     "lang.name": "English",
-    "meta.title": "风格移植器",
+    "meta.title": "风格调色盘移植器",
     "app.lede": "为旧款 iPhone 拍摄的 HEIC 照片，加上 iPhone 16 及以上系列的调色盘「风格」(Photographic Style) 编辑能力。"
-      + "所有处理都在浏览器中完成——照片不会被上传。",
+      + "所有处理都在浏览器中完成——照片不会被云端存储。",
     "drop.big": "拖放或单击选择 HEIC 照片",
     "drop.small": "在 iPhone 上请选择<b>浏览文件</b>，不要用「照片图库」，图库会把 HEIC 转成 JPEG",
     "opt.quality": "首次使用会下载一个小的辅助文件。"
@@ -113,7 +113,7 @@ export const STRINGS = {
     "h.knowing": "注意事项",
     "p.knowing": "你的照片本身不会被改动——不会重新编码，处理后返回的文件和原始文件完全一样。"
       + "全部处理都在你自己的设备上完成，不会上传任何照片。这是非官方工具，"
-      + "请务必保留原片。",
+      + "请务必保留原片。（iOS限制，上传不会包括动态图片）",
     "p.version": "版本",
   },
 };
