@@ -149,9 +149,26 @@ $("lang").addEventListener("click", () => {
   applyLanguage(lang);
 });
 
+// Visit counter behind the README badge. The only request this site makes to a
+// third party, and it carries nothing but the fact that the page was opened —
+// no photo ever reaches it. Fired once per browser session so a reload is not a
+// new visit, and fire-and-forget: a counter that is down is not worth an error.
+// If sessionStorage is blocked the visit goes uncounted, which undercounts
+// rather than counting every reload of a private-mode window as a new visitor.
+function countVisit() {
+  try {
+    if (sessionStorage.getItem("counted")) return;
+    sessionStorage.setItem("counted", "1");
+  } catch (e) {
+    return;
+  }
+  fetch("https://abacus.jasoncameron.dev/hit/nathanatgit-shalielie/web").catch(() => {});
+}
+
 (async () => {
   applyLanguage(lang);
   $("version").textContent = VERSION;
+  countVisit();
   try {
     profileIndex = await (await fetch("profiles/index.json")).json();
   } catch (e) {

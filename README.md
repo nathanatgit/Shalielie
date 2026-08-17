@@ -21,6 +21,8 @@ e.g.
 
 ## Use it in a browser
 
+[![Web app visits](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fabacus.jasoncameron.dev%2Fget%2Fnathanatgit-shalielie%2Fweb&query=%24.value&label=web%20app%20visits&style=flat-square)](https://nathanatgit.github.io/Shalielie/)
+
 There is a browser build that needs no install and no command line — drop a photo in, get the
 patched one back. It runs entirely on your machine; nothing is uploaded.
 
