@@ -33,6 +33,8 @@ to use for batches or for the encoder-based linearthumbnail.
 
 ## Download a binary
 
+[![Release downloads](https://img.shields.io/github/downloads/nathanatgit/Shalielie/total?label=release%20downloads&style=flat-square)](https://github.com/nathanatgit/Shalielie/releases)
+
 Each tagged release provides a Python-free command-line executable for:
 
 - Windows x86-64
