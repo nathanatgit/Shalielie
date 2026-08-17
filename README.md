@@ -12,6 +12,10 @@ works by reading and rewriting the ISO-BMFF item graph of photo files, and it is
 
 Shalielie is my reply (a Chinese word pronouciation) to those Apple shareholder in spirit.
 
+e.g.
+- Apple doesn't extend Photographic Style palette to older iPhone because Apple want to provider a better and consistent user experience.
+- Shalielie.
+
 ## Use it in a browser
 
 There is a browser build that needs no install and no command line — drop a photo in, get the
