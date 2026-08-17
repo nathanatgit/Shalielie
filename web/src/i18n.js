@@ -26,7 +26,7 @@ export const STRINGS = {
   en: {
     "lang.name": "中文",
     "meta.title": "Photographic Style Port",
-    "app.lede": "Adds the iPhone 16-generation Photographic Styles editing state to a HEIC "
+    "app.lede": "Adds the iPhone 16 and above generation Photographic Styles editing state to a HEIC "
       + "from an older iPhone. Everything runs in your browser — your photos are never uploaded.",
     "drop.big": "Drop HEIC photos here",
     "drop.small": "on iPhone choose <b>Browse</b>, not Photo Library — the Photo Library "
@@ -67,19 +67,19 @@ export const STRINGS = {
     "h.knowing": "Worth knowing",
     "p.knowing": "Your picture itself is untouched — it is not re-encoded, so what comes back "
       + "looks exactly like what went in. Everything happens on your own device; no photo is "
-      + "uploaded. This is unofficial software that works by rewriting parts of the file Apple "
-      + "never documented, so keep your originals.",
+      + "uploaded. This is unofficial software that works by rewriting parts of the file"
+      + " so keep your originals.",
     "p.version": "Version",
   },
 
   zh: {
     "lang.name": "English",
-    "meta.title": "摄影风格移植",
-    "app.lede": "为旧款 iPhone 拍摄的 HEIC 照片，加上 iPhone 16 世代的「摄影风格」编辑能力。"
-      + "全部处理都在你的浏览器中完成，照片不会被上传。",
-    "drop.big": "把 HEIC 照片拖到这里",
-    "drop.small": "在 iPhone 上请选择<b>浏览</b>，不要用「照片图库」——图库会把 HEIC 转成 JPEG",
-    "opt.quality": "读取照片以获得更贴合的效果。首次使用会下载一个小的辅助文件。"
+    "meta.title": "风格移植器",
+    "app.lede": "为旧款 iPhone 拍摄的 HEIC 照片，加上 iPhone 16 及以上系列的调色盘「风格」(Photographic Style) 编辑能力。"
+      + "所有处理都在浏览器中完成——照片不会被上传。",
+    "drop.big": "拖放或单击选择 HEIC 照片",
+    "drop.small": "在 iPhone 上请选择<b>浏览文件</b>，不要用「照片图库」，图库会把 HEIC 转成 JPEG",
+    "opt.quality": "首次使用会下载一个小的辅助文件。"
       + "除非遇到问题，建议保持勾选。",
 
     "st.reading": "读取中…",
@@ -100,20 +100,20 @@ export const STRINGS = {
     "s.1": "在「照片」中打开这张照片，点按<b>共享 → 存储到「文件」</b>。",
     "s.2": "回到本页，点按上方方框并选择<b>浏览</b>，然后选中刚才存储的文件。",
     "s.3": "处理完成后，点按<b>存储到「照片」</b>，再选择<b>存储图像</b>。",
-    "s.4": "在「照片」中打开新照片，点按<b>编辑</b>，调色盘就在那里。",
-    "p.iphone": "第一步最容易被跳过。直接从「照片图库」选取，本页拿到的只是一份转换后的副本，"
-      + "原始数据已经被丢弃，没有东西可以处理。",
+    "s.4": "在「照片」中打开新照片，点按<b>编辑</b>，即可看到「风格」调色盘。",
+    "p.iphone": "不要直接从「照片图库」选取，否则iOS限制，会仅上传一个已经被转换过的副本，"
+      + "原始数据会被剥离，无法处理。",
     "h.computer": "在电脑上",
     "p.computer": "把文件拖进来，下载处理结果，再用你习惯的方式传到 iPhone——AirDrop、"
       + "iCloud 云盘，或重新导入「照片」。",
-    "h.rejected": "如果照片被拒绝",
+    "h.rejected": "如果照片不支持",
     "p.rejected": "必须是 iPhone 以 HEIC 格式直接拍摄、未经改动的照片。截屏、JPEG、"
-      + "已被其他应用编辑或导出的照片，以及部分机型的照片都会被拒绝——每一行会说明原因。"
-      + "试一下不会有任何损害。",
-    "h.knowing": "需要知道",
-    "p.knowing": "你的画面本身不会被改动——不会重新编码，处理后的照片和原来一模一样。"
+      + "已被其他应用编辑或导出的照片，以及部分机型的照片都会不支持"
+      + "上传试试看咯。",
+    "h.knowing": "注意事项",
+    "p.knowing": "你的照片本身不会被改动——不会重新编码，处理后返回的文件和原始文件完全一样。"
       + "全部处理都在你自己的设备上完成，不会上传任何照片。这是非官方工具，"
-      + "靠改写 Apple 从未公开的文件结构实现，请务必保留原片。",
+      + "请务必保留原片。",
     "p.version": "版本",
   },
 };
