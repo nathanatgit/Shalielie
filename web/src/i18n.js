@@ -1,5 +1,4 @@
-// Every word the page shows, in both languages. This is the only file with
-// user-facing copy in it; index.html holds no text of its own.
+// All localized page copy, in both languages, lives here.
 //
 // EDITING
 //   Change the text to the right of a key. Keys are shared between en and zh, so
@@ -25,95 +24,98 @@
 export const STRINGS = {
   en: {
     "lang.name": "中文",
-    "meta.title": "Photographic Style Palette Port",
-    "app.lede": "Adds the iPhone 16 and above generation Photographic Styles palatte editing state to a HEIC "
-      + "from an older iPhone. Everything runs in your browser — your photos are never saved beyond your browser.",
-    "drop.big": "Drop HEIC photos here",
-    "drop.small": "on iPhone choose <b>Browse</b>, not Photo Library — the Photo Library "
-      + "converts HEIC to JPEG",
-    "opt.quality": "Read the photo for a better match. Downloads a small helper once, the "
-      + "first time. Leave it on unless it gives you trouble.",
+    "meta.title": "Photographic Styles Palette Port",
+    "app.lede": "Add the Photographic Styles palette editing controls introduced with iPhone 16 "
+      + "to compatible HEIC photos from older iPhones. Processing happens entirely on "
+      + "this device; your photos are never uploaded.",
+    "drop.big": "Drop HEIC photos here, or tap to choose",
+    "drop.small": "On iPhone, first save the photo to Files, then choose <b>Browse</b> — "
+      + "not Photo Library, which converts it to JPEG.",
+    "opt.quality": "Analyze each photo for a closer palette match. On first use, this downloads "
+      + "a small image decoder. Recommended unless it causes problems.",
 
-    "st.reading": "reading…",
-    "st.working": "working…",
+    "st.reading": "Reading…",
+    "st.working": "Processing…",
     "st.ready": "Ready",
-    "st.matched": "matched to your photo",
-    "st.neutral": "using neutral settings",
-    "st.portrait": "Portrait kept",
-    "st.people": "people data kept",
-    "err.notheic": "Not a HEIC photo.",
-    "err.unsupported": "This HEIC isn't supported yet.",
+    "st.matched": "palette tuned to this photo",
+    "st.neutral": "neutral palette settings used",
+    "st.portrait": "Portrait data preserved",
+    "st.people": "people data preserved",
+    "err.notheic": "This file is not a HEIC photo.",
+    "err.unsupported": "This HEIC file is not compatible with this tool yet.",
 
     "btn.save": "Save to Photos",
     "btn.download": "Download",
-    "btn.blocked": "Sharing blocked",
+    "btn.blocked": "Couldn’t open sharing",
 
     "h.iphone": "On iPhone",
-    "s.1": "In Photos, open the photo and tap <b>Share → Save to Files</b>.",
-    "s.2": "Come back here, tap the box above and choose <b>Browse</b>, then pick that file.",
-    "s.3": "When it finishes, tap <b>Save to Photos</b> and choose <b>Save Image</b>.",
-    "s.4": "Open the new photo in Photos and tap <b>Edit</b> — the styles palette is there.",
-    "p.iphone": "Step 1 should never be skipped. Picking straight from your Photo Library "
-      + "hands this page a converted copy with the original data stripped out, and there is "
-      + "nothing left to work with.",
+    "s.1": "In Photos, open the original and tap <b>Share → Save to Files</b>.",
+    "s.2": "Return here, tap the box above, choose <b>Browse</b>, and select the saved file.",
+    "s.3": "When processing finishes, tap <b>Save to Photos</b>, then choose <b>Save Image</b> "
+      + "in the share sheet.",
+    "s.4": "Open the saved copy in Photos and tap <b>Edit</b>. The Photographic Styles "
+      + "palette should appear.",
+    "p.iphone": "Do not skip step 1. Selecting a photo directly from Photo Library gives this "
+      + "page a JPEG copy with the HEIC metadata removed, so it cannot be processed.",
     "h.computer": "On a computer",
-    "p.computer": "Drop the files in and download the results. Then get them onto your iPhone "
-      + "however you normally would — AirDrop, iCloud Drive, or importing them back into Photos.",
-    "h.rejected": "If a photo is turned away",
-    "p.rejected": "It has to be an untouched photo from an iPhone that shoots in HEIC. "
-      + "Screenshots, JPEGs, photos already edited or exported by other apps, and photos from "
-      + "some phone models are all turned away — the row will say which it was. Nothing is "
-      + "harmed by trying.",
+    "p.computer": "Drop in the HEIC files and download the results. Transfer them to your "
+      + "iPhone with AirDrop, iCloud Drive, or your usual import method.",
+    "h.rejected": "If a photo is not accepted",
+    "p.rejected": "This tool needs a compatible, unmodified HEIC photo captured by an iPhone. "
+      + "It rejects JPEGs, screenshots, copies edited or exported by other apps, and HEIC "
+      + "formats it does not support yet. Trying a file does not change the original.",
     "h.knowing": "Worth knowing",
-    "p.knowing": "Your picture itself is untouched — it is not re-encoded, so what comes back "
-      + "looks exactly like what went in. Everything happens on your own device; no photo is "
-      + "uploaded. This is unofficial software that works by rewriting parts of the file"
-      + " so keep your originals. (Upload live photo content in iOS through web is not supported, this will be missing after processing.)",
+    "p.knowing": "The image pixels are not re-encoded; this tool rewrites parts of the HEIC "
+      + "container and its metadata. Everything runs locally on your device, and no photo is "
+      + "uploaded. This is experimental, unofficial software, so keep your originals. This "
+      + "page processes only the still HEIC image; Live Photo motion and audio are not included "
+      + "in the processed copy.",
     "p.version": "Version",
   },
 
   zh: {
     "lang.name": "English",
-    "meta.title": "风格调色盘移植器",
-    "app.lede": "为旧款 iPhone 拍摄的 HEIC 照片，加上 iPhone 16 及以上系列的调色盘「风格」(Photographic Style) 编辑能力。"
-      + "所有处理都在浏览器中完成——照片不会被云端存储。",
-    "drop.big": "拖放或单击选择 HEIC 照片",
-    "drop.small": "在 iPhone 上请选择<b>浏览文件</b>，不要用「照片图库」，图库会把 HEIC 转成 JPEG",
-    "opt.quality": "首次使用会下载一个小的辅助文件。"
-      + "除非遇到问题，建议保持勾选。",
+    "meta.title": "摄影风格(调色盘)移植工具",
+    "app.lede": "为兼容的旧款 iPhone HEIC 照片添加 iPhone 16 系列引入的摄影风格调色盘编辑功能。"
+      + "全部处理都在当前设备上完成，照片不会上传。",
+    "drop.big": "拖放 HEIC 照片，或点按选取",
+    "drop.small": "在 iPhone 上，请先将照片存储到「文件」，再选择<b>浏览</b>；"
+      + "不要选择「照片图库」，否则照片会被转换为 JPEG。",
+    "opt.quality": "分析照片内容，使调色盘效果更贴合原片。首次使用时会下载一个小型图像解码组件；"
+      + "除非出现问题，否则建议保持开启。",
 
     "st.reading": "读取中…",
     "st.working": "处理中…",
-    "st.ready": "完成",
-    "st.matched": "已按你的照片匹配",
-    "st.neutral": "使用中性设置",
-    "st.portrait": "已保留人像",
+    "st.ready": "已完成",
+    "st.matched": "调色盘已根据照片调整",
+    "st.neutral": "已使用中性调色盘设置",
+    "st.portrait": "已保留人像数据",
     "st.people": "已保留人物数据",
-    "err.notheic": "这不是 HEIC 照片。",
-    "err.unsupported": "暂不支持这张 HEIC 照片。",
+    "err.notheic": "此文件不是 HEIC 照片。",
+    "err.unsupported": "本工具暂不兼容此 HEIC 文件。",
 
     "btn.save": "存储到「照片」",
     "btn.download": "下载",
-    "btn.blocked": "无法共享",
+    "btn.blocked": "无法打开共享菜单",
 
     "h.iphone": "在 iPhone 上",
-    "s.1": "在「照片」中打开这张照片，点按<b>共享 → 存储到「文件」</b>。",
-    "s.2": "回到本页，点按上方方框并选择<b>浏览</b>，然后选中刚才存储的文件。",
-    "s.3": "处理完成后，点按<b>存储到「照片」</b>，再选择<b>存储图像</b>。",
-    "s.4": "在「照片」中打开新照片，点按<b>编辑</b>，即可看到「风格」调色盘。",
-    "p.iphone": "不要直接从「照片图库」选取，否则iOS限制，会仅上传一个已经被转换过的副本，"
-      + "原始数据会被剥离，无法处理。",
+    "s.1": "在「照片」App 中打开原片，点按<b>共享 → 存储到「文件」</b>。",
+    "s.2": "返回本页，点按上方区域，选择<b>浏览</b>，然后选取刚才存储的文件。",
+    "s.3": "处理完成后，点按<b>存储到「照片」</b>，再在共享菜单中选择<b>存储图像</b>。",
+    "s.4": "在「照片」App 中打开存储后的副本，点按<b>编辑</b>，此时应能看到摄影风格调色盘。",
+    "p.iphone": "请勿跳过第 1 步。直接从「照片图库」选取时，本页收到的是已转为 JPEG、"
+      + "且不含 HEIC 元数据的副本，因此无法处理。",
     "h.computer": "在电脑上",
-    "p.computer": "把文件拖进来，下载处理结果，再用你习惯的方式传到 iPhone——AirDrop、"
-      + "iCloud 云盘，或重新导入「照片」。",
-    "h.rejected": "如果照片不支持",
-    "p.rejected": "必须是 iPhone 以 HEIC 格式直接拍摄、未经改动的照片。截屏、JPEG、"
-      + "已被其他应用编辑或导出的照片，以及部分机型的照片都会不支持"
-      + "上传试试看咯。",
+    "p.computer": "拖入 HEIC 文件并下载处理结果，再通过隔空投送、iCloud 云盘或你常用的方式"
+      + "将其传到 iPhone。",
+    "h.rejected": "如果照片未被接受",
+    "p.rejected": "本工具需要由 iPhone 拍摄、未经修改且格式兼容的 HEIC 照片。JPEG、截屏、"
+      + "经其他 App 编辑或导出的副本，以及暂不支持的 HEIC 格式都会被拒绝。"
+      + "尝试处理不会改动原片。",
     "h.knowing": "注意事项",
-    "p.knowing": "你的照片本身不会被改动——不会重新编码，处理后返回的文件和原始文件完全一样。"
-      + "全部处理都在你自己的设备上完成，不会上传任何照片。这是非官方工具，"
-      + "请务必保留原片。（iOS限制，上传不会包括动态图片）",
+    "p.knowing": "图像像素不会被重新编码；本工具会改写 HEIC 容器和部分元数据。"
+      + "全部处理都在当前设备上完成，照片不会上传。本工具属于实验性非官方软件，请保留原片。"
+      + "本页仅处理 HEIC 静态图像，处理后的副本不包含实况照片的动态画面和声音。",
     "p.version": "版本",
   },
 };
