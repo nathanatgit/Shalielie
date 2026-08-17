@@ -176,12 +176,13 @@ jobs:
       - name: Create or update release
         env:
           GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" release/* --clobber
+          if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" release/* --clobber --repo "$REPOSITORY"
           else
             flags=(--verify-tag --generate-notes --title "Photographic Style Port $TAG")
             if [[ "$TAG" == *-* ]]; then flags+=(--prerelease); fi
-            gh release create "$TAG" release/* "${flags[@]}"
+            gh release create "$TAG" release/* "${flags[@]}" --repo "$REPOSITORY"
           fi
