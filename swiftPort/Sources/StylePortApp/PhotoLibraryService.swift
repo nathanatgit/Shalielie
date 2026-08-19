@@ -2,6 +2,7 @@ import Foundation
 import Photos
 import PhotosUI
 import StylePortCore
+import SwiftUI
 import UniformTypeIdentifiers
 
 struct ImportedPhoto: Sendable {

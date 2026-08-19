@@ -2,6 +2,7 @@ import Combine
 import Foundation
 import PhotosUI
 import StylePortCore
+import SwiftUI
 
 struct ProcessedPhoto: Sendable {
     let data: Data
