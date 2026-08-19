@@ -1,0 +1,37 @@
+name: StylePort Apple Build
+
+on:
+  push:
+    paths:
+      - "swiftPort/**"
+      - ".github/workflows/swift-port.yml"
+  pull_request:
+    paths:
+      - "swiftPort/**"
+      - ".github/workflows/swift-port.yml"
+  workflow_dispatch:
+
+jobs:
+  apple-build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: swiftPort
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Build macOS app
+        run: >-
+          xcodebuild -project StylePort.xcodeproj -scheme StylePort
+          -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+      - name: Build universal iOS and iPadOS simulator app
+        run: >-
+          xcodebuild -project StylePort.xcodeproj -scheme StylePort
+          -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+      - name: Run Xcode unit tests on macOS
+        run: >-
+          xcodebuild -project StylePort.xcodeproj -scheme StylePort
+          -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
+      - name: Run Swift package tests
+        run: swift test

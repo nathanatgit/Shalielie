@@ -1,0 +1,2 @@
+Resources/Profiles/** -text
+Resources/Assets.xcassets/**/*.png -text

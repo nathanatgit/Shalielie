@@ -1,0 +1,70 @@
+name: StylePort
+options:
+  bundleIdPrefix: com.nathanhanapps
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  StylePortCore:
+    type: framework
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: Sources/StylePortCore
+      - path: Resources/Profiles
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nathanhanapps.styleport.core
+        PRODUCT_NAME: StylePortCore
+        DEFINES_MODULE: YES
+        SKIP_INSTALL: YES
+  StylePort:
+    type: application
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: Sources/StylePortApp
+      - path: Resources/Assets.xcassets
+    dependencies:
+      - target: StylePortCore
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nathanhanapps.styleport
+        PRODUCT_NAME: StylePort
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: StylePort
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.photography
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: StylePort reads the original HEIC and paired Live Photo video you select.
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: StylePort saves patched HEIC images and Live Photos to your library.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Sources/StylePortApp/StylePort.entitlements
+  StylePortCoreTests:
+    type: bundle.unit-test
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: Tests/StylePortCoreTests
+    dependencies:
+      - target: StylePortCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nathanhanapps.styleport.coretests
+schemes:
+  StylePort:
+    build:
+      targets:
+        StylePort: all
+        StylePortCoreTests: [test]
+    test:
+      targets:
+        - StylePortCoreTests
