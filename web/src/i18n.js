@@ -29,8 +29,8 @@ export const STRINGS = {
       + "to compatible HEIC photos from older iPhones. Processing happens entirely on "
       + "this device; your photos are never uploaded.",
     "drop.big": "Drop HEIC photos here, or tap to choose",
-    "drop.small": "On iPhone, first save the photo to Files, then choose <b>Browse</b> — "
-      + "not Photo Library, which converts it to JPEG.",
+    "drop.small": "On iPhone, try <b>Photo Library</b> first. If a photo is rejected as not "
+      + "a HEIC, iOS converted it — use <b>Browse</b> instead, as described below.",
     "opt.quality": "Analyze each photo for a closer palette match. On first use, this downloads "
       + "a small image decoder. Recommended unless it causes problems.",
 
@@ -49,14 +49,16 @@ export const STRINGS = {
     "btn.blocked": "Couldn’t open sharing",
 
     "h.iphone": "On iPhone",
-    "s.1": "In Photos, open the original and tap <b>Share → Save to Files</b>.",
-    "s.2": "Return here, tap the box above, choose <b>Browse</b>, and select the saved file.",
+    "s.1": "Tap the box above, choose <b>Photo Library</b>, and select your photo.",
+    "s.2": "If it is rejected as not a HEIC, your iOS converted it on the way in. In Photos "
+      + "tap <b>Share → Save to Files</b>, then return here and choose <b>Browse</b> instead.",
     "s.3": "When processing finishes, tap <b>Save to Photos</b>, then choose <b>Save Image</b> "
       + "in the share sheet.",
     "s.4": "Open the saved copy in Photos and tap <b>Edit</b>. The Photographic Styles "
       + "palette should appear.",
-    "p.iphone": "Do not skip step 1. Selecting a photo directly from Photo Library gives this "
-      + "page a JPEG copy with the HEIC metadata removed, so it cannot be processed.",
+    "p.iphone": "Older versions of iOS always converted Photo Library picks to JPEG, which "
+      + "strips the data this page needs. Newer ones can hand over the original HEIC, so it "
+      + "is worth trying first — step 2 is only needed if yours still converts.",
     "h.computer": "On a computer",
     "p.computer": "Drop in the HEIC files and download the results. Transfer them to your "
       + "iPhone with AirDrop, iCloud Drive, or your usual import method.",
@@ -79,8 +81,8 @@ export const STRINGS = {
     "app.lede": "为兼容的旧款 iPhone HEIC 照片添加 iPhone 16 系列引入的摄影风格调色盘编辑功能。"
       + "全部处理都在当前设备上完成，照片不会上传。",
     "drop.big": "拖放 HEIC 照片，或点按选取",
-    "drop.small": "在 iPhone 上，请先将照片存储到「文件」，再选择<b>浏览</b>；"
-      + "不要选择「照片图库」，否则照片会被转换为 JPEG。",
+    "drop.small": "在 iPhone 上可先试<b>照片图库</b>。若提示不是 HEIC 照片，说明系统已转换，"
+      + "请改用<b>浏览</b>，详见下方说明。",
     "opt.quality": "分析照片内容，使调色盘效果更贴合原片。首次使用时会下载一个小型图像解码组件；"
       + "除非出现问题，否则建议保持开启。",
 
@@ -99,12 +101,13 @@ export const STRINGS = {
     "btn.blocked": "无法打开共享菜单",
 
     "h.iphone": "在 iPhone 上",
-    "s.1": "在「照片」App 中打开原片，点按<b>共享 → 存储到「文件」</b>。",
-    "s.2": "返回本页，点按上方区域，选择<b>浏览</b>，然后选取刚才存储的文件。",
+    "s.1": "点按上方区域，选择<b>照片图库</b>，然后选取照片。",
+    "s.2": "若提示不是 HEIC 照片，说明系统在导入时已转换。请在「照片」App 中点按"
+      + "<b>共享 → 存储到「文件」</b>，返回本页后改选<b>浏览</b>。",
     "s.3": "处理完成后，点按<b>存储到「照片」</b>，再在共享菜单中选择<b>存储图像</b>。",
     "s.4": "在「照片」App 中打开存储后的副本，点按<b>编辑</b>，此时应能看到摄影风格调色盘。",
-    "p.iphone": "请勿跳过第 1 步。直接从「照片图库」选取时，本页收到的是已转为 JPEG、"
-      + "且不含 HEIC 元数据的副本，因此无法处理。",
+    "p.iphone": "旧版 iOS 从「照片图库」选取时总会转换为 JPEG，本页需要的数据会因此丢失；"
+      + "较新版本则可能直接提供原始 HEIC，所以值得先试一次——只有仍会转换时才需要第 2 步。",
     "h.computer": "在电脑上",
     "p.computer": "拖入 HEIC 文件并下载处理结果，再通过隔空投送、iCloud 云盘或你常用的方式"
       + "将其传到 iPhone。",
