@@ -1,0 +1,27 @@
+{
+  "id": "./",
+  "name": "Photographic Style Port",
+  "short_name": "Style Port",
+  "description": "Add iPhone 16-generation Photographic Styles editing state to compatible HEIC photos entirely on your device.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2f6df6",
+  "categories": ["photo", "utilities"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

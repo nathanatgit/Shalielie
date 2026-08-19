@@ -176,3 +176,12 @@ function countVisit() {
     $("boot").className = "err";
   }
 })();
+
+// Keep installation and offline support progressive: unsupported browsers use
+// the page exactly as before, while HTTPS/localhost deployments gain a PWA.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js", { scope: "./" })
+      .catch((e) => console.warn("offline support unavailable:", e));
+  });
+}

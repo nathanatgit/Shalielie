@@ -77,7 +77,7 @@ export const STRINGS = {
 
   zh: {
     "lang.name": "English",
-    "meta.title": "摄影风格(调色盘)移植工具",
+    "meta.title": "风格调色盘移植工具",
     "app.lede": "为兼容的旧款 iPhone HEIC 照片添加 iPhone 16 系列引入的摄影风格调色盘编辑功能。"
       + "全部处理都在当前设备上完成，照片不会上传。",
     "drop.big": "拖放 HEIC 照片，或点按选取",

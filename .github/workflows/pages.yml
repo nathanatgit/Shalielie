@@ -32,8 +32,8 @@ jobs:
       - uses: actions/checkout@v5
 
       # The site is static: no build step, nothing to install. Guard instead
-      # against the two mistakes that would matter — shipping a personal photo,
-      # or shipping a page whose profiles are missing.
+      # against publishing a personal photo, omitting a donor profile, or
+      # shipping stale PWA metadata/offline asset paths.
       # The parentheses matter: without them -print binds to the last -iname only.
       - name: Check the site contains no photos
         run: |
@@ -49,6 +49,9 @@ jobs:
           for f in web/profiles/index.json web/profiles/48-12.zip web/profiles/45-15.zip; do
             test -s "$f" || { echo "::error::missing $f"; exit 1; }
           done
+
+      - name: Check the PWA is internally consistent
+        run: node tests/web/check-pwa.mjs
 
       # enablement turns Pages on if it is not already, so a fresh clone of this
       # repo deploys without anyone visiting the settings page first.

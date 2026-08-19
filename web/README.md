@@ -16,10 +16,11 @@ nothing here depends on either.
 
 `.github/workflows/pages.yml` publishes this directory on every push that touches it. Enable
 it once under **Settings → Pages → Source → GitHub Actions**. There is no build step; the
-workflow only checks two things before uploading:
+workflow checks three things before uploading:
 
 - no `.heic`/`.heif` anywhere under `web/` — a guard against publishing a personal photo
 - the two donor profiles are present and non-empty
+- the PWA metadata, icon dimensions, registration, and offline asset list are consistent
 
 To serve it locally instead:
 
@@ -29,6 +30,24 @@ python -m http.server -d web 8000
 
 Everything uses relative paths, so a project subpath like `https://user.github.io/repo/`
 works without configuration.
+
+## PWA and offline use
+
+The site is installable as a Progressive Web App. `manifest.webmanifest` supplies its app
+identity and icons, while `sw.js` precaches the complete converter, both donor profiles, and
+all first-party JavaScript. Paths stay relative so the same files work at the root of a
+domain or under a GitHub Pages project subpath.
+
+The cache uses the network first when available, then falls back to its saved copy. This
+keeps the deployed app current without giving up offline use. The optional libheif decoder
+and visit counter are third-party requests and are deliberately not persisted by the service
+worker; without the decoder, photo analysis falls back to the tested donor-statistics path.
+
+After changing runtime files or the manifest, check that the offline asset list is complete:
+
+```bash
+node tests/web/check-pwa.mjs
+```
 
 ## What it ships
 
@@ -105,6 +124,7 @@ The browser port is checked against the Python implementation:
 ```bash
 node tests/web/compare.mjs        # the modules this site loads
 node tests/web/compare_bundle.mjs # the concatenated artifact bundle
+node tests/web/check-pwa.mjs      # manifest, icons, and offline asset coverage
 ```
 
 ```
