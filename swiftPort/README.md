@@ -40,6 +40,11 @@ unsigned Apple-platform builds on a macOS GitHub Actions runner after the branch
 Apple targets cannot be compiled on Windows because the Photos, PhotosUI, SwiftUI, and
 ImageIO SDKs ship with Xcode.
 
+After every successful workflow run, GitHub Actions keeps two downloadable artifacts for 14
+days: an unsigned macOS app ZIP and an unsigned iPhone/iPad Simulator app ZIP. These are
+workflow artifacts only; the workflow does not create a GitHub Release or an installable,
+device-signed IPA.
+
 ## Regenerating the Xcode project
 
 `StylePort.xcodeproj` is checked in, so XcodeGen is not required. If XcodeGen is installed,
