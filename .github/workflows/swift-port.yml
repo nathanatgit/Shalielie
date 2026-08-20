@@ -14,10 +14,6 @@ on:
 jobs:
   apple-build:
     runs-on: macos-15
-    env:
-      MACOS_DERIVED_DATA: ${{ runner.temp }}/StylePort-macOS
-      SIMULATOR_DERIVED_DATA: ${{ runner.temp }}/StylePort-iOS-Simulator
-      ARTIFACT_ROOT: ${{ runner.temp }}/StylePort-artifacts
     defaults:
       run:
         working-directory: swiftPort
@@ -29,38 +25,39 @@ jobs:
         run: >-
           xcodebuild -project StylePort.xcodeproj -scheme StylePort
           -destination 'platform=macOS'
-          -derivedDataPath "$MACOS_DERIVED_DATA"
+          -derivedDataPath "$RUNNER_TEMP/StylePort-macOS"
           CODE_SIGNING_ALLOWED=NO build
       - name: Build universal iOS and iPadOS simulator app
         run: >-
           xcodebuild -project StylePort.xcodeproj -scheme StylePort
           -destination 'generic/platform=iOS Simulator'
-          -derivedDataPath "$SIMULATOR_DERIVED_DATA"
+          -derivedDataPath "$RUNNER_TEMP/StylePort-iOS-Simulator"
           CODE_SIGNING_ALLOWED=NO build
       - name: Run Xcode unit tests on macOS
         run: >-
           xcodebuild -project StylePort.xcodeproj -scheme StylePort
           -destination 'platform=macOS'
-          -derivedDataPath "$MACOS_DERIVED_DATA"
+          -derivedDataPath "$RUNNER_TEMP/StylePort-macOS"
           CODE_SIGNING_ALLOWED=NO test
       - name: Run Swift package tests
         run: swift test
       - name: Package unsigned app bundles
         run: |
           set -euo pipefail
-          mkdir -p "$ARTIFACT_ROOT/macos" "$ARTIFACT_ROOT/ios-simulator"
+          artifact_root="$RUNNER_TEMP/StylePort-artifacts"
+          mkdir -p "$artifact_root/macos" "$artifact_root/ios-simulator"
           ditto -c -k --sequesterRsrc --keepParent \
-            "$MACOS_DERIVED_DATA/Build/Products/Debug/StylePort.app" \
-            "$ARTIFACT_ROOT/macos/StylePort-macOS-unsigned.zip"
+            "$RUNNER_TEMP/StylePort-macOS/Build/Products/Debug/StylePort.app" \
+            "$artifact_root/macos/StylePort-macOS-unsigned.zip"
           ditto -c -k --sequesterRsrc --keepParent \
-            "$SIMULATOR_DERIVED_DATA/Build/Products/Debug-iphonesimulator/StylePort.app" \
-            "$ARTIFACT_ROOT/ios-simulator/StylePort-iOS-Simulator-unsigned.zip"
+            "$RUNNER_TEMP/StylePort-iOS-Simulator/Build/Products/Debug-iphonesimulator/StylePort.app" \
+            "$artifact_root/ios-simulator/StylePort-iOS-Simulator-unsigned.zip"
           (
-            cd "$ARTIFACT_ROOT/macos"
+            cd "$artifact_root/macos"
             shasum -a 256 StylePort-macOS-unsigned.zip > SHA256SUMS.txt
           )
           (
-            cd "$ARTIFACT_ROOT/ios-simulator"
+            cd "$artifact_root/ios-simulator"
             shasum -a 256 StylePort-iOS-Simulator-unsigned.zip > SHA256SUMS.txt
           )
       - name: Upload unsigned macOS app
