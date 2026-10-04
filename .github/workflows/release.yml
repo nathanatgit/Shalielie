@@ -100,8 +100,8 @@ jobs:
         with:
           python-version-file: .python-version
 
-      - name: Install packager
-        run: python -m pip install --disable-pip-version-check pyinstaller==6.21.0
+      - name: Install runtime dependencies and packager
+        run: python -m pip install --disable-pip-version-check -r requirements.txt pyinstaller==6.21.0
 
       - name: Build one-file executable
         run: >-
@@ -109,6 +109,7 @@ jobs:
           --clean
           --noconfirm
           --onefile
+          --collect-all mediapipe
           --name photographic-style-port
           photographic_style_port.py
 

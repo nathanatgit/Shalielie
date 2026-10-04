@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A `heif-convert` stand-in backed by pillow-heif.
 
-`photographic_style_port.py` is stdlib-only by design and shells out to libheif's
+`photographic_style_port.py` shells out to libheif's
 `heif-convert` to decode a target's primary image. There is no libheif package on
 Windows -- winget, scoop and choco all lack it -- so the dependency is supplied here
 instead, using the libheif that pillow-heif already bundles.

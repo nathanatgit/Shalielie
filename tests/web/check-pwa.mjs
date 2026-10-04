@@ -28,8 +28,24 @@ if (manifest.start_url !== "./" || manifest.scope !== "./") {
 if (!html.includes('rel="manifest" href="manifest.webmanifest"')) {
   errors.push("index.html does not link the web app manifest");
 }
-if (!app.includes('serviceWorker.register("./sw.js"')) {
+const isolation = readFileSync(join(WEB, "src/isolation.js"), "utf8");
+if (!app.includes("prepareIsolation()") || !isolation.includes("./sw.js?v=")) {
   errors.push("app.js does not register the service worker with a relative URL");
+}
+const buildTag = html.match(/src="app\.js\?v=([^"]+)"/)?.[1];
+if (!buildTag) {
+  errors.push("module entry point has no cache-busting build tag");
+} else {
+  // Nested dependencies must use the same tag too: updating app.js alone can leave
+  // raster import running an HTTP-cached, older face/segmentation implementation.
+  const modules = [join(WEB, "app.js"), ...readdirSync(join(WEB, "src"))
+    .filter(name => name.endsWith(".js")).map(name => join(WEB, "src", name))];
+  for (const module of modules) {
+    const source = readFileSync(module, "utf8");
+    const imports = [...source.matchAll(/from\s+["'](\.\/[^"'?]+\.js)(?:\?v=([^"']+))?["']/g)];
+    for (const [, path, tag] of imports)
+      if (tag !== buildTag) errors.push(`${module}: ${path} does not use build tag ${buildTag}`);
+  }
 }
 
 function pngDimensions(path) {

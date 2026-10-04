@@ -1,7 +1,7 @@
 // Photographic Styles plist edits: scene statistics, c/d light maps, person hint.
 // The calibration constants come from eight native files; see the Python source.
 
-import { parseBplist, buildBplist } from "./bplist.js";
+import { parseBplist, buildBplist } from "./bplist.js?v=0.6.0-web";
 
 export const LIGHTMAP_N = 32;
 export const LIGHTMAP_FLOOR = 0.040741;
@@ -122,4 +122,30 @@ export function setPersonMasksValid(stylesBlob, valid = 1.0) {
   seven.set("PersonMasksValidHint", valid);
   pl.set("7", seven);
   return [buildBplist(pl), before];
+}
+
+/** Apply target-derived person/skin coverage and statistics to the styles plist. */
+export function applyPersonMetadata(stylesBlob, metadata) {
+  if (!metadata) return [stylesBlob, []];
+  const pl = parseBplist(stylesBlob);
+  const changed = [];
+  const seven = pl.get("7");
+  if (seven instanceof Map) {
+    seven.set("PersonMasksValidHint", 1.0);
+    seven.set("PeopleRatio", metadata.peopleRatio);
+    seven.set("SkinRatio", metadata.skinRatio);
+    pl.set("7", seven);
+    changed.push("PeopleRatio", "SkinRatio", "PersonMasksValidHint");
+  }
+  const six = pl.get("6");
+  if (six instanceof Map && metadata.blocks) {
+    for (const [name, block] of Object.entries(metadata.blocks)) {
+      if (six.has(name) && block instanceof Map) {
+        six.set(name, block);
+        changed.push(name);
+      }
+    }
+    pl.set("6", six);
+  }
+  return [buildBplist(pl), changed];
 }

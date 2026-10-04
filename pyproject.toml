@@ -1,15 +1,23 @@
 [project]
 name = "photographic-style-port"
-version = "0.5.0"
+version = "0.6.0"
 description = "Experimental HEIC Photographic Style porter (pre-iPhone 16 photos -> iPhone 16/17 styles, plus iOS 27 Texture/Grain)"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
 
-# photographic_style_port.py is standard library only, by design. Nothing here is
-# imported by it.
-dependencies = []
+# Raster import and colour-managed image processing run locally.
+dependencies = ["pillow>=12.0", "numpy>=1.26,<3"]
+
+[project.optional-dependencies]
+faces = [
+    "mediapipe==0.10.32; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    # The Tasks API and models are also supported by the last Intel Mac wheel.
+    "mediapipe==0.10.21; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "jax==0.4.38; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "jaxlib==0.4.38; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]
 
 [dependency-groups]
 # pillow-heif exists solely to back tools/heif_convert_shim.py, which supplies the

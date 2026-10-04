@@ -1,4 +1,4 @@
-// Optional HEIC decoding via libheif compiled to WebAssembly.
+// Optional HEIC decoding via libheif's classic JavaScript (asm.js) build.
 //
 // Decoding is only needed for the target-derived scene statistics and c/d light
 // maps. If libheif cannot be loaded the app still works: it falls back to the
@@ -83,6 +83,14 @@ async function decodeFull(bytes) {
   const result = { canvas, w, h };
   cache.set(bytes, result);
   return result;
+}
+
+/**
+ * Decode the primary image in the orientation a visitor sees.  The returned canvas is the
+ * cached decoder surface and must be treated as read-only by callers.
+ */
+export async function decodeToDisplayCanvas(bytes) {
+  return (await decodeFull(bytes)).canvas;
 }
 
 /**

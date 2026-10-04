@@ -39,6 +39,15 @@ noSmartStyle-people/
 *.heic
 *.HEIF
 *.heif
+# Local raster originals; website assets live under web/.
+/*.jpg
+/*.jpeg
+/*.png
+/*.webp
+/*.JPG
+/*.JPEG
+/*.PNG
+/*.WEBP
 
 # ---------------------------------------------------------------------------
 # Not published yet
@@ -65,6 +74,8 @@ IMG_0307_SmartStyle_donor_profile_v0_1.zip
 # ---------------------------------------------------------------------------
 artifact/build/
 tests/web/ref/
+tests/private-fixtures/
+tests/web/fixtures/
 
 # ---------------------------------------------------------------------------
 # Editor / OS
@@ -79,3 +90,7 @@ desktop.ini
 
 # Cached libheif bundle for tests/web/libheif-api.mjs (1.8 MB, refetched on demand).
 tests/web/.cache/
+tests/.cache/
+
+# Local HTTPS certificates and private keys.
+.local-https/

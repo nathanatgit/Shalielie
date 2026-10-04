@@ -1,90 +1,13 @@
 #!/usr/bin/env python3
-"""
-Photographic Style Port v0.2.1
-====================
-Experimental HEIC Photographic Style porter (photos from iPhones before the iPhone 16 ->
-iPhone 16/17 Photographic Styles, plus iOS 27 Texture/Grain), based on the iPhone 15 -> iPhone 16/17
-reverse-engineering work in this conversation.
+"""Photographic Style Port: local HEIC adaptation and PNG/JPEG/WebP import.
 
-Standalone workflow (no donor HEIC/profile required for normal use):
+Normal patching uses two embedded donor profiles with adaptive primary/HDR graphs.
+Native primary/HDR pixels and rendering properties are preserved when safely graftable;
+other inputs are re-encoded locally. Optional MediaPipe creates approximate person/skin
+masks and 76-point face data. New linear thumbnails use Display P3 linear Main10 HEVC.
 
-       python photographic_style_port.py patch IMG_5099.HEIC OUT.HEIC --zip
-
-The script embeds the two phone-validated v0.2 donor profiles and automatically
-selects one from the target primary/HDR tile counts. Optional developer commands
-can still extract a new external profile or patch with --profile PATH.
-
-External commands required for patching:
-  - heif-convert (libheif examples/tools)
-  - ffmpeg with libx265
-
-Python dependencies: standard library only.
-
-v0.2.1 scope/limitations:
-  - The target primary-image tile count and HDR gain-map tile count must match the
-    donor template. This is true for the tested IMG_0307 donor and IMG_5099 target.
-  - The donor profile deliberately omits the donor primary image, HDR gain map,
-    thumbnail, Exif, and linear-thumbnail payloads. Those are supplied by the target
-    or regenerated at patch time.
-  - Other donor Photographic Style auxiliary payloads (semantic mattes, style delta map,
-    associated metadata) are retained in the profile. They are auxiliary information,
-    not the donor's visible primary photograph. Removing/regenerating those is left
-    for a later version.
-  - The Photographic Style styles plist is normalized to an identity-like coefficient lattice
-    and identity tone curve during extraction. Other donor plist fields are retained.
-  - The target-derived linear-thumbnail is encoded as Main10 HEVC and its matching
-    hvcC property is transplanted together with the payload. This hvcC/payload pairing
-    is the key correction validated by the V8 tests.
-
-v0.2.1 includes the Photographic Style eligibility hotfix validated by the V9 tests:
-  - the donor profile stores only Apple MakerNote tag 0x54 (not donor Exif)
-  - patching preserves the target Exif/MakerNote and surgically injects/replaces 0x54
-  - this avoids leaking unrelated donor capture modes such as Portrait mode
-
-v0.2.1 freezes the V11 phone-validated spatial-clean baseline:
-  - c/d are flattened to constant 32x32 FP16 maps
-  - donor StyleDeltaMap tiles are replaced by a constant neutral 512x512 Main10 tile
-  - this removed the observed donor-region response while retaining working tweaks,
-    save/reopen, and re-tweaking.
-
-v0.3.0 fixes two donor-orientation/donor-scene defects that produced blocky, regionally
-light/dark/tinted results when tweaking a ported photo:
-
-  - Orientation. The donor profiles carry a single shared irot property (270 degrees)
-    used by the primary, thumbnail, HDR grid, delta grid and linearthumbnail. v0.2.1
-    left it in place, so every target whose own irot differed was displayed rotated,
-    and the generated linearthumbnail - built with a hardcoded `transpose=1` that only
-    happened to be right for a 270-degree target - came out rotated and aspect-squashed.
-    Because the lattice is identity, c/d are flat and the delta map is neutral, the
-    linearthumbnail is the renderer's only spatially varying input, so a misoriented one
-    is the only thing that can produce spatial artifacts. v0.3.0 transplants the target's
-    irot/imir and generates the linearthumbnail in the stored (pre-rotation) orientation.
-
-  - Scene statistics. Styles key '6' holds black point, white point and histogram
-    percentiles for the tone-mapped and linear images. v0.2.1 shipped the donor's values,
-    so every ported photo inherited IMG_5102's or IMG_0307's tone anchors. v0.3.0
-    recomputes them from the target (--scene-stats target, the default); --scene-stats
-    donor restores exact v0.2.1 behavior for A/B testing and --scene-stats neutral zeroes
-    them the way the donor already zeroes its unused skin/person statistics.
-
-v0.3.1 calibrates the styles fields against eight native Photographic Style files, which corrected
-one v0.3.0 mistake and enabled target-derived light maps:
-
-  - Apple measures key '6' ToneMappedImage in LINEAR light, not in gamma-encoded code
-    values. v0.3.0 wrote encoded luma percentiles, roughly twice too high. Percentiles of
-    the linearized display luma match the native values to a mean ratio of 0.980, and
-    LinearImage is that same signal scaled by ~0.166.
-  - The 32x32 c/d light maps can now be rebuilt from the target's own luminance
-    (--light-maps target, off by default). The native maps are stored rotated 180 degrees
-    from the primary's stored orientation and track linearized luma; the fit lands within
-    leave-one-out MAE 0.022 (c) and 0.037 (d) of Apple's own maps, against 0.146 and 0.115
-    for the flat V11 constants that remain the default.
-
-Normal patching uses the embedded profiles and does not need a donor ZIP.
-`extract-donor` and `--profile` remain available for development/new layouts.
-
-This is reverse-engineering software, not an Apple-supported format converter.
-Keep originals.
+External codecs: ffmpeg/libx265 and heif-convert. Runtime dependencies are declared in
+pyproject.toml; install the faces extra for local inference. No photo is uploaded.
 """
 
 from __future__ import annotations
@@ -106,7 +29,8 @@ import zlib
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
+URI_PERSON_INSTANCES = "tag:apple.com,2026:photo:aux:semanticpersoninstances"
 
 URI_HDR_GAIN = "urn:com:apple:photo:2020:aux:hdrgainmap"
 URI_LINEAR_THUMB = "tag:apple.com,2023:photo:aux:linearthumbnail"
@@ -122,13 +46,13 @@ URI_TEXTURE_STYLES = "tag:apple.com,2026:photo:metadata:texture_styles"
 #   - iPhone 18 donor graph, texture item appended last    -> palette + Texture/Grain
 # So the texture item without the mattes breaks the editor outright, and item order is free.
 # These are Apple's exact 216 bytes from iPhone 18 Pro IMG_0309 (a binary plist: Preset
-# Standard, CaptureType LF, CaptureMode Still, PortType PortTypeBack, HardwareModel iPhone19,2,
-# TextureStylePeopleDataVersion 3, FilmGrainSeed 92). Leave HardwareModel alone: rewriting
-# it to iPhone16,1 kept the controls but made white areas glow under some styles.
+# Standard, CaptureType LF, CaptureMode Still, PortType PortTypeBack, HardwareModel iPhone19,7,
+# TextureStylePeopleDataVersion 3, FilmGrainSeed 92). iPhone19,7 matches the native iPhone 18
+# Pro reference set used to validate the v16 styles schema below.
 TEXTURE_STYLES_BLOB = base64.b64decode(
     "YnBsaXN0MDDXAQIDBAUGBwgJCgsMDQ5WUHJlc2V0W0NhcHR1cmVUeXBlW0NhcHR1cmVNb2RlWFBv"
     "cnRUeXBlXUhhcmR3YXJlTW9kZWxfEB1UZXh0dXJlU3R5bGVQZW9wbGVEYXRhVmVyc2lvbl1GaWxt"
-    "R3JhaW5TZWVkWFN0YW5kYXJkUkxGVVN0aWxsXFBvcnRUeXBlQmFja1ppUGhvbmUxOSwyEAMQXAgX"
+    "R3JhaW5TZWVkWFN0YW5kYXJkUkxGVVN0aWxsXFBvcnRUeXBlQmFja1ppUGhvbmUxOSw3EAMQXAgX"
     "Hio2P01te4SHjZqlpwAAAAAAAAEBAAAAAAAAAA8AAAAAAAAAAAAAAAAAAACp")
 
 # The 2026 matte set, as IMG_0309 stores it for a scene with no people: every matte is the
@@ -1038,11 +962,22 @@ def extract_item(data: bytes, iloc, iid: int) -> bytes:
     it = iloc["items"].get(iid)
     if it is None:
         raise PortError(f"No iloc entry for item {iid}")
-    if it["construction_method"] != 0:
-        raise PortError(f"Item {iid} uses construction_method={it['construction_method']}, not external mdat")
+    origin = 0
+    if it["data_reference_index"]:
+        raise PortError(f"Item {iid} uses an external data reference")
+    if it["construction_method"] == 1:
+        off, size, header, _ = find_child(meta_children(data, top_box(data, "meta")), "idat")
+        origin = off + header
+        limit = off + size
+    elif it["construction_method"] == 0:
+        limit = len(data)
+    else:
+        raise PortError(f"Unsupported construction_method={it['construction_method']}")
     out = bytearray()
     for e in it["extents"]:
-        start = it["base_offset"] + e["offset"]
+        start = origin + it["base_offset"] + e["offset"]
+        if start < origin or start + e["length"] > limit:
+            raise PortError(f"Truncated item {iid} extent")
         out.extend(data[start:start+e["length"]])
     return bytes(out)
 
@@ -1274,13 +1209,13 @@ def _auxc_box(uri: str) -> bytes:
     return _box("auxC", b"\x00\x00\x00\x00" + uri.encode("ascii") + b"\x00")
 
 
-def _ipma_entry(iid: int, assoc) -> bytes:
+def _ipma_entry(iid: int, assoc, wide=False) -> bytes:
     """One ipma entry for ipma version 0 with narrow (1-byte) property indices."""
     out = iid.to_bytes(2, "big") + bytes([len(assoc)])
     for idx, essential in assoc:
-        if idx > 0x7F:
-            raise PortError(f"Property index {idx} needs a wide ipma, which v0.3.2 does not write")
-        out += bytes([(0x80 if essential else 0) | idx])
+        if idx > (0x7FFF if wide else 0x7F):
+            raise PortError("Property index exceeds ipma capacity")
+        out += ((0x8000 if wide else 0x80) * int(essential) + idx).to_bytes(2 if wide else 1, "big")
     return out
 
 
@@ -1339,6 +1274,146 @@ def repoint_item_property(meta: bytes, iid: int, old_index: int, new_index: int)
     return bytes(data)
 
 
+def remove_items(meta: bytes, item_ids) -> bytes:
+    """Remove items and all references/associations that name them.
+
+    Unused ipco properties and idat bytes deliberately remain so donor property indices stay
+    stable. This lets a standalone target HDR item replace a donor's tiled HDR graph without
+    re-encoding the gain map.
+    """
+    removed = set(item_ids)
+    if not removed:
+        return meta
+    mb = top_box(meta, "meta")
+    mch = meta_children(meta, mb)
+
+    io, isz, ih, _ = find_child(mch, "iinf")
+    body_start = io + ih
+    count_size = 2 if meta[body_start] == 0 else 4
+    entries_start = body_start + 4 + count_size
+    kept = []
+    for bo, bs, bh, bt in boxes(meta, entries_start, io + isz):
+        iid = None
+        if bt == "infe":
+            version = meta[bo + bh]
+            iid_size = 2 if version == 2 else 4 if version == 3 else 0
+            if iid_size:
+                iid = u(meta, bo + bh + 4, iid_size)
+        if iid is None or iid not in removed:
+            kept.append(meta[bo:bo+bs])
+    prefix = bytearray(meta[body_start:entries_start])
+    prefix[4:4+count_size] = len(kept).to_bytes(count_size, "big")
+    new_iinf = _box("iinf", bytes(prefix) + b"".join(kept))
+
+    lo, lsz, lh, _ = find_child(mch, "iloc")
+    p = lo + lh
+    version = meta[p]
+    p += 4
+    a, b = meta[p], meta[p+1]
+    p += 2
+    offset_size, length_size, base_offset_size = a >> 4, a & 0x0F, b >> 4
+    index_size = (b & 0x0F) if version in (1, 2) else 0
+    count_size = 2 if version < 2 else 4
+    count = u(meta, p, count_size)
+    p += count_size
+    entries_start = p
+    kept = []
+    for _ in range(count):
+        start = p
+        iid_size = 2 if version < 2 else 4
+        iid = u(meta, p, iid_size)
+        p += iid_size
+        if version in (1, 2):
+            p += 2
+        p += 2 + base_offset_size
+        extent_count = u(meta, p, 2)
+        p += 2 + extent_count * (index_size + offset_size + length_size)
+        if iid not in removed:
+            kept.append(meta[start:p])
+    prefix = bytearray(meta[lo+lh:entries_start])
+    prefix[6:6+count_size] = len(kept).to_bytes(count_size, "big")
+    new_iloc = _box("iloc", bytes(prefix) + b"".join(kept))
+
+    ro, rsz, rh, _ = find_child(mch, "iref")
+    body_start = ro + rh
+    version = meta[body_start]
+    iid_size = 2 if version == 0 else 4
+    kept_refs = []
+    for bo, bs, bh, bt in boxes(meta, body_start + 4, ro + rsz):
+        q = bo + bh
+        from_id = u(meta, q, iid_size)
+        q += iid_size
+        n = u(meta, q, 2)
+        q += 2
+        to_ids = [u(meta, q + i * iid_size, iid_size) for i in range(n)]
+        to_ids = [iid for iid in to_ids if iid not in removed]
+        if from_id not in removed and to_ids:
+            kept_refs.append(_box(bt, from_id.to_bytes(iid_size, "big")
+                                  + len(to_ids).to_bytes(2, "big")
+                                  + b"".join(i.to_bytes(iid_size, "big") for i in to_ids)))
+    new_iref = _box("iref", meta[body_start:body_start+4] + b"".join(kept_refs))
+
+    props = parse_ipco_ipma(meta, mb)
+    ao, asz, ah, _ = props["ipma_box"]
+    p = ao + ah
+    version = meta[p]
+    flags = int.from_bytes(meta[p+1:p+4], "big")
+    p += 4
+    count = u(meta, p, 4)
+    p += 4
+    entries_start = p
+    kept = []
+    for _ in range(count):
+        start = p
+        iid_size = 2 if version == 0 else 4
+        iid = u(meta, p, iid_size)
+        p += iid_size
+        association_count = meta[p]
+        p += 1 + association_count * (2 if flags & 1 else 1)
+        if iid not in removed:
+            kept.append(meta[start:p])
+    prefix = bytearray(meta[ao+ah:entries_start])
+    prefix[4:8] = len(kept).to_bytes(4, "big")
+    new_ipma = _box("ipma", bytes(prefix) + b"".join(kept))
+    po, psz, ph, _ = props["iprp_box"]
+    parts = []
+    for bo, bs, _bh, bt in boxes(meta, po+ph, po+psz):
+        parts.append(new_ipma if bt == "ipma" else meta[bo:bo+bs])
+    new_iprp = _box("iprp", b"".join(parts))
+
+    swap = {"iinf": new_iinf, "iloc": new_iloc, "iref": new_iref, "iprp": new_iprp}
+    mo, ms, mh, _ = mb
+    rebuilt = bytearray(meta[mo+mh:mo+mh+4])
+    for bo, bs, _bh, bt in boxes(meta, mo+mh+4, mo+ms):
+        rebuilt += swap.get(bt, meta[bo:bo+bs])
+    return _box("meta", bytes(rebuilt))
+
+
+def set_item_reference(meta: bytes, ref_type: str, from_id: int, to_ids) -> bytes:
+    """Replace or append one outgoing iref relationship."""
+    mb = top_box(meta, "meta")
+    mch = meta_children(meta, mb)
+    ro, rsz, rh, _ = find_child(mch, "iref")
+    body = ro + rh
+    version = meta[body]
+    iid_size = 2 if version == 0 else 4
+    refs = []
+    for bo, bs, bh, bt in boxes(meta, body + 4, ro + rsz):
+        existing_from = u(meta, bo + bh, iid_size)
+        if bt != ref_type or existing_from != from_id:
+            refs.append(meta[bo:bo+bs])
+    if to_ids:
+        refs.append(_box(ref_type, from_id.to_bytes(iid_size, "big")
+                         + len(to_ids).to_bytes(2, "big")
+                         + b"".join(int(i).to_bytes(iid_size, "big") for i in to_ids)))
+    new_iref = _box("iref", meta[body:body+4] + b"".join(refs))
+    mo, ms, mh, _ = mb
+    rebuilt = bytearray(meta[mo+mh:mo+mh+4])
+    for bo, bs, _bh, bt in boxes(meta, mo+mh+4, mo+ms):
+        rebuilt += new_iref if bt == "iref" else meta[bo:bo+bs]
+    return _box("meta", bytes(rebuilt))
+
+
 def add_items(meta: bytes, specs: List[dict]):
     """Append new items to the profile's HEIF item graph.
 
@@ -1376,6 +1451,7 @@ def add_items(meta: bytes, specs: List[dict]):
     next_iid = max(infos) + 1
     next_prop = len(props["properties"]) + 1
     infes, refs, ipmas, ilocs, new_props = [], [], [], [], []
+    new_associations = {}
     assigned = {}
     for n, spec in enumerate(specs):
         iid = next_iid + n
@@ -1393,7 +1469,7 @@ def add_items(meta: bytes, specs: List[dict]):
             new_props.append(box)
             assoc.append((next_prop + len(new_props) - 1, box[4:8] != b"ispe"))
         if assoc:
-            ipmas.append(_ipma_entry(iid, assoc))
+            new_associations[iid] = assoc
     auxls = refs
     auxcs = new_props
 
@@ -1419,9 +1495,16 @@ def add_items(meta: bytes, specs: List[dict]):
     co, csz, chh, _ = props["ipco_box"]
     new_ipco = _box("ipco", meta[co+chh:co+csz] + b"".join(auxcs))
     ao, asz, ah, _ = props["ipma_box"]
-    body = bytearray(meta[ao+ah:ao+asz])
-    body[4:8] = (int.from_bytes(body[4:8], "big") + len(ipmas)).to_bytes(4, "big")
-    new_ipma = _box("ipma", bytes(body) + b"".join(ipmas))
+    associations = {iid: [(a["index"], a["essential"]) for a in arr]
+                    for iid, arr in props["associations"].items()}
+    associations.update(new_associations)
+    flags = int.from_bytes(meta[ao+ah+1:ao+ah+4], "big")
+    wide = bool(flags & 1) or any(index > 127 for arr in associations.values() for index, _ in arr)
+    if meta[ao+ah] != 0:
+        raise PortError("Adding items requires ipma version 0")
+    body = b"\0" + ((flags | 1) if wide else flags).to_bytes(3, "big") + len(associations).to_bytes(4, "big")
+    body += b"".join(_ipma_entry(iid, arr, wide) for iid, arr in associations.items())
+    new_ipma = _box("ipma", body)
     po, psz, ph, _ = props["iprp_box"]
     parts = []
     for (bo, bs, _bh, bt) in boxes(meta, po+ph, po+psz):
@@ -1445,8 +1528,6 @@ def add_texture_items(meta: bytes, primary: int):
     mb = top_box(meta, "meta")
     props = parse_ipco_ipma(meta, mb)
     ao, _asz, ah, _ = props["ipma_box"]
-    if int.from_bytes(meta[ao+ah+1:ao+ah+4], "big") & 1:
-        raise PortError("Wide ipma is not supported for adding Texture/Grain items")
     infos = parse_iinf(meta, mb)
     present = {aux_uri_for_item(props, i) for i in infos}
     missing = [u for u in MATTE_2026_URIS if u not in present]
@@ -1521,16 +1602,16 @@ def raw_orientation_filters(angle: int, mirror) -> List[str]:
     orientation, not the displayed one.
 
     The angle mapping is anchored on the phone-validated IMG_5037 case: a stored landscape
-    primary carrying irot=270 decodes as portrait and needs one clockwise quarter turn
-    (ffmpeg `transpose=1`) to return to the stored landscape frame.
+    primary carrying irot=270 decodes as portrait and needs one counterclockwise quarter turn
+    (ffmpeg `transpose=2`) to return to the stored landscape frame.
     """
     filters: List[str] = []
     if angle == 90:
-        filters.append("transpose=2")
+        filters.append("transpose=1")
     elif angle == 180:
         filters.extend(["transpose=2", "transpose=2"])
     elif angle == 270:
-        filters.append("transpose=1")
+        filters.append("transpose=2")
     if mirror is not None:
         # Mirroring is self-inverse, so the same flip undoes it.
         filters.append("hflip" if mirror == 0 else "vflip")
@@ -1547,8 +1628,6 @@ def discover_heic(data: bytes):
 
     dimg = {r["from"]: r["to"] for r in refs if r["type"] == "dimg"}
     primary_tiles = dimg.get(primary, [])
-    if not primary_tiles:
-        raise PortError("Primary image is not a grid/dimg image; v0.1 cannot handle it")
 
     thumb = None
     for r in refs:
@@ -1648,6 +1727,35 @@ def identity_styles_blob(blob: bytes) -> bytes:
             pl[key] = b"".join(struct.pack("<e", value) for _ in range(1024))
 
     return plistlib.dumps(pl, fmt=plistlib.FMT_BINARY, sort_keys=False)
+
+
+def upgrade_styles_v16(blob: bytes):
+    """Add the iOS 27 Photographic Style fields required by Glow/Film.
+
+    Appending the iPhone 18 Texture/Grain item set to a native v14 iPhone style plist makes
+    those two styles render nearly black. Native iPhone 18 Pro files use schema 16 and carry
+    a 516-byte tone curve plus the k/l flags. Keep all source scene/person measurements and
+    add an identity curve, which was validated on-device with IMG_4245.
+    """
+    try:
+        source = plistlib.loads(blob)
+    except Exception as e:
+        raise PortError(f"Could not parse styles plist for v16 upgrade: {e}")
+    tone = source.get("3")
+    if (source.get("0") == 16 and source.get("5") == 0
+            and isinstance(tone, (bytes, bytearray)) and len(tone) == 516
+            and "k" in source and "l" in source):
+        return blob, False
+
+    values = dict(source)
+    values["3"] = b"\x01\x01\x00\x00" + b"".join(
+        struct.pack("<H", round(i * 65535 / 255)) for i in range(256))
+    values.update({"0": 16, "5": 0, "k": False, "l": False})
+    order = ("2", "h", "3", "i", "4", "j", "c", "5", "k", "d", "6", "l",
+             "e", "7", "0", "f", "1", "g")
+    upgraded = {key: values[key] for key in order if key in values}
+    upgraded.update((key, value) for key, value in values.items() if key not in upgraded)
+    return plistlib.dumps(upgraded, fmt=plistlib.FMT_BINARY, sort_keys=False), True
 
 
 # Styles key '6' holds one of these blocks per statistic flavour. The donor ships real
@@ -2221,25 +2329,41 @@ def require_cmd(name: str):
 
 
 def decode_target_primary(target: Path, work: Path) -> Path:
-    """Decode the target's primary image to PNG (in displayed orientation)."""
-    heif_convert = require_cmd("heif-convert")
-    decoded = work / "target_main.png"
-    subprocess.run([heif_convert, str(target), str(decoded)], check=True,
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    from photographic_style_pipeline import Converter
+    converter = Converter(sys.modules[__name__])
+    data = target.read_bytes()
+    d = discover_heic(data)
+    keep = {d["primary"], *d["primary_tiles"]}
+    meta = remove_items(data[d["meta"][0]:d["meta"][0]+d["meta"][1]], set(d["infos"]) - keep)
+    payloads = {iid: extract_item(data, d["iloc"], iid) for iid in keep if d["iloc"]["items"][iid]["construction_method"] == 0}
+    off, size, _, _ = top_box(data, "ftyp")
+    source = work / "primary-only.heic"
+    source.write_bytes(converter.build(data[off:off+size], meta, payloads))
+    decoded = work / "decoded.png"
+    subprocess.run([require_cmd("heif-convert"), str(source), str(decoded)], check=True,
+                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return decoded
 
 
 def encode_target_linear_thumbnail(decoded: Path, work: Path, out_w: int, out_h: int,
                                    angle: int = 0, mirror=None):
-    """Generate the V8-tested linear-thumbnail payload + matching hvcC.
-
-    The image is first returned to the target's stored (pre-rotation) orientation, because
-    the linearthumbnail shares the primary's irot property and is therefore rotated again
-    at display time. v0.2.1 hardcoded a single clockwise turn here, which silently produced
-    a rotated and aspect-squashed thumbnail for any target not carrying irot=270.
-    """
-    return encode_hevc_still(decoded, work, out_w, out_h, angle, mirror,
-                             name="linearthumb", ten_bit=True)
+    """Encode actual Display P3 linear samples as limited-range Main10 HEVC."""
+    from photographic_style_pipeline import linear_i420_10
+    samples = linear_i420_10(decoded, out_w, out_h, angle, mirror)
+    raw = work / "linearthumb.yuv"
+    raw.write_bytes(samples)
+    mp4 = work / "linearthumb.mp4"
+    enc = subprocess.run([
+        require_cmd("ffmpeg"), "-y", "-loglevel", "error", "-f", "rawvideo",
+        "-pixel_format", "yuv420p10le", "-video_size", f"{out_w}x{out_h}",
+        "-i", str(raw), "-frames:v", "1", "-c:v", "libx265", "-pix_fmt", "yuv420p10le",
+        "-profile:v", "main10", "-tag:v", "hvc1", "-color_primaries", "12",
+        "-color_trc", "8", "-colorspace", "1", "-color_range", "tv",
+        "-x265-params", "info=0", "-movflags", "+faststart", str(mp4)
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if enc.returncode:
+        raise PortError("Main10 linear thumbnail encoding failed: " + enc.stderr.decode("utf8", errors="replace"))
+    return extract_mp4_hvcc_sample(mp4)
 
 
 def encode_hevc_still(decoded: Path, work: Path, out_w: int, out_h: int,
@@ -2252,12 +2376,13 @@ def encode_hevc_still(decoded: Path, work: Path, out_w: int, out_h: int,
     ffmpeg = require_cmd("ffmpeg")
     mp4 = work / f"{name}.mp4"
     vf = ",".join(raw_orientation_filters(angle, mirror)
-                  + [f"scale={out_w}:{out_h}:flags=lanczos"])
+                  + [f"scale={out_w}:{out_h}:flags=lanczos:out_color_matrix=bt709:out_range=tv"])
     enc = subprocess.run([
         ffmpeg, "-y", "-loglevel", "error", "-i", str(decoded),
         "-vf", vf, "-frames:v", "1",
         "-c:v", "libx265", "-pix_fmt", "yuv420p10le" if ten_bit else "yuv420p",
         "-profile:v", "main10" if ten_bit else "main", "-tag:v", "hvc1",
+        "-color_primaries", "1", "-color_trc", "13", "-colorspace", "1", "-color_range", "tv",
         "-x265-params", "info=0", "-movflags", "+faststart", str(mp4)
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if enc.returncode != 0:
@@ -2315,585 +2440,16 @@ def replace_ipco_property_any(meta: bytes, property_index: int, new_box: bytes, 
     return bytes(rebuilt)
 
 
-def replace_ipco_property(meta: bytes, property_index: int, new_box: bytes) -> bytes:
-    """Replace an ipco property box and repair meta/iprp/ipco sizes."""
-    data = bytearray(meta)
-    meta_box = top_box(data, "meta")
-    mch = meta_children(data, meta_box)
-    iprp = find_child(mch, "iprp")
-    io, isz, ih, _ = iprp
-    iprp_children = list(boxes(data, io+ih, io+isz))
-    ipco = find_child(iprp_children, "ipco")
-    co, csz, ch, _ = ipco
-    props = list(boxes(data, co+ch, co+csz))
-    if not (1 <= property_index <= len(props)):
-        raise PortError(f"Profile hvcC property index {property_index} is out of range")
-    old = props[property_index-1]
-    oo, osz, _oh, otyp = old
-    if otyp != "hvcC":
-        raise PortError(f"Profile property {property_index} is {otyp}, expected hvcC")
-    delta = len(new_box) - osz
-    rebuilt = bytearray(data[:oo] + new_box + data[oo+osz:])
-    # Box size fields are all before the inserted property and therefore their offsets are stable.
-    for b in [meta_box, iprp, ipco]:
-        bo, bs, _bh, _bt = b
-        rebuilt[bo:bo+4] = (bs + delta).to_bytes(4, "big")
-    return bytes(rebuilt)
 
 
-def discover_target(data: bytes):
-    disc = discover_heic(data)
-    if disc["hdr_grid"] is None or not disc["hdr_tiles"]:
-        raise PortError("Target has no HDR gain-map grid")
-    # A missing thumbnail is allowed: patch synthesizes one from the primary. Files re-saved
-    # by iOS (they carry an extra XMP item and no tmap) have been seen without one.
-    if disc["exif_item"] is None:
-        raise PortError("Target Exif not found")
-    return disc
 
 
 def cmd_patch(args):
-    target = Path(args.target)
-    output = Path(args.output)
-    target_data = target.read_bytes()
-    # v0.5.0: a photo that already has native Photographic Style data (iPhone 16 and later)
-    # is never re-ported - that would replace its real style data with the donor's neutral
-    # one. It only gets the iOS 27 Texture/Grain item added.
-    if discover_heic(target_data)["styles_item"] is not None:
-        if args.texture == "off":
-            raise PortError("Target already has native Photographic Style data; nothing to do "
-                            "with --texture off")
-        if args.profile:
-            print("NOTE: --profile ignored; the target already has native Photographic Style data")
-        print("Native Photographic Style detected: adding Texture/Grain only (no port)")
-        write_add_texture(target, output, args.report, args.zip)
-        return
-    td = discover_target(target_data)
-    synth_thumb = td["thumbnail"] is None
-    if synth_thumb and args.linear_thumb == "reuse-thumbnail":
-        raise PortError("Target has no thumbnail to reuse; use --linear-thumb generate, "
-                        "which also synthesizes the missing thumbnail")
-
-    if args.profile:
-        profile_path = Path(args.profile)
-        manifest, ftyp, meta, retained, mn54 = load_profile(profile_path)
-        profile_label = profile_path.name
-        profile_mode = "external"
-    else:
-        builtin_name = select_builtin_profile(len(td["primary_tiles"]), len(td["hdr_tiles"]))
-        manifest, ftyp, meta, retained, mn54 = load_profile(builtin_profile_bytes(builtin_name))
-        profile_label = f"builtin:{builtin_name}"
-        profile_mode = "builtin"
-
-    if len(td["primary_tiles"]) != manifest["primary_tile_count"]:
-        raise PortError(
-            f"Primary tile count mismatch: target={len(td['primary_tiles'])}, donor profile={manifest['primary_tile_count']}"
-        )
-    if len(td["hdr_tiles"]) != manifest["hdr_tile_count"]:
-        raise PortError(
-            f"HDR tile count mismatch: target={len(td['hdr_tiles'])}, donor profile={manifest['hdr_tile_count']}"
-        )
-
-    target_iloc = td["iloc"]
-    payloads = dict(retained)
-
-    # Map target primary tile payloads into donor-profile item IDs.
-    for donor_iid, target_iid in zip(manifest["donor_primary_tiles"], td["primary_tiles"]):
-        payloads[int(donor_iid)] = extract_item(target_data, target_iloc, int(target_iid))
-
-    for donor_iid, target_iid in zip(manifest["donor_hdr_tiles"], td["hdr_tiles"]):
-        payloads[int(donor_iid)] = extract_item(target_data, target_iloc, int(target_iid))
-
-    if not synth_thumb:
-        payloads[int(manifest["donor_thumbnail_item"])] = extract_item(
-            target_data, target_iloc, int(td["thumbnail"]))
-    target_exif_payload = extract_item(target_data, target_iloc, int(td["exif_item"]))
-    mn54_type = int(manifest.get("smartstyle_makernote_type", 7))
-    target_exif_payload = inject_apple_makernote_tag(target_exif_payload, mn54, 0x54, mn54_type)
-    payloads[int(manifest["donor_exif_item"])] = target_exif_payload
-
-    # v0.1.1: compressed target payloads must travel with their own codec/color
-    # configuration. The original v0.1 only copied VCL payloads and left donor
-    # hvcC/colr boxes behind. That can decode as visible tile/block corruption.
-    # Transplant target primary-tile codec/color properties into the corresponding
-    # donor-profile property slots before rebuilding mdat.
-    donor_primary0 = int(manifest["donor_primary_tiles"][0])
-    target_primary0 = int(td["primary_tiles"][0])
-    target_primary_hvcc = property_box_bytes(target_data, td["props"], target_primary0, "hvcC")
-    target_primary_colr = property_box_bytes(target_data, td["props"], target_primary0, "colr")
-    meta = replace_item_property_with_source(meta, donor_primary0, "hvcC", target_primary_hvcc)
-    meta = replace_item_property_with_source(meta, donor_primary0, "colr", target_primary_colr)
-
-    # Target ordinary thumbnail is also copied as compressed HEVC; pair it with its
-    # target hvcC (and colr when it uses a distinct property).
-    # A target without a thumbnail gets one encoded below, once the primary is decoded; it
-    # keeps the donor thumbnail's colr slot, which is the primary's (just transplanted).
-    donor_thumb = int(manifest["donor_thumbnail_item"])
-    if not synth_thumb:
-        target_thumb = int(td["thumbnail"])
-        target_thumb_hvcc = property_box_bytes(target_data, td["props"], target_thumb, "hvcC")
-        target_thumb_colr = property_box_bytes(target_data, td["props"], target_thumb, "colr")
-        meta = replace_item_property_with_source(meta, donor_thumb, "hvcC", target_thumb_hvcc)
-        # Usually the thumbnail shares the primary colr property. If it is a separate
-        # donor property this call updates it; if already shared it simply rewrites the
-        # same slot with the same target box.
-        meta = replace_item_property_with_source(meta, donor_thumb, "colr", target_thumb_colr)
-
-    # HDR gain-map tiles may also carry HEVC parameter sets outside the payload.
-    # Replace the donor HDR-tile hvcC when both sides expose one.
-    donor_hdr0 = int(manifest["donor_hdr_tiles"][0])
-    target_hdr0 = int(td["hdr_tiles"][0])
-    target_hdr_hvcc = property_box_bytes(target_data, td["props"], target_hdr0, "hvcC")
-    meta = replace_item_property_with_source(meta, donor_hdr0, "hvcC", target_hdr_hvcc)
-
-    # v0.3.0: transplant the target's display orientation. Both donor profiles associate a
-    # single shared irot property (270 degrees) with the primary, thumbnail, HDR grid,
-    # delta grid and linearthumbnail, so replacing that one property reorients the whole
-    # Photographic Style item graph consistently. Without this, every target whose own irot differs
-    # is displayed rotated and its spatial Photographic Style data no longer registers with it.
-    warnings: List[str] = []
-    donor_primary = int(manifest["donor_primary_item"])
-    target_primary = int(td["primary"])
-    target_angle = irot_angle_for_item(target_data, td["props"], target_primary)
-    target_mirror = imir_axis_for_item(target_data, td["props"], target_primary)
-    donor_angle = irot_angle_for_item(meta, parse_ipco_ipma(meta, top_box(meta, "meta")), donor_primary)
-    target_irot = property_box_bytes(target_data, td["props"], target_primary, "irot") or IROT_IDENTITY
-    meta = replace_item_property_with_source(meta, donor_primary, "irot", target_irot)
-    if target_mirror is not None:
-        donor_props_now = parse_ipco_ipma(meta, top_box(meta, "meta"))
-        if property_for_item(donor_props_now, donor_primary, "imir") is None:
-            warnings.append(
-                "target carries an imir (mirror) property but the donor profile has no imir "
-                "slot to replace; mirroring was not transplanted")
-        else:
-            meta = replace_item_property_with_source(
-                meta, donor_primary, "imir",
-                property_box_bytes(target_data, td["props"], target_primary, "imir"))
-
-    # v0.4.1: the tmap item declares its size in DISPLAY orientation and carries its own
-    # irot, so it does not follow the primary's irot transplanted above. Left alone it keeps
-    # the donor's display geometry, and a viewer that renders through the tmap - Windows
-    # Photos does, Apple Photos does not - letterboxes the picture into the donor's aspect,
-    # showing a black band. Its ispe/irot properties are used by no other item.
-    donor_tmaps = find_items_by_type(parse_iinf(meta, top_box(meta, "meta")), "tmap")
-    target_tmaps = find_items_by_type(td["infos"], "tmap")
-    if donor_tmaps:
-        donor_tmap = donor_tmaps[0]
-        if target_tmaps:
-            src_ispe = property_box_bytes(target_data, td["props"], target_tmaps[0], "ispe")
-            src_irot = property_box_bytes(target_data, td["props"], target_tmaps[0], "irot")
-        else:
-            # No target tmap to copy, so derive the display geometry from the primary.
-            pw, ph = dimensions_for_item(td["props"], target_primary)
-            disp_w, disp_h = display_dimensions(pw, ph, target_angle)
-            src_ispe, src_irot = _ispe_box(disp_w, disp_h), IROT_IDENTITY
-        before = dimensions_for_item(parse_ipco_ipma(meta, top_box(meta, "meta")), donor_tmap)
-        meta = replace_item_property_with_source(meta, donor_tmap, "ispe", src_ispe)
-        meta = replace_item_property_with_source(meta, donor_tmap, "irot", src_irot or IROT_IDENTITY)
-        after = dimensions_for_item(parse_ipco_ipma(meta, top_box(meta, "meta")), donor_tmap)
-        tmap_report = {"tmap_item": donor_tmap, "tmap_ispe": list(after),
-                       "tmap_ispe_was": list(before)}
-    else:
-        tmap_report = {"tmap_item": None}
-
-    # v0.4.0: carry the target's semantic mattes instead of the donor's near-empty ones.
-    # This is unconditional because the target's own metadata already says whether there is
-    # anything to carry: a target with no matte items takes the no-op path below, and a
-    # target whose mattes are blank transplants blank mattes. Nothing here can invent people
-    # information - PeopleRatio and SkinRatio are never written.
-    people_report = {"people": "none", "mattes_transplanted": [], "mattes_added": []}
-    donor_props = parse_ipco_ipma(meta, top_box(meta, "meta"))
-    donor_infos = parse_iinf(meta, top_box(meta, "meta"))
-    donor_slots, target_slots = {}, {}
-    for iid in donor_infos:
-        uri = aux_uri_for_item(donor_props, iid)
-        if uri in MATTE_URIS.values():
-            donor_slots[uri] = iid
-    for iid in td["infos"]:
-        uri = aux_uri_for_item(td["props"], iid)
-        if uri in MATTE_URIS.values():
-            target_slots[uri] = iid
-    if not donor_slots:
-        people_report["people"] = "none (donor profile has no auxiliary slots to work from)"
-    else:
-        # Every donor profile carries matte slots, so one of them supplies the wiring any
-        # added item needs: the auxl targets (primary + tmap) and the shared irot.
-        template_iid = next(iter(donor_slots.values()))
-        template_refs = [r["to"] for r in parse_iref(meta, top_box(meta, "meta"))
-                         if r["type"] == "auxl" and r["from"] == template_iid]
-        to_ids = template_refs[0] if template_refs else [int(td["primary"])]
-        specs = []
-
-        if target_slots:
-            shared = [u for u in target_slots if u in donor_slots]
-            extra = [u for u in target_slots if u not in donor_slots]
-            spare = [u for u in donor_slots if u not in target_slots]
-            any_target = next(iter(target_slots.values()))
-            target_matte_hvcc = property_box_bytes(target_data, td["props"], any_target, "hvcC")
-
-            # Target mattes need their own hvcC. Donor slots the target cannot fill keep the
-            # donor hvcC and a donor payload, so every payload stays paired with its own
-            # decoder configuration.
-            meta, new_hvcc_idx = append_ipco_property(meta, target_matte_hvcc)
-            old_hvcc_idx = property_for_item(donor_props, donor_slots[shared[0]], "hvcC")["index"]
-            for uri in shared:
-                meta = repoint_item_property(meta, donor_slots[uri], old_hvcc_idx, new_hvcc_idx)
-                # Each donor auxC is per-URI and used by exactly one item, so replacing it
-                # carries any aux_subtype data across without touching anything else.
-                meta = replace_item_property_with_source(
-                    meta, donor_slots[uri], "auxC",
-                    property_box_bytes(target_data, td["props"], target_slots[uri], "auxC"))
-                payloads[donor_slots[uri]] = extract_item(target_data, target_iloc, target_slots[uri])
-                people_report["mattes_transplanted"].append(uri.split(":")[-1])
-
-            # A donor slot with no target counterpart would otherwise ship donor scene
-            # content, so refill it with the donor's own near-empty portrait matte.
-            neutral_src = donor_slots.get(MATTE_URIS["portraiteffectsmatte"])
-            for uri in spare:
-                if neutral_src is not None and donor_slots[uri] in payloads:
-                    payloads[donor_slots[uri]] = retained[neutral_src]
-                    people_report.setdefault("mattes_neutralized", []).append(uri.split(":")[-1])
-
-            template_assoc = parse_ipco_ipma(meta, top_box(meta, "meta"))["associations"][template_iid]
-            template_auxc = property_for_item(
-                parse_ipco_ipma(meta, top_box(meta, "meta")), template_iid, "auxC")
-            matte_reuse = [(a["index"], a["essential"]) for a in template_assoc
-                           if a["index"] != template_auxc["index"]]
-            specs += [{"uri": uri, "reuse": matte_reuse, "boxes": [],
-                       "auxc": property_box_bytes(target_data, td["props"],
-                                                  target_slots[uri], "auxC")}
-                      for uri in extra]
-
-        # v0.4.2: the depth map drives Portrait in the palette. It is handled independently
-        # of the mattes, because a Portrait photo of a non-person subject carries depth with
-        # no semantic mattes at all. Neither donor profile has a depth slot, and depth cannot
-        # reuse the matte properties - its own ispe, its own hvcC, no colr - so it is added
-        # with its own boxes. Only irot is shared, so it follows the primary's orientation.
-        depth_ids = [i for i in td["infos"] if aux_uri_for_item(td["props"], i) == DEPTH_URI]
-        donor_depth = [i for i in donor_infos if aux_uri_for_item(donor_props, i) == DEPTH_URI]
-        if depth_ids and not donor_depth:
-            di = depth_ids[0]
-            irot_prop = property_for_item(
-                parse_ipco_ipma(meta, top_box(meta, "meta")), template_iid, "irot")
-            boxes = [b for b in (property_box_bytes(target_data, td["props"], di, "ispe"),
-                                 property_box_bytes(target_data, td["props"], di, "pixi"),
-                                 property_box_bytes(target_data, td["props"], di, "colr"),
-                                 property_box_bytes(target_data, td["props"], di, "hvcC"))
-                     if b is not None]
-            specs.append({"uri": DEPTH_URI,
-                          "reuse": [(irot_prop["index"], True)] if irot_prop else [],
-                          "boxes": boxes,
-                          "auxc": property_box_bytes(target_data, td["props"], di, "auxC")})
-            target_slots[DEPTH_URI] = di
-
-        for s in specs:
-            s.setdefault("ref_type", "auxl")
-            s["ref_to"] = to_ids
-        if specs:
-            meta, assigned = add_items(meta, specs)
-            for uri, new_iid in assigned.items():
-                payloads[new_iid] = extract_item(target_data, target_iloc, target_slots[uri])
-                label = "depth" if uri == DEPTH_URI else uri.split(":")[-1]
-                people_report["mattes_added"].append(f"{label}#{new_iid}")
-        else:
-            assigned = {}
-
-        # v0.4.3: every auxiliary image is interpreted through an XMP sidecar - a 'mime'
-        # item pointed at it by cdsc. The depth sidecar is the one that matters most: it
-        # carries apdi:Float/IntMinValue/MaxValue plus depthBlurEffect:SimulatedAperture and
-        # RenderingParameters, which is how Photos knows how to read the depth samples and
-        # what blur to offer. Carrying the depth image without it leaves Portrait inert.
-        port_props = parse_ipco_ipma(meta, top_box(meta, "meta"))
-        port_infos = parse_iinf(meta, top_box(meta, "meta"))
-        port_refs = parse_iref(meta, top_box(meta, "meta"))
-        # Map every target item we reproduced onto its item id in the port.
-        id_map = {int(td["primary"]): int(manifest["donor_primary_item"])}
-        if td.get("hdr_grid") is not None:
-            id_map[int(td["hdr_grid"])] = int(manifest["donor_hdr_grid_item"])
-        for tt, dt in zip(find_items_by_type(td["infos"], "tmap"),
-                          find_items_by_type(port_infos, "tmap")):
-            id_map[tt] = dt
-        for uri, tiid in target_slots.items():
-            if uri in donor_slots:
-                id_map[tiid] = donor_slots[uri]
-            elif uri in assigned:
-                id_map[tiid] = assigned[uri]
-        # Existing port sidecars, keyed by what they describe.
-        port_cdsc = {r["from"]: r["to"] for r in port_refs if r["type"] == "cdsc"}
-        described = {}
-        for iid, info in port_infos.items():
-            if info.get("type") == "mime" and iid in port_cdsc:
-                described[tuple(port_cdsc[iid])] = iid
-        target_cdsc = {r["from"]: r["to"] for r in td["refs"] if r["type"] == "cdsc"}
-        sidecar_specs = []
-        for tiid, info in sorted(td["infos"].items()):
-            if info.get("type") != "mime" or tiid not in target_cdsc:
-                continue
-            tgts = target_cdsc[tiid]
-            if not all(t in id_map for t in tgts):
-                continue  # describes something this port does not reproduce
-            mapped = tuple(id_map[t] for t in tgts)
-            payload = extract_item(target_data, target_iloc, tiid)
-            if mapped in described:
-                payloads[described[mapped]] = payload  # refresh the donor's sidecar
-                people_report.setdefault("sidecars_refreshed", []).append(described[mapped])
-            else:
-                sidecar_specs.append({"key": f"mime{tiid}", "item_type": "mime",
-                                      "content_type": info.get("content_type")
-                                      or "application/rdf+xml",
-                                      "ref_type": "cdsc", "ref_to": list(mapped),
-                                      "_payload": payload})
-        if sidecar_specs:
-            meta, sc_assigned = add_items(meta, sidecar_specs)
-            for spec in sidecar_specs:
-                payloads[sc_assigned[spec["key"]]] = spec["_payload"]
-            people_report["sidecars_added"] = [
-                f"{sc_assigned[s['key']]}->{s['ref_to']}" for s in sidecar_specs]
-
-        carried = people_report["mattes_transplanted"] + people_report["mattes_added"]
-        people_report["people"] = ("target auxiliaries carried" if carried
-                                   else "none (target has no mattes or depth)")
-
-    # v0.5.0: add the iOS 27 Texture/Grain set (2026 mattes + texture_styles). Appending keeps
-    # every existing property index, so the manifest's linearthumbnail hvcC index still holds.
-    # An external iOS 27 donor profile brings its own set.
-    port_infos = parse_iinf(meta, top_box(meta, "meta"))
-    existing_tex = [i for i, info in port_infos.items() if info.get("uri") == URI_TEXTURE_STYLES]
-    texture_report = {"texture_styles": "off"}
-    if args.texture == "on" and existing_tex:
-        texture_report = {"texture_styles": f"from profile #{existing_tex[0]}"}
-    elif args.texture == "on":
-        meta, tex_payloads, summary = add_texture_items(meta, int(manifest["donor_primary_item"]))
-        payloads.update(tex_payloads)
-        texture_report = {"texture_styles": summary}
-
-    # The linearthumbnail must be generated at the donor item's declared ispe and in the
-    # target's stored orientation, since it inherits the irot transplanted just above.
-    donor_props = parse_ipco_ipma(meta, top_box(meta, "meta"))
-    donor_lt = int(manifest["donor_linear_thumb_item"])
-    lt_w, lt_h = dimensions_for_item(donor_props, donor_lt)
-    if not lt_w or not lt_h:
-        raise PortError("Donor profile linearthumbnail has no ispe property")
-    raw_w, raw_h = dimensions_for_item(td["props"], target_primary)
-    if raw_w and raw_h:
-        target_aspect = raw_w / raw_h
-        lt_aspect = lt_w / lt_h
-        if abs(target_aspect - lt_aspect) > 0.01 * lt_aspect:
-            warnings.append(
-                f"target stored aspect {raw_w}x{raw_h} ({target_aspect:.4f}) does not match the "
-                f"donor linearthumbnail {lt_w}x{lt_h} ({lt_aspect:.4f}); the generated "
-                "linearthumbnail is stretched to fit and may misregister with the image")
-
-    needs_decode = (args.linear_thumb == "generate"
-                    or args.scene_stats in ("target", "tone-only")
-                    or args.light_maps == "target"
-                    or synth_thumb)
-    lt_report = {"linear_thumb_mode": args.linear_thumb}
-    thumb_report = {"thumbnail": "target"}
-    with tempfile.TemporaryDirectory(prefix="photographic-style-port-") as tmp:
-        work = Path(tmp)
-        decoded = decode_target_primary(target, work) if needs_decode else None
-        if synth_thumb:
-            # Encoded at the donor thumbnail's declared ispe and in stored orientation,
-            # because the thumbnail shares the irot transplanted from the target primary.
-            th_w, th_h = dimensions_for_item(donor_props, donor_thumb)
-            if not th_w or not th_h:
-                raise PortError("Donor profile thumbnail has no ispe property")
-            thumb_hvcc, payloads[donor_thumb], _ = encode_hevc_still(
-                decoded, work, th_w, th_h, target_angle, target_mirror, name="thumbnail")
-            thumb_report = {"thumbnail": "synthesized", "thumbnail_size": [th_w, th_h]}
-        if args.linear_thumb == "generate":
-            hvcc, lt_sample, nal_types = encode_target_linear_thumbnail(
-                decoded, work, lt_w, lt_h, target_angle, target_mirror)
-        else:
-            # Experiment: reuse the target's own ordinary thumbnail as the linearthumbnail.
-            # It is already HEVC with a matching hvcC and it is target-scene content, so it
-            # registers spatially - and it removes the only step that needs an encoder,
-            # which is what a browser build cannot provide. The deviation is format: this is
-            # 8-bit Main Still Picture where Apple ships 10-bit Main10, so it is unproven.
-            hvcc = property_box_bytes(target_data, td["props"], int(td["thumbnail"]), "hvcC")
-            lt_sample = extract_item(target_data, target_iloc, int(td["thumbnail"]))
-            nal_types = []
-            lt_w, lt_h = dimensions_for_item(td["props"], int(td["thumbnail"]))
-            lt_report["linear_thumb_reused_from"] = int(td["thumbnail"])
-        linear = (target_luma_distributions(decoded)
-                  if args.scene_stats in ("target", "tone-only") else None)
-        light_maps = (target_light_maps(decoded, target_angle, target_mirror)
-                      if args.light_maps == "target" else None)
-    payloads[int(manifest["donor_linear_thumb_item"])] = lt_sample
-    if synth_thumb:
-        meta = replace_item_property_with_source(meta, donor_thumb, "hvcC", thumb_hvcc)
-
-    if args.linear_thumb == "reuse-thumbnail":
-        # ispe is dedicated to the linearthumbnail, so it can be replaced in place. pixi is
-        # shared with the delta grid and tmap, so a fresh one is appended and only the
-        # linearthumbnail is re-pointed at it.
-        src_thumb = int(td["thumbnail"])
-        meta = replace_item_property_with_source(
-            meta, donor_lt, "ispe", property_box_bytes(target_data, td["props"], src_thumb, "ispe"))
-        src_pixi = property_box_bytes(target_data, td["props"], src_thumb, "pixi")
-        cur_pixi = property_for_item(parse_ipco_ipma(meta, top_box(meta, "meta")), donor_lt, "pixi")
-        if src_pixi is not None and cur_pixi is not None:
-            old_pixi_box = property_box_bytes(meta, parse_ipco_ipma(meta, top_box(meta, "meta")),
-                                              donor_lt, "pixi")
-            if old_pixi_box != src_pixi:
-                meta, new_pixi_idx = append_ipco_property(meta, src_pixi)
-                meta = repoint_item_property(meta, donor_lt, cur_pixi["index"], new_pixi_idx)
-                lt_report["linear_thumb_pixi_repointed"] = True
-
-    # v0.3.0: styles key '6' otherwise keeps the donor photograph's tone anchors.
-    # v0.3.1: c/d can additionally be rebuilt from the target's own luminance.
-    donor_styles = int(manifest["donor_styles_item"])
-    maps_report = {"light_maps": "flat", "light_maps_fields": []}
-    if donor_styles in payloads:
-        payloads[donor_styles], stats_report = apply_scene_statistics(
-            payloads[donor_styles], args.scene_stats, linear)
-        if light_maps is not None:
-            payloads[donor_styles], maps_report = apply_light_maps(
-                payloads[donor_styles], light_maps[0], light_maps[1])
-        if people_report["mattes_transplanted"]:
-            payloads[donor_styles], prev_hint = set_person_masks_valid(payloads[donor_styles])
-            people_report["person_masks_valid_hint"] = f"{prev_hint} -> 1.0"
-    else:
-        stats_report = {"scene_stats": args.scene_stats, "scene_stats_fields": [],
-                        "scene_stats_note": "styles item is not an external payload"}
-
-    # Replace the donor linearthumbnail's hvcC with the exact configuration matching our generated HEVC sample.
-    meta = replace_ipco_property(meta, int(manifest["linear_thumb_hvcc_property_index"]), hvcc)
-
-    # Parse the modified profile meta; construction-method-1 items remain inside meta/idat.
-    profile_iloc = parse_iloc(meta, top_box(meta, "meta"))
-    external_ids = []
-    for iid, it in profile_iloc["items"].items():
-        if it["construction_method"] == 0 and it["extents"]:
-            external_ids.append(iid)
-    external_ids.sort()
-
-    missing = [iid for iid in external_ids if iid not in payloads]
-    if missing:
-        raise PortError(f"Profile is missing external payload(s): {missing}")
-
-    # Rebuild one clean mdat and update every absolute external extent.
-    mdat_start = len(ftyp) + len(meta)
-    cursor = mdat_start + 8
-    mdat_payload = bytearray()
-    layout = {}
-    for iid in external_ids:
-        blob = payloads[iid]
-        if len(profile_iloc["items"][iid]["extents"]) != 1:
-            raise PortError(f"v0.1 expects one external extent for item {iid}")
-        layout[iid] = (cursor, len(blob))
-        mdat_payload.extend(blob)
-        cursor += len(blob)
-
-    meta_mut = bytearray(meta)
-    iloc2 = parse_iloc(meta_mut, top_box(meta_mut, "meta"))
-    osz = iloc2["offset_size"]
-    lsz = iloc2["length_size"]
-    for iid, (off, ln) in layout.items():
-        e = iloc2["items"][iid]["extents"][0]
-        # iloc positions are relative to meta.bin; write absolute file offsets as required by construction_method 0.
-        meta_mut[e["offset_pos"]:e["offset_pos"]+osz] = off.to_bytes(osz, "big")
-        meta_mut[e["length_pos"]:e["length_pos"]+lsz] = ln.to_bytes(lsz, "big")
-
-    mdat_size = 8 + len(mdat_payload)
-    if mdat_size >= 2**32:
-        raise PortError("mdat too large for v0.1 32-bit size")
-    result = bytes(ftyp) + bytes(meta_mut) + mdat_size.to_bytes(4, "big") + b"mdat" + bytes(mdat_payload)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_bytes(result)
-
-    report = {
-        "tool_version": VERSION,
-        "target": target.name,
-        "profile": profile_label,
-        "profile_mode": profile_mode,
-        "output": output.name,
-        "output_sha256": sha256_bytes(result),
-        "target_primary_tiles": len(td["primary_tiles"]),
-        "target_hdr_tiles": len(td["hdr_tiles"]),
-        "linearthumb_nal_types": nal_types,
-        "linearthumb_hvcc_bytes": len(hvcc),
-        "linearthumb_sample_bytes": len(lt_sample),
-        "donor_source_sha256": manifest.get("source_sha256"),
-        "makernote_0x54_injected": True,
-        "makernote_0x54_sha256": sha256_bytes(mn54),
-        "neutral_delta_map": bool(manifest.get("neutral_delta_map", False)),
-        "flat_cd_maps": bool(manifest.get("flat_cd_maps", False)),
-        "donor_irot_degrees": donor_angle,
-        "target_irot_degrees": target_angle,
-        "target_imir_axis": target_mirror,
-        "orientation_transplanted": donor_angle != target_angle or target_mirror is not None,
-        "linearthumb_size": [lt_w, lt_h],
-        "linearthumb_stored_orientation": True,
-        "warnings": warnings,
-    }
-    report.update(stats_report)
-    report.update(maps_report)
-    report.update(people_report)
-    report.update(tmap_report)
-    report.update(lt_report)
-    report.update(thumb_report)
-    report.update(texture_report)
-    # The report is always built -- the run summary below reads from it -- but it is only
-    # written to disk when asked for. --zip carries it inside the archive without leaving a
-    # loose file behind.
-    report_json = json.dumps(report, indent=2)
-    report_name = output.name + ".report.json"
-    if args.report:
-        report_path = output.with_suffix(output.suffix + ".report.json")
-        report_path.write_text(report_json, encoding="utf-8")
-        print(f"Created report: {report_path}")
-
-    if args.zip:
-        zip_path = output.with_suffix(".zip")
-        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
-            z.write(output, arcname=output.name)
-            z.writestr(report_name, report_json)
-        print(f"Created patched ZIP: {zip_path}")
-    print(f"Created patched HEIC: {output}")
-    print(f"  profile: {profile_label} ({profile_mode})")
-    print(f"  SHA-256: {report['output_sha256']}")
-    print(f"  orientation: donor irot {donor_angle} -> target irot {target_angle}"
-          + (f", imir axis {target_mirror}" if target_mirror is not None else ""))
-    if args.linear_thumb == "generate":
-        print(f"  linear-thumbnail: generated {lt_w}x{lt_h} stored orientation, "
-              f"NAL types: {nal_types}")
-    else:
-        print(f"  linear-thumbnail: reused target thumbnail item "
-              f"{lt_report['linear_thumb_reused_from']} ({lt_w}x{lt_h}, no encoder used)")
-    print(f"  texture/grain (iOS 27): {texture_report['texture_styles']}")
-    if synth_thumb:
-        print(f"  thumbnail: target had none, synthesized "
-              f"{thumb_report['thumbnail_size'][0]}x{thumb_report['thumbnail_size'][1]}")
-    if tmap_report.get("tmap_item") is not None:
-        was, now = tmap_report["tmap_ispe_was"], tmap_report["tmap_ispe"]
-        print(f"  tmap display size: {was[0]}x{was[1]} -> {now[0]}x{now[1]}"
-              + ("" if was != now else " (unchanged)"))
-    print(f"  scene statistics: {stats_report['scene_stats']}"
-          + (f" ({', '.join(stats_report['scene_stats_fields'])})"
-             if stats_report.get("scene_stats_fields") else ""))
-    print(f"  light maps c/d: {maps_report['light_maps']}"
-          + (f" ({', '.join(maps_report['light_maps_fields'])})"
-             if maps_report.get("light_maps_fields") else ""))
-    print(f"  target auxiliaries: {people_report['people']}")
-    if people_report["mattes_transplanted"] or people_report["mattes_added"]:
-        if people_report["mattes_transplanted"]:
-            print(f"    transplanted: {', '.join(people_report['mattes_transplanted'])}")
-        if people_report["mattes_added"]:
-            print(f"    added items:  {', '.join(people_report['mattes_added'])}")
-        if people_report.get("mattes_neutralized"):
-            print(f"    neutralized:  {', '.join(people_report['mattes_neutralized'])}")
-        if people_report.get("person_masks_valid_hint"):
-            print(f"    PersonMasksValidHint: {people_report['person_masks_valid_hint']}")
-    if people_report.get("sidecars_added") or people_report.get("sidecars_refreshed"):
-        print(f"    XMP sidecars: {len(people_report.get('sidecars_added', []))} added, "
-              f"{len(people_report.get('sidecars_refreshed', []))} refreshed")
-    for w in warnings:
-        print(f"  WARNING: {w}")
+    from photographic_style_pipeline import Converter
+    Converter(sys.modules[__name__]).run(args)
 
 
-def add_texture_bytes(data: bytes):
+def add_texture_bytes(data: bytes, matte_overrides=None, texture_people_data=None, person_metadata=None):
     """v0.5.0: give a native iPhone 16+ Photographic Style photo the iOS 27 Texture/Grain
     controls by inserting only the Texture/Grain item set (see add_texture_items). Nothing is
     ported: every existing item payload stays byte-identical, only meta grows and the iloc
@@ -2922,7 +2478,25 @@ def add_texture_bytes(data: bytes):
     if any(e["offset"] < mo + ms for it in external.values() for e in it["extents"]):
         raise PortError("An item payload sits before the end of meta; cannot shift offsets safely")
 
+    from photographic_style_pipeline import Converter
+    converter = Converter(sys.modules[__name__])
     new_meta, new_payloads, summary = add_texture_items(data[mo:mo+ms], disc["primary"])
+    overrides = converter.skin_overrides(data, disc, matte_overrides)
+    native_uris = {aux_uri_for_item(disc["props"], iid) for iid in disc["infos"]}
+    overrides = {uri: value for uri, value in overrides.items()
+                 if uri not in native_uris or uri == MATTE_URIS["semanticskinmatte"]}
+    new_meta = converter.auxiliaries(new_meta, new_payloads, disc["primary"], overrides)
+    if texture_people_data:
+        texture_id = next(iid for iid, info in parse_iinf(new_meta).items()
+                          if info.get("uri") == URI_TEXTURE_STYLES)
+        plist = plistlib.loads(new_payloads[texture_id])
+        plist["TextureStylePostProcessedPeopleData"] = texture_people_data
+        new_payloads[texture_id] = plistlib.dumps(plist, fmt=plistlib.FMT_BINARY, sort_keys=False)
+    styles_blob = extract_item(data, iloc, disc["styles_item"])
+    styles_blob = converter.person_metadata(styles_blob, person_metadata)
+    styles_blob, styles_upgraded = upgrade_styles_v16(styles_blob)
+    if styles_upgraded or person_metadata:
+        new_payloads[disc["styles_item"]] = styles_blob
     delta = len(new_meta) - ms
 
     # New payloads travel in one small mdat appended after everything else.
@@ -2939,7 +2513,7 @@ def add_texture_bytes(data: bytes):
     if cursor + len(extra) >= 2**32:
         raise PortError("File too large for 32-bit iloc offsets")
     for iid, it in niloc["items"].items():
-        if iid in external:
+        if iid in external and iid not in new_payloads:
             for e in it["extents"]:
                 meta_mut[e["offset_pos"]:e["offset_pos"]+4] = (e["offset"] + delta).to_bytes(4, "big")
     result = (bytes(data[:mo]) + bytes(meta_mut) + tail
@@ -2949,36 +2523,31 @@ def add_texture_bytes(data: bytes):
     # every new one must read back as written.
     check = discover_heic(result)
     for iid in external:
+        if iid in new_payloads:
+            continue
         if extract_item(result, check["iloc"], iid) != extract_item(data, iloc, iid):
             raise PortError(f"Self-check failed: item {iid} payload changed")
     for iid, blob in new_payloads.items():
         if extract_item(result, check["iloc"], iid) != blob:
             raise PortError(f"Self-check failed: new item {iid} unreadable")
+    preserved_verified = sum(iid not in new_payloads for iid in external)
     return result, {"mode": "add-texture", "texture_styles": summary,
-                    "meta_growth_bytes": delta, "payloads_verified": len(external)}
+                    "meta_growth_bytes": delta, "payloads_verified": preserved_verified,
+                    "styles_v16_upgraded": styles_upgraded}
 
 
-def write_add_texture(src: Path, output: Path, report: bool = False, zip_out: bool = False):
-    result, info = add_texture_bytes(src.read_bytes())
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_bytes(result)
-    info = {"tool_version": VERSION, "target": src.name, "output": output.name,
-            "output_sha256": sha256_bytes(result), **info}
-    report_json = json.dumps(info, indent=2)
-    if report:
-        output.with_suffix(output.suffix + ".report.json").write_text(report_json, encoding="utf-8")
-    if zip_out:
-        with zipfile.ZipFile(output.with_suffix(".zip"), "w", compression=zipfile.ZIP_DEFLATED) as z:
-            z.write(output, arcname=output.name)
-            z.writestr(output.name + ".report.json", report_json)
-    print(f"Created HEIC with Texture/Grain: {output}")
-    print(f"  texture/grain (iOS 27): {info['texture_styles']}, meta +{info['meta_growth_bytes']} bytes")
-    print(f"  {info['payloads_verified']} existing item payloads verified byte-identical")
-    print(f"  SHA-256: {info['output_sha256']}")
 
 
 def cmd_add_texture(args):
-    write_add_texture(Path(args.input), Path(args.output))
+    if discover_heic(Path(args.input).read_bytes())["styles_item"] is None:
+        raise PortError("Input has no native Photographic Style; use 'patch' instead")
+    args.target = args.input
+    args.texture = "on"
+    args.profile = None
+    args.scene_stats = "donor"
+    args.light_maps = "flat"
+    args.linear_thumb = "generate"
+    cmd_patch(args)
 
 
 def cmd_profiles(args):
@@ -3026,6 +2595,16 @@ def cmd_inspect(args):
     }, indent=2))
 
 
+def add_inference_options(parser):
+    parser.add_argument("--faces", choices=("auto", "off"), default="auto",
+                        help="Generate local skin/person mattes and face metadata when MediaPipe is available")
+    parser.add_argument("--portrait-matte", choices=("auto", "off"), default="auto",
+                        help="Generate a missing portrait-effect matte independently of face detection")
+    parser.add_argument("--model-dir", type=Path,
+                        default=Path(os.environ.get("LOCALAPPDATA", Path.home() / ".cache")) / "PhotographicStylePort" / "models",
+                        help="Local cache for the two Google MediaPipe model files")
+
+
 def build_parser():
     p = argparse.ArgumentParser(description=f"Photographic Style Port v{VERSION}")
     p.add_argument("--version", action="version", version=f"Photographic Style Port {VERSION}")
@@ -3036,8 +2615,8 @@ def build_parser():
     a.add_argument("profile", help="Output donor profile ZIP")
     a.set_defaults(func=cmd_extract_donor)
 
-    a = sub.add_parser("patch", help="Patch target HEIC using an auto-selected built-in profile")
-    a.add_argument("target", help="Target HEIC: an iPhone photo without styles (pre-iPhone 16), or a native iPhone 16/17 style photo")
+    a = sub.add_parser("patch", help="Patch HEIC or import PNG/JPEG/WebP with an auto-selected profile")
+    a.add_argument("target", help="HEIC, PNG, JPEG or WebP input")
     a.add_argument("output", help="Output HEIC")
     a.add_argument("--profile", help="Optional external donor profile ZIP; otherwise auto-select a built-in profile")
     a.add_argument("--report", action="store_true",
@@ -3056,7 +2635,7 @@ def build_parser():
                         "target's own luminance using the native-file calibration")
     a.add_argument("--linear-thumb", choices=("generate", "reuse-thumbnail"), default="generate",
                    help="Linearthumbnail source: 'generate' re-encodes the target as 10-bit "
-                        "Main10 with ffmpeg (default, the phone-validated path), "
+                        "Main10 with ffmpeg (default), "
                         "'reuse-thumbnail' reuses the target's existing ordinary thumbnail "
                         "and needs no encoder - experimental, since that is 8-bit Main Still "
                         "Picture where Apple ships 10-bit Main10")
@@ -3064,6 +2643,7 @@ def build_parser():
                    help="Add the iOS 27 Texture/Grain item set (texture_styles + the 2026 "
                         "semantic mattes) so Photos offers the Texture/Grain controls (default "
                         "on); 'off' reproduces the v0.4.4 item graph")
+    add_inference_options(a)
     a.set_defaults(func=cmd_patch)
 
     a = sub.add_parser("add-texture",
@@ -3071,6 +2651,9 @@ def build_parser():
                             "has native Photographic Style data (iPhone 16 and later)")
     a.add_argument("input", help="Native Photographic Style HEIC")
     a.add_argument("output", help="Output HEIC")
+    a.add_argument("--report", action="store_true")
+    a.add_argument("--zip", action="store_true")
+    add_inference_options(a)
     a.set_defaults(func=cmd_add_texture)
 
     a = sub.add_parser("profiles", help="List embedded built-in profiles")

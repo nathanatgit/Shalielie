@@ -2,7 +2,7 @@
 // Only the types the Photographic Styles plist uses are handled: dict, string,
 // bool, int, real, data. That is the whole schema observed in native files.
 
-import { u, be, concat } from "./box.js";
+import { u, be, concat } from "./box.js?v=0.6.0-web";
 
 export function parseBplist(d) {
   if (String.fromCharCode(...d.subarray(0, 6)) !== "bplist")

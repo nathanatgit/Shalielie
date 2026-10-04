@@ -2,7 +2,7 @@
 // only, which is all the profiles use. Inflate comes from DecompressionStream,
 // available in browsers and Node 18+.
 
-import { u } from "./box.js";
+import { u } from "./box.js?v=0.6.0-web";
 
 const u16le = (d, p) => d[p] | (d[p + 1] << 8);
 const u32le = (d, p) => (d[p] | (d[p + 1] << 8) | (d[p + 2] << 16)) + d[p + 3] * 0x1000000;

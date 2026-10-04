@@ -6,23 +6,33 @@
 // switches language: a key defined in one language but not the other, and a key
 // index.html asks for that no longer exists.
 
-import { readFileSync } from "node:fs";
-import { STRINGS } from "../../web/src/i18n.js";
+import { readFileSync, readdirSync } from "node:fs";
+import { STRINGS, ITEM_LABEL_KEYS } from "../../web/src/i18n.js";
+import { INSPECTION_NAMES } from "../../web/src/native-mattes.js";
 
 const ROOT = new URL("../../", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 const html = readFileSync(`${ROOT}web/index.html`, "utf8");
-const app = readFileSync(`${ROOT}web/app.js`, "utf8");
+const app = [readFileSync(`${ROOT}web/app.js`, "utf8"),
+  ...readdirSync(`${ROOT}web/src`).filter(name => name.endsWith(".js"))
+    .map(name => readFileSync(`${ROOT}web/src/${name}`, "utf8"))].join("\n");
 
 const usedInHtml = new Set([...html.matchAll(/data-i18n="([^"]+)"/g)].map((m) => m[1]));
 // Keys reach T() through ternaries and variables as well as literal calls, so match
 // any quoted token shaped like a key rather than only T("...").
 const usedInJs = new Set(
-  [...app.matchAll(/"([a-z]+\.[A-Za-z0-9]+)"/g)].map((m) => m[1])
+  [...app.matchAll(/["']([a-z]+\.[A-Za-z0-9]+)["']/g)].map((m) => m[1])
     .filter((k) => k in STRINGS.en));
 const used = new Set([...usedInHtml, ...usedInJs]);
 
 const langs = Object.keys(STRINGS);
 const problems = [];
+
+for (const name of INSPECTION_NAMES) {
+  const key = ITEM_LABEL_KEYS[name];
+  if (!key) problems.push(`inspection item has no localized label: ${name}`);
+  else for (const lang of langs)
+    if (!STRINGS[lang][key]) problems.push(`${lang} has no label for ${name}`);
+}
 
 // Every language must define the same keys.
 const reference = new Set(Object.keys(STRINGS[langs[0]]));
