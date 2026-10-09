@@ -32,6 +32,8 @@ targets:
     supportedDestinations: [iOS]
     sources:
       - path: Sources/StylePortApp
+        excludes:
+          - Info.plist
       - path: Resources/Assets.xcassets
       - path: Resources/en.lproj
       - path: Resources/zh-Hans.lproj
@@ -43,12 +45,12 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.nathanhanapps.styleport
         PRODUCT_NAME: StylePort
         GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: Sources/StylePortApp/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: Shalielie
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.photography
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Shalielie reads the original HEIC and Live Photo video of the photos you style, and replaces them when you ask it to.
         INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: Shalielie saves the styled photos to your library.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
-        INFOPLIST_KEY_UIFileSharingEnabled: YES
         INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
