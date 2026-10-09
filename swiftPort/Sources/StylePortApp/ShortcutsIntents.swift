@@ -16,7 +16,7 @@ struct AddPhotographicStyleIntent: AppIntent {
     @Parameter(
         title: "Photos",
         description: "Original HEIC photos, for example from Select Photos.",
-        supportedContentTypes: [.heic, .heif]
+        supportedTypeIdentifiers: [UTType.heic.identifier, UTType.heif.identifier]
     )
     var photos: [IntentFile]
 
