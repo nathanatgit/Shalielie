@@ -15,6 +15,22 @@ straight from the library and saves the result back, with no files to move aroun
 > motion (and in replace mode the original, with its video, stays in the Backup Bin).
 > iPhone 16/17 Live Photos that only get Texture & Grain keep their own video.
 
+## Status
+
+Phone-tested on 2026-10-09 (iPhone 15 Pro, iOS 27.0.1):
+
+| Case | Result |
+|---|---|
+| Still photo, save as new or replace | ✅ Styles palette works in Photos' editor |
+| Live Photo saved with its original video | ❌ Photos crashes on **Edit** |
+
+The Live Photo crash, from the device log: Photos' editor connects the style step to the
+video's own linear thumbnail, `/asset:>SEQ(NAME[media],NAME[video],NAME[linearThumbnail])`,
+fails with "Failed to resolve dst port ref" because an iPhone 15 or earlier video has none,
+and aborts. Where a native style Live Photo's video keeps that thumbnail is not known yet; a
+native iPhone 16+ Live Photo pair (HEIC + MOV) is needed to find out. Until then this build
+saves a newly styled Live Photo as a still.
+
 ## What it does
 
 - **Library** tab: every photo with full access, or only the photos you selected with
