@@ -21,56 +21,48 @@ jobs:
       - uses: actions/checkout@v7
       - name: Show Xcode version
         run: xcodebuild -version
-      - name: Build macOS app
-        run: >-
-          xcodebuild -project StylePort.xcodeproj -scheme StylePort
-          -destination 'platform=macOS'
-          -derivedDataPath "$RUNNER_TEMP/StylePort-macOS"
-          CODE_SIGNING_ALLOWED=NO build
-      - name: Build universal iOS and iPadOS simulator app
+      - name: Run Swift package tests
+        run: swift test
+      - name: Build iOS and iPadOS simulator app
         run: >-
           xcodebuild -project StylePort.xcodeproj -scheme StylePort
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/StylePort-iOS-Simulator"
           CODE_SIGNING_ALLOWED=NO build
-      - name: Run Xcode unit tests on macOS
+      - name: Build iOS and iPadOS device app
         run: >-
           xcodebuild -project StylePort.xcodeproj -scheme StylePort
-          -destination 'platform=macOS'
-          -derivedDataPath "$RUNNER_TEMP/StylePort-macOS"
-          CODE_SIGNING_ALLOWED=NO test
-      - name: Run Swift package tests
-        run: swift test
+          -configuration Release
+          -destination 'generic/platform=iOS'
+          -derivedDataPath "$RUNNER_TEMP/StylePort-iOS"
+          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
       - name: Package unsigned app bundles
         run: |
           set -euo pipefail
           artifact_root="$RUNNER_TEMP/StylePort-artifacts"
-          mkdir -p "$artifact_root/macos" "$artifact_root/ios-simulator"
-          ditto -c -k --sequesterRsrc --keepParent \
-            "$RUNNER_TEMP/StylePort-macOS/Build/Products/Debug/StylePort.app" \
-            "$artifact_root/macos/StylePort-macOS-unsigned.zip"
+          mkdir -p "$artifact_root/ios-simulator" "$artifact_root/ios-device"
           ditto -c -k --sequesterRsrc --keepParent \
             "$RUNNER_TEMP/StylePort-iOS-Simulator/Build/Products/Debug-iphonesimulator/StylePort.app" \
-            "$artifact_root/ios-simulator/StylePort-iOS-Simulator-unsigned.zip"
-          (
-            cd "$artifact_root/macos"
-            shasum -a 256 StylePort-macOS-unsigned.zip > SHA256SUMS.txt
-          )
-          (
-            cd "$artifact_root/ios-simulator"
-            shasum -a 256 StylePort-iOS-Simulator-unsigned.zip > SHA256SUMS.txt
-          )
-      - name: Upload unsigned macOS app
-        uses: actions/upload-artifact@v7
-        with:
-          name: StylePort-macOS-unsigned-${{ github.sha }}
-          path: ${{ runner.temp }}/StylePort-artifacts/macos
-          if-no-files-found: error
-          retention-days: 14
+            "$artifact_root/ios-simulator/Shalielie-iOS-Simulator-unsigned.zip"
+          # An unsigned IPA for sideloading tools (Sideloadly, AltStore), which sign it with
+          # the installer's own Apple ID.
+          payload="$RUNNER_TEMP/ipa/Payload"
+          mkdir -p "$payload"
+          cp -R "$RUNNER_TEMP/StylePort-iOS/Build/Products/Release-iphoneos/StylePort.app" "$payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$artifact_root/ios-device/Shalielie-unsigned.ipa" Payload)
+          (cd "$artifact_root/ios-simulator" && shasum -a 256 *.zip > SHA256SUMS.txt)
+          (cd "$artifact_root/ios-device" && shasum -a 256 *.ipa > SHA256SUMS.txt)
       - name: Upload unsigned iOS and iPadOS Simulator app
         uses: actions/upload-artifact@v7
         with:
-          name: StylePort-iOS-Simulator-unsigned-${{ github.sha }}
+          name: Shalielie-iOS-Simulator-unsigned-${{ github.sha }}
           path: ${{ runner.temp }}/StylePort-artifacts/ios-simulator
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload unsigned iOS and iPadOS device IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: Shalielie-iOS-unsigned-ipa-${{ github.sha }}
+          path: ${{ runner.temp }}/StylePort-artifacts/ios-device
           if-no-files-found: error
           retention-days: 14

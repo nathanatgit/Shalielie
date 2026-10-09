@@ -23,7 +23,9 @@ let package = Package(
                 "tools",
                 "Sources/StylePortApp",
                 "Tests",
-                "Resources/Assets.xcassets"
+                "Resources/Assets.xcassets",
+                "Resources/en.lproj",
+                "Resources/zh-Hans.lproj"
             ],
             sources: ["Sources/StylePortCore"],
             resources: [.copy("Resources/Profiles")]

@@ -6,10 +6,11 @@ options:
     macOS: "14.0"
   xcodeVersion: "16.0"
   createIntermediateGroups: true
+  developmentLanguage: en
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.6.3"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   StylePortCore:
@@ -28,10 +29,12 @@ targets:
         SKIP_INSTALL: YES
   StylePort:
     type: application
-    supportedDestinations: [iOS, macOS]
+    supportedDestinations: [iOS]
     sources:
       - path: Sources/StylePortApp
       - path: Resources/Assets.xcassets
+      - path: Resources/en.lproj
+      - path: Resources/zh-Hans.lproj
     dependencies:
       - target: StylePortCore
         embed: true
@@ -40,15 +43,17 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.nathanhanapps.styleport
         PRODUCT_NAME: StylePort
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: StylePort
+        INFOPLIST_KEY_CFBundleDisplayName: Shalielie
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.photography
-        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: StylePort reads the original HEIC and paired Live Photo video you select.
-        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: StylePort saves patched HEIC images and Live Photos to your library.
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Shalielie reads the original HEIC and Live Photo video of the photos you style, and replaces them when you ask it to.
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: Shalielie saves the styled photos to your library.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         TARGETED_DEVICE_FAMILY: "1,2"
-        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Sources/StylePortApp/StylePort.entitlements
+        SUPPORTS_MACCATALYST: NO
   StylePortCoreTests:
     type: bundle.unit-test
     supportedDestinations: [iOS, macOS]

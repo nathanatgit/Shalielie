@@ -1,0 +1,5 @@
+/* App name under the icon */
+"CFBundleDisplayName" = "瞎咧咧";
+"CFBundleName" = "瞎咧咧";
+"NSPhotoLibraryUsageDescription" = "瞎咧咧读取你选择的照片的 HEIC 原图和实况照片视频。";
+"NSPhotoLibraryAddUsageDescription" = "瞎咧咧把加好风格的照片保存到你的图库。";

@@ -1,6 +1,8 @@
-import CoreGraphics
 import Foundation
+#if canImport(ImageIO)
+import CoreGraphics
 import ImageIO
+#endif
 
 enum SceneStatisticsMode: Equatable {
     case donor
@@ -90,10 +92,11 @@ enum StyleMaps {
         return output
     }
 
+    /// The 32x32 FP16 c/d maps from a linear-luma grid. Native maps use the stored
+    /// orientation as is (v0.6.2; earlier builds turned the grid 180 degrees).
     static func buildLightMaps(from linearGrid: [Double]) -> (Bytes, Bytes) {
-        let reversed = linearGrid.reversed()
         func make(slope: Double, intercept: Double) -> Bytes {
-            packFloat16LittleEndian(reversed.map {
+            packFloat16LittleEndian(linearGrid.map {
                 max(lightMapFloor, min(1, slope * $0 + intercept))
             })
         }
@@ -105,7 +108,57 @@ enum StyleMaps {
 }
 
 enum NativeImageAnalyzer {
+    /// The photo's embedded thumbnail as a one-item HEIC, or nil without one. Its irot/imir
+    /// are left out, so it decodes in the stored orientation the statistics and light maps
+    /// are measured in. Port of thumbnailHeic in web/src/decode.js.
+    static func thumbnailHEIC(_ data: Bytes) throws -> Bytes? {
+        let discovery = try HEIF.discover(data)
+        guard let thumbnail = discovery.thumbnail else { return nil }
+        let properties = try HEIF.associatedProperties(
+            data,
+            table: discovery.properties,
+            itemID: thumbnail
+        ).filter { $0.property.type != "irot" && $0.property.type != "imir" }
+        guard properties.contains(where: { $0.property.type == "hvcC" }) else { return nil }
+        let payload = try HEIF.extractItem(data, locations: discovery.locations, itemID: thumbnail)
+        func full(_ version: UInt8) -> Bytes { [version, 0, 0, 0] }
+        let ipco = makeBox("ipco", payload: concatenated(properties.map(\.bytes)))
+        let ipma = makeBox("ipma", payload: concatenated([
+            full(0), bigEndianBytes(1, count: 4), bigEndianBytes(1, count: 2),
+            [UInt8(properties.count)],
+            properties.enumerated().map {
+                UInt8(($0.element.association.essential ? 0x80 : 0) | ($0.offset + 1))
+            }
+        ]))
+        let infe = makeBox("infe", payload: concatenated([
+            full(2), bigEndianBytes(1, count: 2), bigEndianBytes(0, count: 2),
+            Bytes("hvc1".utf8), [0]
+        ]))
+        func parts(_ offset: Int) -> Bytes {
+            concatenated([
+                makeBox("hdlr", payload: full(0) + bigEndianBytes(0, count: 4)
+                    + Bytes("pict".utf8) + Bytes(repeating: 0, count: 13)),
+                makeBox("pitm", payload: full(0) + bigEndianBytes(1, count: 2)),
+                makeBox("iinf", payload: full(0) + bigEndianBytes(1, count: 2) + infe),
+                makeBox("iprp", payload: ipco + ipma),
+                makeBox("iloc", payload: concatenated([
+                    full(1), [0x44, 0x00], bigEndianBytes(1, count: 2), bigEndianBytes(1, count: 2),
+                    bigEndianBytes(0, count: 2), bigEndianBytes(0, count: 2),
+                    bigEndianBytes(1, count: 2), bigEndianBytes(offset, count: 4),
+                    bigEndianBytes(payload.count, count: 4)
+                ]))
+            ])
+        }
+        let ftyp = makeBox("ftyp", payload: Bytes("heic".utf8) + bigEndianBytes(0, count: 4)
+            + Bytes("mif1".utf8) + Bytes("heic".utf8))
+        let metaLength = makeBox("meta", payload: full(0) + parts(0)).count
+        let meta = makeBox("meta", payload: full(0) + parts(ftyp.count + metaLength + 8))
+        return concatenated([ftyp, meta, makeBox("mdat", payload: payload)])
+    }
+
+    /// Decode and resample to width x height in stored orientation; packed RGB bytes.
     static func rgb(from data: Bytes, width: Int, height: Int) throws -> Bytes {
+        #if canImport(ImageIO)
         guard width > 0, height > 0,
               let source = CGImageSourceCreateWithData(Data(data) as CFData, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, [
@@ -150,5 +203,8 @@ enum NativeImageAnalyzer {
             destination += 3
         }
         return rgb
+        #else
+        throw StylePortError.invalidData("No image decoder on this platform.")
+        #endif
     }
 }

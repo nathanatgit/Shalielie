@@ -8,6 +8,7 @@ public enum StylePortError: LocalizedError, Equatable {
     case photoSavePermissionDenied
     case photoAssetUnavailable
     case originalIsNotHEIC
+    case alreadyHasTexture
     case saveFailed(String)
 
     public var errorDescription: String? {
@@ -26,6 +27,8 @@ public enum StylePortError: LocalizedError, Equatable {
             return "The selected Photos asset is no longer available."
         case .originalIsNotHEIC:
             return "The selected asset's original photo is not HEIC."
+        case .alreadyHasTexture:
+            return "This photo already has a Photographic Style and Texture/Grain."
         case .saveFailed(let message):
             return "Could not save the result: \(message)"
         }

@@ -105,6 +105,7 @@ enum HEIF {
         var key: String
         var uri: String?
         var itemType: String = "hvc1"
+        var itemName: String = ""
         var contentType: String?
         var referenceType: String = "auxl"
         var referenceTargets: [Int] = []
@@ -586,9 +587,12 @@ enum HEIF {
         return output
     }
 
+    // A 'mime' entry carries its content type, and a 'uri ' entry its URI, as a second
+    // null-terminated string after the item name.
     private static func itemInfoBox(
         itemID: Int,
         itemType: String = "hvc1",
+        name: String = "",
         contentType: String? = nil
     ) -> Bytes {
         var parts: [Bytes] = [
@@ -596,13 +600,13 @@ enum HEIF {
             bigEndianBytes(itemID, count: 2),
             [0, 0],
             Bytes(itemType.utf8),
-            [0]
+            Bytes(name.utf8) + [0]
         ]
         if let contentType { parts.append(Bytes(contentType.utf8) + [0]) }
         return makeBox("infe", payload: concatenated(parts))
     }
 
-    private static func referenceBox(type: String, from: Int, targets: [Int]) -> Bytes {
+    static func referenceBox(type: String, from: Int, targets: [Int]) -> Bytes {
         makeBox(type, payload: concatenated(
             [bigEndianBytes(from, count: 2), bigEndianBytes(targets.count, count: 2)]
             + targets.map { bigEndianBytes($0, count: 2) }
@@ -671,6 +675,7 @@ enum HEIF {
             infoBoxes.append(itemInfoBox(
                 itemID: itemID,
                 itemType: spec.itemType,
+                name: spec.itemName,
                 contentType: spec.contentType
             ))
             if !spec.referenceTargets.isEmpty {
@@ -776,5 +781,158 @@ enum HEIF {
             }
         }
         return (makeBox("meta", payload: concatenated(rebuilt)), assigned)
+    }
+}
+
+// v0.5.1-v0.6.2 additions: idat items and the edits the photo's-own-graph path needs.
+extension HEIF {
+    /// Payload of a construction-method-1 item, which lives inside meta/idat; nil otherwise.
+    static func idatItemBytes(_ data: Bytes, itemID: Int) throws -> Bytes? {
+        let meta = try topBox(data, type: "meta")
+        guard let item = try parseLocations(data, meta: meta).items[itemID],
+              item.constructionMethod == 1, item.extents.count == 1 else { return nil }
+        let idat = try findChild(metaChildren(data, meta: meta), type: "idat")
+        let extent = item.extents[0]
+        return try byteSlice(
+            data,
+            idat.offset + idat.headerSize + item.baseOffset + extent.offset,
+            extent.length
+        )
+    }
+
+    /// Replace the payload of a single-extent idat item. Items stored after it move by the
+    /// size difference; iloc is patched first (size neutral), then idat is spliced and the
+    /// meta/idat sizes repaired. Mirrors replace_idat_item in the Python tool.
+    static func replaceIdatItem(in meta: Bytes, itemID: Int, payload: Bytes) throws -> Bytes {
+        let locations = try parseLocations(meta, meta: topBox(meta, type: "meta"))
+        guard let item = locations.items[itemID], item.constructionMethod == 1,
+              item.extents.count == 1 else {
+            throw StylePortError.invalidData("Item \(itemID) is not a single-extent idat item.")
+        }
+        let old = item.extents[0]
+        let start = item.baseOffset + old.offset
+        let delta = payload.count - old.length
+        var data = meta
+        if delta != 0 {
+            for (other, location) in locations.items
+                where other != itemID && location.constructionMethod == 1 {
+                for extent in location.extents where location.baseOffset + extent.offset > start {
+                    guard locations.offsetSize > 0 else {
+                        throw StylePortError.invalidData(
+                            "Cannot move idat items without iloc offset fields."
+                        )
+                    }
+                    try writeBytes(
+                        bigEndianBytes(extent.offset + delta, count: locations.offsetSize),
+                        into: &data,
+                        at: extent.offsetPosition
+                    )
+                }
+            }
+        }
+        try writeBytes(
+            bigEndianBytes(payload.count, count: locations.lengthSize),
+            into: &data,
+            at: old.lengthPosition
+        )
+
+        let metaBox = try topBox(data, type: "meta")
+        let idat = try findChild(metaChildren(data, meta: metaBox), type: "idat")
+        guard idat.headerSize == 8, metaBox.headerSize == 8 else {
+            throw StylePortError.invalidData("64-bit meta/idat box sizes are not supported.")
+        }
+        let position = idat.offset + idat.headerSize + start
+        var output = concatenated([
+            try byteSlice(data, 0, position),
+            payload,
+            try byteSlice(data, position + old.length, data.count - position - old.length)
+        ])
+        try writeBytes(bigEndianBytes(idat.size + delta, count: 4), into: &output, at: idat.offset)
+        try writeBytes(
+            bigEndianBytes(metaBox.size + delta, count: 4),
+            into: &output,
+            at: metaBox.offset
+        )
+        return output
+    }
+
+    /// Append one reference box to iref (version 0, 16-bit item IDs).
+    static func appendReference(in meta: Bytes, box referenceBox: Bytes) throws -> Bytes {
+        let metaBox = try topBox(meta, type: "meta")
+        let iref = try findChild(metaChildren(meta, meta: metaBox), type: "iref")
+        let newIREF = makeBox("iref", payload: concatenated([
+            try byteSlice(meta, iref.offset + iref.headerSize, iref.size - iref.headerSize),
+            referenceBox
+        ]))
+        var rebuilt: [Bytes] = [try byteSlice(meta, metaBox.offset + metaBox.headerSize, 4)]
+        for child in try siblingBoxes(
+            meta,
+            from: metaBox.offset + metaBox.headerSize + 4,
+            to: metaBox.offset + metaBox.size
+        ) {
+            rebuilt.append(child.type == "iref" ? newIREF : try byteSlice(meta, child.offset, child.size))
+        }
+        return makeBox("meta", payload: concatenated(rebuilt))
+    }
+
+    /// Store a freshly added single-extent item in idat (construction method 1), as Apple
+    /// stores grid descriptors. The iloc fields are size neutral and edited first; the idat
+    /// append and the meta size repair follow.
+    static func moveItemToIdat(in meta: Bytes, itemID: Int, payload: Bytes) throws -> Bytes {
+        let metaBox = try topBox(meta, type: "meta")
+        let locations = try parseLocations(meta, meta: metaBox)
+        guard locations.version == 1, locations.baseOffsetSize == 0, locations.indexSize == 0,
+              let extent = locations.items[itemID]?.extents.first else {
+            throw StylePortError.invalidData("Unsupported iloc layout for an idat item.")
+        }
+        let idat = try findChild(metaChildren(meta, meta: metaBox), type: "idat")
+        guard idat.headerSize == 8, metaBox.headerSize == 8 else {
+            throw StylePortError.invalidData("64-bit meta/idat box sizes are not supported.")
+        }
+        var data = meta
+        // item_ID, construction_method, data_reference_index, extent_count
+        let methodPosition = extent.offsetPosition - 6
+        data[methodPosition + 1] = (data[methodPosition + 1] & 0xf0) | 1
+        try writeBytes(
+            bigEndianBytes(idat.size - idat.headerSize, count: locations.offsetSize),
+            into: &data,
+            at: extent.offsetPosition
+        )
+        try writeBytes(
+            bigEndianBytes(payload.count, count: locations.lengthSize),
+            into: &data,
+            at: extent.lengthPosition
+        )
+        let end = idat.offset + idat.size
+        var output = Array(data[0..<end]) + payload + Array(data[end...])
+        try writeBytes(
+            bigEndianBytes(idat.size + payload.count, count: 4),
+            into: &output,
+            at: idat.offset
+        )
+        try writeBytes(
+            bigEndianBytes(metaBox.size + payload.count, count: 4),
+            into: &output,
+            at: metaBox.offset
+        )
+        return output
+    }
+
+    /// The property boxes associated with an item, in association order.
+    static func associatedProperties(
+        _ data: Bytes,
+        table: PropertyTable,
+        itemID: Int
+    ) throws -> [(association: PropertyAssociation, property: Property, bytes: Bytes)] {
+        try (table.associations[itemID] ?? []).compactMap { association in
+            let index = association.index - 1
+            guard table.properties.indices.contains(index) else { return nil }
+            let property = table.properties[index]
+            return (
+                association,
+                property,
+                try byteSlice(data, property.box.offset, property.box.size)
+            )
+        }
     }
 }

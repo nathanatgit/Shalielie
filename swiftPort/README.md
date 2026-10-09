@@ -1,85 +1,100 @@
-# StylePort
+# Shalielie for iPhone and iPad
 
-**Photographic Styles Palette for HEIC and Live Photos**
+**English:** Shalielie · **简体中文:** 瞎咧咧
 
-StylePort is a pure Swift/SwiftUI port of the browser and Python implementations in this
-repository. It does not embed a web view, JavaScript engine, Python runtime, or ffmpeg.
+A native SwiftUI app that adds the Photographic Styles palette to photos in your library, the
+same port as the command-line tool and the web app (v0.6.3), without leaving the phone. It is
+pure Swift: no web view, JavaScript engine, Python runtime or ffmpeg.
 
-The application targets iPhone, iPad, and Mac from one multiplatform Xcode project. When a
-photo is chosen from Photos, StylePort uses PhotoKit to read the underlying original photo
-resource rather than the JPEG rendition returned by a web file picker. For a Live Photo it
-also retains the original paired video and writes the patched HEIC and paired video together
-as a new Live Photo.
+Because it works through PhotoKit, it can do what the web app can't: read a Live Photo's
+original HEIC **and** its paired video, and save the styled photo back as a Live Photo.
 
-## Requirements
+## What it does
 
-- Xcode 16 or newer
-- iOS or iPadOS 17 or newer
-- macOS 14 or newer
-- A free or paid Apple development team for device builds
+- **Library** tab: every photo with full access, or only the photos you selected with
+  limited access (with a hint to select photos when there are none). Sort by filename, date
+  captured or date saved, ascending or descending.
+- **Albums** tab: your albums and the media-type albums, each in the same grid.
+- **Backup Bin** tab: originals kept by replace mode, to restore or delete.
+- **Settings** tab: save-as-new or replace mode, photo analysis, Texture & Grain, the About
+  page (features and privacy) and the repository link.
 
-## Open and build
+Select photos and tap **Add Style**, or open a photo and add it there. Each photo gets:
 
-Open `StylePort.xcodeproj` in Xcode, select the `StylePort` scheme, choose an iPhone, iPad,
-Mac, or simulator destination, and press **Run**.
+| Photo | Result |
+|---|---|
+| HEIC from an iPhone before 16 | The Photographic Styles palette, plus iOS 27 Texture & Grain (and Soft Skin for portraits with face data) |
+| HEIC from iPhone 16 or 17 with a style | Just Texture & Grain |
+| Already has both, or not a HEIC | Not selectable |
 
-The placeholder bundle identifier is `com.nathanhanapps.styleport`. Select your development
-team under **Signing & Capabilities** before installing on a physical device.
+### Save as new or replace
 
-Command-line builds on a Mac:
+- **Save as New** (default) saves `<name>_PhotographicStyle.HEIC` next to the original, and
+  for a Live Photo the original video as `<name>_PhotographicStyle.MOV`, as one Live Photo.
+  Photos that only get Texture & Grain use `_TextureGrain`.
+- **Replace Original** first copies the original HEIC and video into the Backup Bin, then
+  saves the styled photo with the original's file names, capture date, location, favorite,
+  hidden state and album memberships, and deletes the original, all in one PhotoKit change.
+  iOS asks once per batch to confirm the deletion; if you decline, nothing changes and the
+  backups are discarded. The deleted original also stays in Photos' Recently Deleted for
+  30 days.
+
+The patched HEIC keeps the photo's MakerNote `0x11`, the Live Photo content identifier the
+video carries, so Photos pairs the two again.
+
+### Backup Bin
+
+Originals stay in the app's Application Support folder until you act on them:
+
+- **Restore** puts the original (and its video) back with its date, location, favorite and
+  albums, and can delete the styled version at the same time.
+- **Export** shares the original files.
+- **Delete** removes them for good.
+
+### Shortcuts
+
+The **Add Photographic Style** action takes HEIC files (for example from *Select Photos*),
+returns the styled HEICs, and by default saves them as new photos. It never replaces.
+Shortcuts hands an app only the still, so for a Live Photo the app finds the library photo
+with the same capture date and content identifier and saves its video with the result.
+
+## Build
+
+Requirements: Xcode 16 or newer, iOS/iPadOS 17 or newer.
+
+Open `StylePort.xcodeproj`, select the `StylePort` scheme and an iPhone, iPad or simulator,
+choose your team under **Signing & Capabilities**, and run. Command line on a Mac:
 
 ```bash
 bash scripts/build-apple.sh
 ```
 
-The script builds the macOS app plus unsigned iOS and iPadOS simulator variants and runs the
-core unit tests. Device archives still require a configured signing team.
+`.github/workflows/swift-port.yml` runs the same on a macOS runner after a push and keeps two
+artifacts for 14 days: an unsigned simulator app and an **unsigned device IPA**. Sideloading
+tools such as Sideloadly or AltStore sign the IPA with your own Apple ID when they install
+it; with a free Apple ID the install lasts 7 days.
 
-The repository also contains `.github/workflows/swift-port.yml`, which performs the same
-unsigned Apple-platform builds on a macOS GitHub Actions runner after the branch is pushed.
-Apple targets cannot be compiled on Windows because the Photos, PhotosUI, SwiftUI, and
-ImageIO SDKs ship with Xcode.
+The core (`StylePortCore`) also builds and tests on Linux with `swift test`, which is how its
+output was compared with the Python tool: identical bytes for photos without people and for
+every Texture & Grain photo; for photos with people only the styles plist's byte packing
+differs (its parsed content is equal), exactly as for the web app.
 
-After every successful workflow run, GitHub Actions keeps two downloadable artifacts for 14
-days: an unsigned macOS app ZIP and an unsigned iPhone/iPad Simulator app ZIP. These are
-workflow artifacts only; the workflow does not create a GitHub Release or an installable,
-device-signed IPA.
-
-## Regenerating the Xcode project
-
-`StylePort.xcodeproj` is checked in, so XcodeGen is not required. If XcodeGen is installed,
-the project can also be regenerated from `project.yml`:
-
-```bash
-xcodegen generate
-```
+`StylePort.xcodeproj` is checked in; `project.yml` describes the same project for XcodeGen.
+The app icon is drawn by `tools/generate_app_icon.py` (Pillow).
 
 ## Source layout
 
 | Path | Role |
 |---|---|
-| `Sources/StylePortCore/` | Native HEIF graph, Exif, binary-plist, profile, and patch code |
-| `Sources/StylePortApp/` | SwiftUI interface and PhotoKit original/Live Photo handling |
-| `Resources/Profiles/` | Expanded donor profiles bundled without a ZIP dependency |
-| `Tests/StylePortCoreTests/` | Format, profile, and parser tests |
-| `Package.swift` | Standalone Swift package for the core and its tests |
-| `project.yml` | Reproducible multiplatform XcodeGen specification |
+| `Sources/StylePortCore/` | HEIF item graph, Exif, binary plist, Texture & Grain, the port itself |
+| `Sources/StylePortApp/` | SwiftUI tabs, PhotoKit reading/saving/replacing, Backup Bin, Shortcuts |
+| `Resources/Profiles/` | Built-in donor profiles, expanded |
+| `Resources/*.lproj/` | Localized app name |
+| `Tests/StylePortCoreTests/` | Core tests, and the opt-in byte comparison with Python |
 
-## Privacy and behavior
+## Privacy
 
-- Photo bytes remain on the device.
-- Original-resource access needs Photos read permission.
-- Saving a result to Photos needs Photos add permission.
-- Files selected through the document picker are handled with security-scoped access.
-- A file import has no Photos asset relationship, so it produces a normal HEIC rather than a
-  Live Photo unless a paired video is supplied through PhotoKit.
-
-For a Photos import, the app copies the `.pairedVideo` resource without transcoding it and
-adds the patched `.photo` plus that video in one `PHAssetCreationRequest`. The native Exif
-port retains the source MakerNote fields used for the Live Photo content identifier while
-replacing the Photographic Styles entry. Test this path with a real Live Photo on a physical
-device before distributing the app; simulator libraries do not reliably model original
-iPhone Live Photo resources.
-
-The port keeps the same supported tile layouts and donor-profile constraints as version
-0.4.4 of the browser implementation.
+Photos are processed on the device and never uploaded. There are no servers, accounts,
+analytics or ads. Reading needs Photos access (full or limited); saving needs add access;
+replacing needs full read-write access to the photos being replaced. Backups live in the
+app's own storage and are deleted with the app.

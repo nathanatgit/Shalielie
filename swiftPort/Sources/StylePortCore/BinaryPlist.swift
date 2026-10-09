@@ -227,12 +227,10 @@ enum BinaryPlist {
             case .dictionary(let dictionary):
                 let index = objects.count
                 objects.append(.dictionary(keys: [], values: []))
-                var keys: [Int] = []
-                var values: [Int] = []
-                for (key, value) in dictionary {
-                    keys.append(try add(.string(key)))
-                    values.append(try add(value))
-                }
+                // Every key before any value, as the Python and web builds lay it out, so
+                // all three write the same bytes.
+                let keys = try dictionary.map { try add(.string($0.0)) }
+                let values = try dictionary.map { try add($0.1) }
                 objects[index] = .dictionary(keys: keys, values: values)
                 return index
             }

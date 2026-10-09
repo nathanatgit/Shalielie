@@ -52,4 +52,43 @@ final class StylePortCoreTests: XCTestCase {
             XCTAssertEqual($0 as? StylePortError, .unsupportedPhoto)
         }
     }
+
+    /// Writes the port of every HEIC in STYLEPORT_FIXTURES to STYLEPORT_OUT, for comparing
+    /// with photographic_style_port.py byte for byte. Skipped unless both are set.
+    func testWriteReferenceComparisons() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let input = environment["STYLEPORT_FIXTURES"],
+              let output = environment["STYLEPORT_OUT"] else {
+            throw XCTSkip("Set STYLEPORT_FIXTURES and STYLEPORT_OUT to compare with Python.")
+        }
+        let porter = StylePorter()
+        let options = StylePortOptions(analyzePhoto: false, texture: true)
+        let files = try FileManager.default.contentsOfDirectory(atPath: input)
+            .filter { $0.lowercased().hasSuffix(".heic") }
+        for name in files.sorted() {
+            let data = try Data(contentsOf: URL(fileURLWithPath: input).appendingPathComponent(name))
+            let base = URL(fileURLWithPath: output).appendingPathComponent(name)
+            do {
+                let result = try porter.patch(data, options: options)
+                try result.data.write(to: base.appendingPathExtension("swift.heic"))
+                if result.report.mode == .photoGraph {
+                    let bytes = [UInt8](data)
+                    let target = try HEIF.discover(bytes)
+                    let profile = try DonorProfileLoader.profile(
+                        primaryTiles: target.primaryTiles.count,
+                        hdrTiles: target.hdrTiles.count
+                    )
+                    let donor = try porter.patchOnDonorGraph(
+                        bytes,
+                        target: target,
+                        profile: profile,
+                        options: options
+                    )
+                    try donor.data.write(to: base.appendingPathExtension("swift-donor.heic"))
+                }
+            } catch {
+                try Data("\(error)".utf8).write(to: base.appendingPathExtension("swift-error.txt"))
+            }
+        }
+    }
 }

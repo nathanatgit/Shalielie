@@ -1,6 +1,6 @@
 import Foundation
 
-enum AppleExif {
+public enum AppleExif {
     private struct MakerNoteLocation {
         let tiffStart: Int
         let tiff: Bytes
@@ -95,6 +95,41 @@ enum AppleExif {
             littleEndian: location.littleEndian
         )
         return try byteSlice(location.tiff, offset, total)
+    }
+
+    /// One Apple MakerNote entry's value bytes, or nil when the tag is absent.
+    static func makerNoteTag(in exifPayload: Bytes, tag wantedTag: Int) throws -> Bytes? {
+        let makerNote = try makerNoteBlob(from: exifPayload)
+        guard makerNote.count >= 16,
+              String(bytes: makerNote.prefix(9), encoding: .ascii) == "Apple iOS" else {
+            return nil
+        }
+        let littleEndian = String(bytes: makerNote[12..<14], encoding: .ascii) == "II"
+        let entryCount = try tiffUInt(makerNote, at: 14, count: 2, littleEndian: littleEndian)
+        for index in 0..<entryCount {
+            let position = 16 + index * 12
+            guard try tiffUInt(makerNote, at: position, count: 2, littleEndian: littleEndian)
+                    == wantedTag else { continue }
+            let type = try tiffUInt(makerNote, at: position + 2, count: 2, littleEndian: littleEndian)
+            let count = try tiffUInt(makerNote, at: position + 4, count: 4, littleEndian: littleEndian)
+            let total = (HEIF.tiffTypeSizes[type] ?? 1) * count
+            if total <= 4 { return try byteSlice(makerNote, position + 8, total) }
+            // MakerNote value offsets count from the start of the MakerNote.
+            let offset = try tiffUInt(makerNote, at: position + 8, count: 4, littleEndian: littleEndian)
+            return try byteSlice(makerNote, offset, total)
+        }
+        return nil
+    }
+
+    /// The Live Photo content identifier (MakerNote 0x11), which the paired video carries as
+    /// com.apple.quicktime.content.identifier.
+    public static func contentIdentifier(ofHEIC data: Data) -> String? {
+        let bytes = data.stylePortBytes
+        guard let discovery = try? HEIF.discover(bytes), let exif = discovery.exifItem,
+              let payload = try? HEIF.extractItem(bytes, locations: discovery.locations, itemID: exif),
+              let value = try? makerNoteTag(in: payload, tag: 0x11) else { return nil }
+        let text = String(decoding: value.prefix { $0 != 0 }, as: UTF8.self)
+        return text.isEmpty ? nil : text
     }
 
     static func injectMakerNoteTag(
