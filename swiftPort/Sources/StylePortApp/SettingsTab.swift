@@ -22,7 +22,7 @@ struct SettingsTab: View {
                 } footer: {
                     Text(replaceOriginals
                          ? "The styled photo takes the original's place, with its date, location, favorite and albums. The original goes to the Backup Bin, so you can restore it."
-                         : "The styled photo is saved next to the original as a new photo, named with \"_PhotographicStyle\". Live Photos stay Live Photos.")
+                         : "The styled photo is saved next to the original as a new photo, named with \"_PhotographicStyle\".")
                 }
 
                 Section {
@@ -96,8 +96,8 @@ struct AboutView: View {
                 )
                 Feature(
                     symbol: "livephoto",
-                    title: "Live Photos stay live",
-                    text: "The original video is kept and saved with the styled photo, so it still plays."
+                    title: "Live Photos",
+                    text: "For now a newly styled Live Photo is saved as a still, because Photos can't yet edit the style of its video; the original keeps its motion. Photos that only get Texture & Grain stay live."
                 )
                 Feature(
                     symbol: "arrow.triangle.2.circlepath",

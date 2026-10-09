@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 struct AddPhotographicStyleIntent: AppIntent {
     static var title: LocalizedStringResource = "Add Photographic Style"
     static var description = IntentDescription(
-        "Adds the Photographic Styles palette to HEIC photos, or Texture & Grain to photos that already have a style. Live Photos from your library stay Live Photos.",
+        "Adds the Photographic Styles palette to HEIC photos, or Texture & Grain to photos that already have a style. The results are still photos, except Texture & Grain photos, which stay Live Photos.",
         categoryName: "Photos"
     )
     static var openAppWhenRun = false
@@ -58,7 +58,7 @@ struct AddPhotographicStyleIntent: AppIntent {
             let photoURL = directory.appendingPathComponent(names.photo)
             try result.data.write(to: photoURL)
             var savedVideo: PairedVideo?
-            if let video, let videoName = names.video {
+            if let video, let videoName = names.video, LivePhotoPolicy.keepsVideo(result.report) {
                 let url = directory.appendingPathComponent(videoName)
                 try FileManager.default.copyItem(at: video.url, to: url)
                 savedVideo = PairedVideo(url: url, filename: videoName, typeIdentifier: video.typeIdentifier)

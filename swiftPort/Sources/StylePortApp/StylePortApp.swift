@@ -38,6 +38,7 @@ struct RootView: View {
             if let status = queue.statusLine {
                 Button {
                     showingActivity = true
+                    queue.dismissStatus()
                 } label: {
                     ActivityCapsule(status: status, isRunning: queue.isRunning)
                 }

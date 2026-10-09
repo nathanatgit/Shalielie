@@ -6,8 +6,14 @@ A native SwiftUI app that adds the Photographic Styles palette to photos in your
 same port as the command-line tool and the web app (v0.6.3), without leaving the phone. It is
 pure Swift: no web view, JavaScript engine, Python runtime or ffmpeg.
 
-Because it works through PhotoKit, it can do what the web app can't: read a Live Photo's
-original HEIC **and** its paired video, and save the styled photo back as a Live Photo.
+It works through PhotoKit, so it reads each photo's original HEIC (and a Live Photo's video)
+straight from the library and saves the result back, with no files to move around.
+
+> **Live Photos:** Photos' editor applies the style to a Live Photo's video too, and aborts
+> when the video has no style data, which iPhone 15 and earlier videos lack. Until the video
+> side is ported, a newly styled Live Photo is saved as a **still**; the original keeps its
+> motion (and in replace mode the original, with its video, stays in the Backup Bin).
+> iPhone 16/17 Live Photos that only get Texture & Grain keep their own video.
 
 ## What it does
 
@@ -29,9 +35,9 @@ Select photos and tap **Add Style**, or open a photo and add it there. Each phot
 
 ### Save as new or replace
 
-- **Save as New** (default) saves `<name>_PhotographicStyle.HEIC` next to the original, and
-  for a Live Photo the original video as `<name>_PhotographicStyle.MOV`, as one Live Photo.
-  Photos that only get Texture & Grain use `_TextureGrain`.
+- **Save as New** (default) saves `<name>_PhotographicStyle.HEIC` next to the original.
+  Photos that only get Texture & Grain use `_TextureGrain`, and a Live Photo among them keeps
+  its video as `<name>_TextureGrain.MOV`.
 - **Replace Original** first copies the original HEIC and video into the Backup Bin, then
   saves the styled photo with the original's file names, capture date, location, favorite,
   hidden state and album memberships, and deletes the original, all in one PhotoKit change.
@@ -40,7 +46,7 @@ Select photos and tap **Add Style**, or open a photo and add it there. Each phot
   30 days.
 
 The patched HEIC keeps the photo's MakerNote `0x11`, the Live Photo content identifier the
-video carries, so Photos pairs the two again.
+video carries, so a kept video pairs with it again.
 
 ### Backup Bin
 
@@ -55,8 +61,8 @@ Originals stay in the app's Application Support folder until you act on them:
 
 The **Add Photographic Style** action takes HEIC files (for example from *Select Photos*),
 returns the styled HEICs, and by default saves them as new photos. It never replaces.
-Shortcuts hands an app only the still, so for a Live Photo the app finds the library photo
-with the same capture date and content identifier and saves its video with the result.
+Shortcuts hands an app only the still; for a Texture & Grain Live Photo the app finds the
+library photo with the same capture date and content identifier and saves its video too.
 
 ## Build
 

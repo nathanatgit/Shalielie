@@ -41,6 +41,9 @@ struct PortJob: Identifiable {
 final class PortQueue: ObservableObject {
     @Published private(set) var jobs: [PortJob] = []
     @Published private(set) var isRunning = false
+    /// Whether the floating status capsule shows. It hides 2 seconds after a batch that
+    /// went through, and stays after a failure until the Activity sheet is opened.
+    @Published private(set) var showsStatus = false
     weak var backups: BackupStore?
 
     private let library = PhotoLibraryService()
@@ -64,7 +67,7 @@ final class PortQueue: ObservableObject {
 
     /// One line for the floating status capsule; nil hides it.
     var statusLine: String? {
-        guard !jobs.isEmpty else { return nil }
+        guard showsStatus, !jobs.isEmpty else { return nil }
         let finished = jobs.filter(\.isFinished).count
         let failed = jobs.filter(\.isFailed).count
         if isRunning { return "Styling \(min(finished + 1, jobs.count)) of \(jobs.count)…" }
@@ -74,6 +77,10 @@ final class PortQueue: ObservableObject {
 
     func job(forAsset identifier: String) -> PortJob? {
         jobs.last { $0.assetIdentifier == identifier }
+    }
+
+    func dismissStatus() {
+        if !isRunning { showsStatus = false }
     }
 
     func clearFinished() {
@@ -109,6 +116,7 @@ final class PortQueue: ObservableObject {
         if !isRunning { jobs.removeAll(where: \.isFinished) }
         jobs.append(contentsOf: newJobs)
         pending.append(batch)
+        showsStatus = true
         guard !isRunning else { return }
         isRunning = true
         Task { await drain() }
@@ -120,6 +128,9 @@ final class PortQueue: ObservableObject {
             await run(batch)
         }
         isRunning = false
+        guard !jobs.contains(where: \.isFailed) else { return }
+        try? await Task.sleep(for: .seconds(2))
+        if !isRunning { showsStatus = false }
     }
 
     private func run(_ batch: Batch) async {
@@ -144,7 +155,15 @@ final class PortQueue: ObservableObject {
                     }
                     let output = try await port(original, replace: batch.replace, options: options)
                     ported.append((jobID: jobID, asset: Optional(asset), original: original, output: output))
-                    update(jobID) { $0.report = output.report }
+                    update(jobID) {
+                        $0.report = output.report
+                        if original.video != nil && output.video == nil {
+                            $0.isLivePhoto = false
+                            $0.warnings.append(batch.replace
+                                ? "Saved as a still photo: Photos can't edit a styled Live Photo yet. The original, with its motion, is in the Backup Bin."
+                                : "Saved as a still photo: Photos can't edit a styled Live Photo yet. The original Live Photo is unchanged.")
+                        }
+                    }
                 } catch {
                     update(jobID) { $0.phase = .failed(error.localizedDescription) }
                 }
@@ -238,8 +257,8 @@ final class PortQueue: ObservableObject {
         let directory = try TemporaryFiles.newDirectory()
         let photoURL = directory.appendingPathComponent(names.photo)
         try result.data.write(to: photoURL, options: .atomic)
-        var video = original.video
-        if let source = original.video, let name = names.video {
+        var video: PairedVideo?
+        if LivePhotoPolicy.keepsVideo(result.report), let source = original.video, let name = names.video {
             let url = directory.appendingPathComponent(name)
             try FileManager.default.copyItem(at: source.url, to: url)
             video = PairedVideo(url: url, filename: name, typeIdentifier: source.typeIdentifier)
@@ -250,6 +269,16 @@ final class PortQueue: ObservableObject {
     private func update(_ id: UUID, _ body: (inout PortJob) -> Void) {
         guard let index = jobs.firstIndex(where: { $0.id == id }) else { return }
         body(&jobs[index])
+    }
+}
+
+/// Which results keep their Live Photo video. Photos' editor applies the style to a Live
+/// Photo's video too and aborts when the video has no style data, which an iPhone 15 or
+/// earlier video lacks. So a newly styled photo is saved as a still; a native style photo
+/// that only gets Texture & Grain keeps its own, style-ready video.
+enum LivePhotoPolicy {
+    static func keepsVideo(_ report: StylePortReport) -> Bool {
+        report.mode == .addTexture
     }
 }
 

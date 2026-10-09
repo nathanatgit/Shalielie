@@ -101,11 +101,18 @@ struct AssetDetailView: View {
             Divider()
             InfoRow(title: "Size", value: "\(asset.pixelWidth) × \(asset.pixelHeight)")
             Divider()
-            InfoRow(title: "Live Photo", value: asset.mediaSubtypes.contains(.photoLive) ? "Yes, the motion is kept" : "No")
+            InfoRow(title: "Live Photo", value: liveStatus(asset))
             Divider()
             InfoRow(title: "Photographic Style", value: styleStatus(asset))
         }
         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func liveStatus(_ asset: PHAsset) -> String {
+        guard asset.mediaSubtypes.contains(.photoLive) else { return "No" }
+        return eligibility == .addTexture
+            ? "Yes, the motion is kept"
+            : "Yes; the styled copy is a still photo for now"
     }
 
     private func styleStatus(_ asset: PHAsset) -> String {
