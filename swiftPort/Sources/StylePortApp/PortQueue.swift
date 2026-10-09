@@ -1,6 +1,7 @@
 import Foundation
 import Photos
 import StylePortCore
+import UniformTypeIdentifiers
 
 struct PortJob: Identifiable {
     enum Phase {
@@ -53,7 +54,7 @@ final class PortQueue: ObservableObject {
     private struct Batch {
         enum Source {
             case assets([PHAsset])
-            case files([URL])
+            case files([FileItem])
         }
 
         let source: Source
@@ -104,12 +105,27 @@ final class PortQueue: ObservableObject {
         ))
     }
 
+    /// A HEIC chosen in Files, with the video of the same name when one was chosen too.
+    struct FileItem {
+        let photo: URL
+        let video: URL?
+    }
+
     /// Port HEIC files chosen in Files. They have no library photo to replace, so they are
-    /// always saved as new photos, without a Live Photo video.
+    /// always saved as new photos. A HEIC chosen together with a video of the same name
+    /// (`NAME.HEIC` + `NAME.MOV`) that already has a Photographic Style is saved with that
+    /// video as a Live Photo, unchanged: the way to bring a pair prepared elsewhere into
+    /// Photos.
     func port(files: [URL]) {
-        guard !files.isEmpty else { return }
-        let newJobs = files.map { PortJob(assetIdentifier: nil, title: $0.lastPathComponent) }
-        enqueue(newJobs, Batch(source: .files(files), replace: false, jobIDs: newJobs.map(\.id)))
+        let isVideo = { (url: URL) in ["mov", "mp4"].contains(url.pathExtension.lowercased()) }
+        let key = { (url: URL) in url.deletingPathExtension().lastPathComponent.lowercased() }
+        let videos = Dictionary(files.filter(isVideo).map { (key($0), $0) }) { first, _ in first }
+        let items = files.filter { !isVideo($0) }.map { FileItem(photo: $0, video: videos[key($0)]) }
+        guard !items.isEmpty else { return }
+        let newJobs = items.map {
+            PortJob(assetIdentifier: nil, title: $0.photo.lastPathComponent, isLivePhoto: $0.video != nil)
+        }
+        enqueue(newJobs, Batch(source: .files(items), replace: false, jobIDs: newJobs.map(\.id)))
     }
 
     private func enqueue(_ newJobs: [PortJob], _ batch: Batch) {
@@ -168,19 +184,27 @@ final class PortQueue: ObservableObject {
                     update(jobID) { $0.phase = .failed(error.localizedDescription) }
                 }
             }
-        case .files(let urls):
-            for (jobID, url) in zip(batch.jobIDs, urls) {
-                let scoped = url.startAccessingSecurityScopedResource()
-                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        case .files(let items):
+            for (jobID, item) in zip(batch.jobIDs, items) {
                 do {
                     update(jobID) { $0.phase = .porting }
-                    let original = OriginalPhoto(
-                        data: try Data(contentsOf: url),
-                        filename: url.lastPathComponent,
-                        video: nil,
-                        hasEdits: false
-                    )
-                    let output = try await port(original, replace: false, options: options)
+                    let original = try Self.readFiles(item)
+                    let output: PortOutput
+                    if original.video != nil,
+                       StylePorter.eligibility(of: original.data) == .alreadyStyled {
+                        output = try Self.asIs(original)
+                        update(jobID) {
+                            $0.warnings.append("Already has a Photographic Style; saved unchanged with its video as a Live Photo.")
+                        }
+                    } else {
+                        output = try await port(original, replace: false, options: options)
+                        if original.video != nil && output.video == nil {
+                            update(jobID) {
+                                $0.isLivePhoto = false
+                                $0.warnings.append("Saved as a still photo: Photos can't edit a styled Live Photo yet.")
+                            }
+                        }
+                    }
                     ported.append((jobID: jobID, asset: nil, original: original, output: output))
                     update(jobID) {
                         $0.report = output.report
@@ -236,6 +260,35 @@ final class PortQueue: ObservableObject {
             backups.discard(added)
             throw error
         }
+    }
+
+    /// Copy a Files selection into the app's temporary folder while access lasts.
+    private static func readFiles(_ item: FileItem) throws -> OriginalPhoto {
+        func scoped<T>(_ url: URL, _ body: () throws -> T) rethrows -> T {
+            let granted = url.startAccessingSecurityScopedResource()
+            defer { if granted { url.stopAccessingSecurityScopedResource() } }
+            return try body()
+        }
+        let data = try scoped(item.photo) { try Data(contentsOf: item.photo) }
+        var video: PairedVideo?
+        if let source = item.video {
+            let copy = try TemporaryFiles.newDirectory().appendingPathComponent(source.lastPathComponent)
+            try scoped(source) { try FileManager.default.copyItem(at: source, to: copy) }
+            video = PairedVideo(
+                url: copy,
+                filename: source.lastPathComponent,
+                typeIdentifier: UTType(filenameExtension: source.pathExtension)?.identifier
+                    ?? UTType.quickTimeMovie.identifier
+            )
+        }
+        return OriginalPhoto(data: data, filename: item.photo.lastPathComponent, video: video, hasEdits: false)
+    }
+
+    /// A pair saved exactly as chosen.
+    private static func asIs(_ original: OriginalPhoto) throws -> PortOutput {
+        let photoURL = try TemporaryFiles.newDirectory().appendingPathComponent(original.filename)
+        try original.data.write(to: photoURL, options: .atomic)
+        return PortOutput(photoURL: photoURL, photoFilename: original.filename, video: original.video, report: nil)
     }
 
     /// Port off the main actor and write the result to a temporary file.

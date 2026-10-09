@@ -21,12 +21,13 @@ struct OriginalPhoto: Sendable {
     let hasEdits: Bool
 }
 
-/// A finished port, written to a temporary file and ready to be saved.
+/// A finished port, written to a temporary file and ready to be saved. `report` is nil for
+/// a file pair saved as it was.
 struct PortOutput: Sendable {
     let photoURL: URL
     let photoFilename: String
     let video: PairedVideo?
-    let report: StylePortReport
+    let report: StylePortReport?
 }
 
 /// What a replaced photo had in the library besides its resources, so a replacement and a

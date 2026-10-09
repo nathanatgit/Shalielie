@@ -38,7 +38,7 @@ struct LibraryTab: View {
                             Button {
                                 importingFiles = true
                             } label: {
-                                Label("Import HEIC Files…", systemImage: "folder")
+                                Label("Import HEIC (and MOV) Files…", systemImage: "folder")
                             }
                         } label: {
                             Label("More", systemImage: "ellipsis.circle")
@@ -47,7 +47,7 @@ struct LibraryTab: View {
                 }
                 .fileImporter(
                     isPresented: $importingFiles,
-                    allowedContentTypes: [.heic, .heif],
+                    allowedContentTypes: [.heic, .heif, .quickTimeMovie],
                     allowsMultipleSelection: true
                 ) { result in
                     if case .success(let urls) = result { queue.port(files: urls) }
