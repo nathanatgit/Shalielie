@@ -109,7 +109,7 @@ import zlib
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
-VERSION = "0.6.3"
+VERSION = "0.7.0"
 
 URI_HDR_GAIN = "urn:com:apple:photo:2020:aux:hdrgainmap"
 URI_LINEAR_THUMB = "tag:apple.com,2023:photo:aux:linearthumbnail"
@@ -3810,17 +3810,474 @@ def build_parser():
     return p
 
 
+# ----------------------------------------------------------- Live Photo video ---
+# When a Live Photo is edited, Photos applies the still's Photographic Style to its video too,
+# and on iOS 27 the editor crashes unless the video carries the style parts a native iPhone 18
+# (iOS 27) Live Photo video has:
+#
+#   auxv  video-map.smart-style-linear-thumbnail  128x96 Main 10 HEVC, every frame
+#   auxv  video-map.sky / .person / .skin          256x192 monochrome HEVC mattes
+#   mebx  com.apple.quicktime.smartstyle-info      per-frame tone curve and statistics
+#   mebx  com.apple.quicktime.texturestyle-info    per-frame Texture/Grain capture info
+#   moov  com.apple.quicktime.smartstyle.* / texturestyle.* keys
+#
+# patch_live_video() adds whichever of these a video lacks, cloned from an embedded template
+# (the track headers and sample descriptions of a native iOS 27 video, its neutral style keys
+# and one smartstyle-info sample; no pictures and no per-frame capture data). The thumbnail is
+# the video's own frames, encoded with ffmpeg; the mattes are empty. Phone-validated on iOS
+# 27.0.1 with iPhone 15 Pro videos: Photos' editor opens the pair. The video keeps its own
+# boxes and payloads; new samples go into a second mdat after moov.
+
+LIVE_VIDEO_TEMPLATE_B85 = (
+    "c-rlk3se+U7=UMHSKcb<B9NpTf=`xr9MVicRD6Yad|-((%#1MZ&h9!hOF-(uP!45k;!!iTP@@zhQ4=5eAT!_Z1QJP8Kv7W;K"
+    "@fR#@9r!tDC^oemYw4qE;IlA|NH;{z5h3N=OT#R6Go+qLl99AL-9C*ATF__f<=UjA+>#NF0@KcC2)dZ1zG^KB2<hAu2w53k2"
+    "xBekn=P{d2kHQ@*JN4I$26dQY@{Ek;PFgN2`=z+#nOi@hT++Ox;Z|B~%I(Ox()^TUyCeN{;3efW4;)_R$GyoZ~3c#H<ON<AL"
+    "emj!bzfp4YHc$4ldB(nvLUpkN>$lgte#?P1c07#62NI;b11&`!u1mLD_;iEFvA*CQe5Faw=~0Wwf0GNKc=*9}Y3>YPC91e%>"
+    ";JQz$0ni*)0?GiCe#=L_>;aH33jJ50_A!h;kXG{bu<5^q|9;Wm1SO`kjn|Ci|!6r-|rd*3W>q2$6=4OMwDBUd({!40+LwH;b"
+    "3n3vC)GVZ}PNHU2PxVpC_I>ChhNNNcQijy#iL~a4MZg><AJL8&s^18hSOtq~;^QDHEma$?Vkzl(3b>L6Y2s-Gjk5{T2{ZxW0"
+    "YR2Cv=RoE#4*|+C=!^2Bx$oi0`!ha=vYB>hK?N!9EX5KmWJX=Qb9p`S5oKGnPi2@>z2+2`p`Y2P8=T%e4%z6&ylS*C>k3_c("
+    "+|{L;x0pixY)}g2zz3g*bG?l;Mbx%TZe_7I+<wVvwk8ZFhVn($H96k092fbP&fe5Vb*@o1uXST8Q9ZyaN`v0Vv&qQM8>V-By"
+    "bGOJ|JkF=F~&_Kva})(zbVEX_mETy~t~1PIU#>~gG<P!Ir7REudJg(`+?eUn*=@bU8T(n&I)6A~Vy(QW0yJRU<l>&1_wNlGP"
+    "SaJ6nDlWBJVnSxeQI4k30HB7V;r@_)<nMOFrUYPUTR?g8@`6<o~bS<14_USoq?L#m88=Nct8_tnx9p^}STh5UpW1ORKY5oc4"
+    "YAxqtxN9CduIId=u1?RngN}1(Akta@ob{Ny0?gYga-~wQhy@9*)9l&OQ(N{#S$K&%q}&E5%!FLL1%wBffUq3=$YEJVNEN>(^"
+    ");z4i&Q^>RQKnTss`VD@RJYQY6R9!I=AN5uRg5i)~{jxf5GY_z&g;BZB=_5C^mwsMTe-O#^u1aqJ-B~$%Y^~LimW2n~0vDA$"
+    "sswD-fcM*xi7T@j$2hl1IA=#7Sdx#5u+=aIP@17V=&;eTxP9lH1Y8F;sNCflLSo@DByq6UgNAkEJq@feM)0l6->NaH%;`4a3"
+    "=hJ1s;hHBw^Bmsn!vC6?Ik6)5o%p~Q>Yl~~iR#FS9tNI~{CR${|5`wJ8qOW+tdF>DSD60HVV@?KtfC?*njGBdZZv<mkPe>>b"
+    "S+$%gb%nlQyDEuMng-k(mkdbH?Od`U?VzZSNy*jgYQ|-$ggPh6UkuH92<^56z+Q<?;^SpccMffKNqz~TyZq9qzf$701A;idl"
+    "Q1O@(V^hWt4ZAmC)x>uu6--u5MW-$Mz+w8@$Tw!LjIxfNN8BZ+%-SE*o1Q<rQ0~K|DhpKu=4jZ1oLDm|F7>0M@o3`UkLS$In"
+    "3q4_EXjAlj89UMvld=hRGlJ8_5C#Lv)PN2KVP$C+tS0!E`3q5yeh3}h1JULt9q_}>&w1t27EPWt^2w`>-&H0`c3b2rww)+Ej"
+    "Bf7s`|DxBmcW&-|ya>u_Y~Y{?^zZCT0!!(Pf)O_WkUO+js3)y)*u&h+P3WJ$66beQr<Y-i7;S{OrHK%Yl*u`wlKUMCAJaVsW"
+    "_eaOSUxM@IkVaJ1xT_OZm{!6z(Fo;{g%YSL-@GkIrLoDDl?b^gftxfgsdmR(%;d)Os3Z+qU%{LTe?3&=mZT+X>1Stz=)`O4U"
+    "$dqqqClwCb}mAuw)ZTVk)uJ61abmR1m$;Cy*(IsUiiqeWw_Ga}>&8?bSd|6eQ>UR0<*gM5{BJbwkeZTx@`Otei@AbdG{=RKR"
+    "az#x=Ol3jks0TR@T&vQmnycgw^B)FPZ>^Tp%&RG_8TV+%Bd6N=wZ*lg>N4wW9xET8f9zeKR$o;g{$$&e&JFU06AgVElN+x!4"
+    "ryA|RM|APIitC$*%omLyg6%@t*y(jetY0%-yN|>91tg@C-NrdhV{eTF%JPQ{kz|8m%x1g2L7EA$p"
+)
+
+LIVE_THUMB_TAG = b"com.apple.quicktime.video-map.smart-style-linear-thumbnail"
+LIVE_MATTE_TAGS = (b"com.apple.quicktime.video-map.sky", b"com.apple.quicktime.video-map.person",
+                   b"com.apple.quicktime.video-map.skin")
+LIVE_INFO_TAGS = (b"com.apple.quicktime.smartstyle-info", b"com.apple.quicktime.texturestyle-info")
+LIVE_STYLE_KEY_PREFIXES = (b"com.apple.quicktime.smartstyle.", b"com.apple.quicktime.texturestyle.")
+LIVE_ID_KEY = b"com.apple.quicktime.content.identifier"
+LIVE_PHOTO_INFO_TAG = b"com.apple.quicktime.live-photo-info"
+LIVE_TEXTURE_INFO = {
+    # A native sample's fields with no faces; BrightnessValue is a typical daylight value.
+    "Preset": "Standard", "CaptureType": "None", "PortType": "PortTypeBack",
+    "CaptureMode": "LivePhoto", "BrightnessValue": 3.5, "TextureStyleFaceAttitudeMetadata": [],
+    "HardwareModel": "iPhone19,7", "TextureStylePeopleDataVersion": 3,
+}
+_MOV_PLACEHOLDER = 0xDEADBE00
+
+
+def _mov_boxes(data: bytes, start: int, end: int):
+    p = start
+    while p + 8 <= end:
+        size, typ = struct.unpack(">I4s", data[p:p + 8])
+        hdr = 8
+        if size == 1:
+            size = struct.unpack(">Q", data[p + 8:p + 16])[0]
+            hdr = 16
+        elif size == 0:
+            size = end - p
+        if size < hdr or p + size > end:
+            raise PortError(f"MOV: bad {typ!r} box at offset {p}")
+        yield p, size, hdr, typ
+        p += size
+
+
+def _mov_child(data: bytes, start: int, end: int, typ: bytes):
+    for p, s, h, t in _mov_boxes(data, start, end):
+        if t == typ:
+            return p, s, h
+    return None
+
+
+def _mov_path(data: bytes, start: int, end: int, types):
+    found = None
+    for t in types:
+        found = _mov_child(data, start, end, t)
+        if not found:
+            return None
+        start, end = found[0] + found[2], found[0] + found[1]
+    return found
+
+
+def _mov_box(typ: bytes, *parts: bytes) -> bytes:
+    body = b"".join(parts)
+    return struct.pack(">I4s", 8 + len(body), typ) + body
+
+
+def _mov_full(version: int, flags: int = 0) -> bytes:
+    return bytes([version]) + flags.to_bytes(3, "big")
+
+
+def _mov_raw(data: bytes, found) -> bytes:
+    return data[found[0]:found[0] + found[1]]
+
+
+def _mov_tracks(data: bytes):
+    moov = _mov_child(data, 0, len(data), b"moov")
+    if moov is None:
+        raise PortError("MOV: no moov box")
+    mp, ms, mh = moov
+    return moov, [(p, s, h) for p, s, h, t in _mov_boxes(data, mp + mh, mp + ms) if t == b"trak"]
+
+
+def _mov_handler(data: bytes, trak) -> bytes:
+    hd = _mov_path(data, trak[0] + trak[2], trak[0] + trak[1], [b"mdia", b"hdlr"])
+    return data[hd[0] + hd[2] + 8:hd[0] + hd[2] + 12] if hd else b""
+
+
+def _mov_tkhd(data: bytes, trak):
+    """(offset of track_ID, offset of duration, duration width) inside the trak's tkhd."""
+    tk = _mov_child(data, trak[0] + trak[2], trak[0] + trak[1], b"tkhd")
+    v = data[tk[0] + tk[2]]
+    id_off = tk[0] + tk[2] + 4 + (16 if v == 1 else 8)
+    return id_off, id_off + 8, 8 if v == 1 else 4
+
+
+def _mov_track_id(data: bytes, trak) -> int:
+    return struct.unpack(">I", data[_mov_tkhd(data, trak)[0]:][:4])[0]
+
+
+def _mov_stbl(data: bytes, trak):
+    st = _mov_path(data, trak[0] + trak[2], trak[0] + trak[1], [b"mdia", b"minf", b"stbl"])
+    return {t: (q, s, h) for q, s, h, t in _mov_boxes(data, st[0] + st[2], st[0] + st[1])}
+
+
+def _mov_stts(data: bytes, tables) -> List[int]:
+    q, _s, h = tables[b"stts"]
+    n = struct.unpack(">I", data[q + h + 4:q + h + 8])[0]
+    out: List[int] = []
+    for k in range(n):
+        count, delta = struct.unpack(">II", data[q + h + 8 + 8 * k:q + h + 16 + 8 * k])
+        out += [delta] * count
+    return out
+
+
+def _mov_stts_box(deltas: List[int]) -> bytes:
+    runs: List[List[int]] = []
+    for d in deltas:
+        if runs and runs[-1][1] == d:
+            runs[-1][0] += 1
+        else:
+            runs.append([1, d])
+    return _mov_box(b"stts", _mov_full(0), struct.pack(">I", len(runs)),
+                    *(struct.pack(">II", *r) for r in runs))
+
+
+def _mov_samples(data: bytes, trak) -> List[bytes]:
+    """Every sample's bytes, in decode order, from stsz/stsc/stco(co64)."""
+    tabs = _mov_stbl(data, trak)
+    q, _s, h = tabs[b"stsz"]
+    fixed, count = struct.unpack(">II", data[q + h + 4:q + h + 12])
+    sizes = [fixed] * count if fixed else list(struct.unpack(f">{count}I", data[q + h + 12:q + h + 12 + 4 * count]))
+    q, _s, h = tabs[b"stsc"]
+    n = struct.unpack(">I", data[q + h + 4:q + h + 8])[0]
+    stsc = [struct.unpack(">III", data[q + h + 8 + 12 * i:q + h + 20 + 12 * i]) for i in range(n)]
+    wide = b"co64" in tabs
+    q, _s, h = tabs[b"co64" if wide else b"stco"]
+    n = struct.unpack(">I", data[q + h + 4:q + h + 8])[0]
+    offsets = struct.unpack(f">{n}{'Q' if wide else 'I'}", data[q + h + 8:q + h + 8 + (8 if wide else 4) * n])
+    out, k = [], 0
+    for chunk, offset in enumerate(offsets, 1):
+        per = next(spc for first, spc, _ in reversed(stsc) if first <= chunk)
+        for _ in range(per):
+            out.append(data[offset:offset + sizes[k]])
+            offset += sizes[k]
+            k += 1
+    return out
+
+
+def _mov_meta_items(data: bytes, meta):
+    """keys (each 'size + namespace + name' as stored) and [(key index, item body)] of an
+    mdta meta box."""
+    keys: List[bytes] = []
+    items: List[Tuple[int, bytes]] = []
+    for q, s, h, t in _mov_boxes(data, meta[0] + meta[2], meta[0] + meta[1]):
+        if t == b"keys":
+            n = struct.unpack(">I", data[q + h + 4:q + h + 8])[0]
+            r = q + h + 8
+            for _ in range(n):
+                ks = struct.unpack(">I", data[r:r + 4])[0]
+                keys.append(data[r:r + ks])
+                r += ks
+        elif t == b"ilst":
+            for q2, s2, h2, t2 in _mov_boxes(data, q + h, q + s):
+                items.append((struct.unpack(">I", t2)[0], data[q2 + h2:q2 + s2]))
+    return keys, items
+
+
+def _mov_utf8_item(value: str) -> bytes:
+    v = value.encode("utf-8")
+    return struct.pack(">I4sII", 16 + len(v), b"data", 1, 0) + v
+
+
+def live_video_template():
+    """(template MOV bytes, one smartstyle-info sample)."""
+    packed = zlib.decompress(base64.b85decode(LIVE_VIDEO_TEMPLATE_B85.encode("ascii")))
+    moov = _mov_child(packed, 0, len(packed), b"moov")
+    smpl = _mov_child(packed, 0, len(packed), b"smpl")
+    return packed[:moov[0] + moov[1]], packed[smpl[0] + smpl[2]:smpl[0] + smpl[1]]
+
+
+def live_texture_sample() -> bytes:
+    pl = plistlib.dumps(LIVE_TEXTURE_INFO, fmt=plistlib.FMT_BINARY, sort_keys=False)
+    return struct.pack(">II", 8 + len(pl), 1) + pl   # size, mebx key 1, value
+
+
+def _encode_live_track(inputs: List[str], vf: str, pix_fmt: str, frames: int):
+    """Encode with libx265 (no B-frames); returns (samples, hvcC box, stss box)."""
+    ffmpeg = require_cmd("ffmpeg")
+    with tempfile.TemporaryDirectory(prefix="stylelive_") as tmp:
+        out = Path(tmp) / "enc.mp4"
+        cmd = [ffmpeg, "-v", "error", "-y", *inputs, "-vf", vf, "-pix_fmt", pix_fmt,
+               "-c:v", "libx265", "-x265-params", "bframes=0:keyint=30:min-keyint=1:log-level=error",
+               "-tag:v", "hvc1", str(out)]
+        r = subprocess.run(cmd, capture_output=True)
+        if r.returncode != 0:
+            raise PortError("ffmpeg/libx265 failed on the video: " + r.stderr.decode("utf-8", errors="replace"))
+        enc = out.read_bytes()
+    _moov, ts = _mov_tracks(enc)
+    t = ts[0]
+    ss = _mov_samples(enc, t)
+    if len(ss) != frames:
+        raise PortError(f"ffmpeg produced {len(ss)} frames for {frames} video frames")
+    sd = _mov_path(enc, t[0] + t[2], t[0] + t[1], [b"mdia", b"minf", b"stbl", b"stsd"])
+    e = sd[0] + sd[2] + 8
+    es = struct.unpack(">I", enc[e:e + 4])[0]
+    hvcc = _mov_raw(enc, _mov_child(enc, e + 86, e + es, b"hvcC"))
+    tabs = _mov_stbl(enc, t)
+    return ss, hvcc, (_mov_raw(enc, tabs[b"stss"]) if b"stss" in tabs else b"")
+
+
+
+
+def _mov_clone_track(template: bytes, ttrack, video: bytes, main, new_id: int,
+                     sample_list: List[bytes], deltas: List[int], hvcc=None, stss=b"") -> bytes:
+    """A template track (whose stbl holds only stsd) rebuilt around new samples, the main
+    video's timing, edit list and duration, and a new track ID."""
+    main_id = _mov_track_id(video, main)
+    _id_off, dur_off, dur_w = _mov_tkhd(video, main)
+    main_dur = int.from_bytes(video[dur_off:dur_off + dur_w], "big")
+    main_edts = _mov_child(video, main[0] + main[2], main[0] + main[1], b"edts")
+
+    def rebuild(start: int, end: int) -> bytes:
+        out = b""
+        for p, s, h, t in _mov_boxes(template, start, end):
+            if t in (b"mdia", b"minf", b"stbl", b"tref", b"dinf"):
+                out += _mov_box(t, rebuild(p + h, p + s))
+            elif t in (b"vmap", b"cdsc", b"cdep"):
+                n = (s - h) // 4
+                out += _mov_box(t, struct.pack(f">{n}I", *([main_id] * n)))
+            elif t == b"tkhd":
+                b = bytearray(template[p:p + s])
+                v = b[h]
+                id_off = h + 4 + (16 if v == 1 else 8)
+                w = 8 if v == 1 else 4
+                b[id_off:id_off + 4] = new_id.to_bytes(4, "big")
+                b[id_off + 8:id_off + 8 + w] = main_dur.to_bytes(w, "big")
+                out += bytes(b) + (_mov_raw(video, main_edts) if main_edts else b"")
+            elif t == b"mdhd":
+                out += _mov_raw(video, _mov_path(video, main[0] + main[2], main[0] + main[1],
+                                                 [b"mdia", b"mdhd"]))
+            elif t == b"stsd":
+                if hvcc is None:
+                    out += template[p:p + s]
+                else:
+                    entry = p + h + 8
+                    size = struct.unpack(">I", template[entry:entry + 4])[0]
+                    head = template[entry + 4:entry + 86]
+                    extras = b"".join(hvcc if t2 == b"hvcC" else template[q:q + s2]
+                                      for q, s2, _h2, t2 in _mov_boxes(template, entry + 86, entry + size))
+                    out += _mov_box(b"stsd", _mov_full(0), struct.pack(">I", 1),
+                                    struct.pack(">I", 4 + len(head) + len(extras)) + head + extras)
+                out += _mov_stts_box(deltas) + stss
+                out += _mov_box(b"stsc", _mov_full(0), struct.pack(">IIII", 1, 1, len(sample_list), 1))
+                out += _mov_box(b"stsz", _mov_full(0), struct.pack(">II", 0, len(sample_list)),
+                                struct.pack(f">{len(sample_list)}I", *map(len, sample_list)))
+                out += _mov_box(b"stco", _mov_full(0), struct.pack(">II", 1, _MOV_PLACEHOLDER + new_id))
+            else:
+                out += template[p:p + s]
+        return out
+
+    return _mov_box(b"trak", rebuild(ttrack[0] + ttrack[2], ttrack[0] + ttrack[1]))
+
+
+def live_photo_id(heic: bytes) -> Optional[str]:
+    """The still's Live Photo ID (Apple MakerNote tag 0x11), or None."""
+    try:
+        d = discover_heic(heic)
+        if d["exif_item"] is None:
+            return None
+        _typ, payload = extract_apple_makernote_tag(extract_item(heic, d["iloc"], int(d["exif_item"])), 0x11)
+    except PortError:
+        return None
+    value = payload.split(b"\0")[0].decode("ascii", errors="replace").strip()
+    return value or None
+
+
+def mov_live_photo_id(video: bytes) -> Optional[str]:
+    """The video's com.apple.quicktime.content.identifier, or None."""
+    (mp, ms, mh), _ts = _mov_tracks(video)
+    meta = _mov_child(video, mp + mh, mp + ms, b"meta")
+    if meta is None:
+        return None
+    keys, items = _mov_meta_items(video, meta)
+    for idx, body in items:
+        if 0 < idx <= len(keys) and keys[idx - 1][8:] == LIVE_ID_KEY and body[4:8] == b"data":
+            return body[16:struct.unpack(">I", body[:4])[0]].decode("utf-8", errors="replace")
+    return None
+
+
+def patch_live_video(video_path: Path, live_id: Optional[str]) -> Tuple[bytes, List[str]]:
+    """The video with every missing Photographic Style part added and, when live_id is given,
+    its Live Photo ID set to it. Returns (new bytes, what changed)."""
+    video = video_path.read_bytes()
+    template, style_sample = live_video_template()
+    top = [t for _p, _s, _h, t in _mov_boxes(video, 0, len(video))]
+    if top[-1] != b"moov":
+        raise PortError("MOV: moov is not the last box (not an iPhone Live Photo video)")
+    (mp, ms, mh), tracks = _mov_tracks(video)
+    main = next((t for t in tracks if _mov_handler(video, t) == b"vide"), None)
+    if main is None:
+        raise PortError("MOV: no video track")
+    deltas = _mov_stts(video, _mov_stbl(video, main))
+    frames = len(deltas)
+    _tm, ttracks = _mov_tracks(template)
+
+    def has(data, track_list, tag):
+        return any(tag in _mov_raw(data, t) for t in track_list)
+
+    def tmpl(tag):
+        return next(t for t in ttracks if tag in _mov_raw(template, t))
+
+    mvhd = _mov_child(video, mp + mh, mp + ms, b"mvhd")
+    next_id = struct.unpack(">I", video[mvhd[0] + mvhd[1] - 4:mvhd[0] + mvhd[1]])[0]
+    aux_traks: List[bytes] = []
+    meta_traks: List[bytes] = []
+    payloads: Dict[int, bytes] = {}
+    changes: List[str] = []
+
+    def add(tag, sample_list, track_deltas, into, hvcc=None, stss=b""):
+        nonlocal next_id
+        into.append(_mov_clone_track(template, tmpl(tag), video, main, next_id, sample_list,
+                                     track_deltas, hvcc, stss))
+        payloads[next_id] = b"".join(sample_list)
+        next_id += 1
+
+    if not has(video, tracks, LIVE_THUMB_TAG):
+        # Each frame scaled to 128x96 in stored orientation, like the native thumbnail; the
+        # display rotation stays in the main track's tkhd.
+        ss, hvcc, stss = _encode_live_track(
+            ["-noautorotate", "-i", str(video_path), "-map", "0:v:0", "-an", "-fps_mode", "passthrough"],
+            "scale=128:96:flags=area", "yuv420p10le", frames)
+        add(LIVE_THUMB_TAG, ss, deltas, aux_traks, hvcc, stss)
+        changes.append("linear thumbnail")
+    missing_mattes = [t for t in LIVE_MATTE_TAGS if not has(video, tracks, t)]
+    if missing_mattes:
+        pair_deltas = [sum(deltas[i:i + 2]) for i in range(0, frames, 2)]
+        n = len(pair_deltas)
+        ss, hvcc, stss = _encode_live_track(
+            ["-f", "lavfi", "-i", f"color=c=black:s=256x192:r=30:d={n / 30:.4f}", "-frames:v", str(n)],
+            "format=gray", "gray", n)
+        for tag in missing_mattes:
+            add(tag, ss, pair_deltas, aux_traks, hvcc, stss)
+        changes.append("empty " + "/".join(t.rsplit(b".", 1)[1].decode() for t in missing_mattes) + " mattes")
+
+    # Timed metadata: timed like the video's own live-photo-info track, placed after it.
+    lpi = next((t for t in tracks if LIVE_PHOTO_INFO_TAG in _mov_raw(video, t)), None)
+    meta_deltas = _mov_stts(video, _mov_stbl(video, lpi)) if lpi else deltas
+    for tag, sample in zip(LIVE_INFO_TAGS, (style_sample, live_texture_sample())):
+        if not has(video, tracks, tag):
+            add(tag, [sample] * len(meta_deltas), meta_deltas, meta_traks)
+            changes.append(tag.rsplit(b".", 1)[1].decode())
+
+    # moov/meta: the template's style keys the video lacks, and the Live Photo ID.
+    meta = _mov_child(video, mp + mh, mp + ms, b"meta")
+    if meta is None:
+        raise PortError("MOV: no moov metadata (not an iPhone Live Photo video)")
+    keys, items = _mov_meta_items(video, meta)
+    tmoov = _mov_child(template, 0, len(template), b"moov")
+    tkeys, titems = _mov_meta_items(template, _mov_child(template, tmoov[0] + tmoov[2],
+                                                         tmoov[0] + tmoov[1], b"meta"))
+    have = {k[8:] for k in keys}
+    added_keys = 0
+    for idx, body in titems:
+        k = tkeys[idx - 1]
+        if k[8:].startswith(LIVE_STYLE_KEY_PREFIXES) and k[8:] not in have:
+            keys.append(k)
+            items.append((len(keys), body))
+            added_keys += 1
+    if added_keys:
+        changes.append(f"{added_keys} style keys")
+    if live_id is not None and mov_live_photo_id(video) != live_id:
+        new_item = _mov_utf8_item(live_id)
+        id_index = next((i + 1 for i, k in enumerate(keys) if k[8:] == LIVE_ID_KEY), None)
+        if id_index is None:
+            keys.append(struct.pack(">I4s", 8 + len(LIVE_ID_KEY), b"mdta") + LIVE_ID_KEY)
+            items.append((len(keys), new_item))
+        else:
+            items = [(i, new_item if i == id_index else b) for i, b in items]
+        changes.append("Live Photo ID set to the photo's")
+    if not changes:
+        return video, changes
+
+    meta_parts = []
+    for q, s, h, t in _mov_boxes(video, meta[0] + meta[2], meta[0] + meta[1]):
+        if t == b"keys":
+            meta_parts.append(_mov_box(b"keys", _mov_full(0), struct.pack(">I", len(keys)), *keys))
+        elif t == b"ilst":
+            meta_parts.append(_mov_box(b"ilst", *(struct.pack(">II", 8 + len(b), i) + b for i, b in items)))
+        else:
+            meta_parts.append(video[q:q + s])
+    new_meta = _mov_box(b"meta", *meta_parts)   # QuickTime moov/meta: a plain box, no version
+
+    # New moov: auxv tracks after the main video, metadata tracks after live-photo-info.
+    parts = []
+    for p, s, h, t in _mov_boxes(video, mp + mh, mp + ms):
+        chunk = video[p:p + s]
+        if t == b"mvhd":
+            chunk = chunk[:-4] + next_id.to_bytes(4, "big")
+        elif t == b"meta" and (p, s, h) == meta:
+            chunk = new_meta
+        parts.append(chunk)
+        if (p, s, h) == main:
+            parts += aux_traks
+        elif (p, s, h) == lpi:
+            parts += meta_traks
+    if lpi is None:
+        parts += meta_traks
+    moov = _mov_box(b"moov", *parts)
+    head = video[:mp]
+    cursor = len(head) + len(moov) + 8
+    blob = b""
+    for tid, payload in payloads.items():
+        marker = struct.pack(">I", _MOV_PLACEHOLDER + tid)
+        if moov.count(marker) != 1:
+            raise PortError("MOV: internal error placing new samples")
+        moov = moov.replace(marker, struct.pack(">I", cursor + len(blob)))
+        blob += payload
+    return head + moov + (_mov_box(b"mdat", blob) if payloads else b""), changes
+
+
 # ---------------------------------------------------------------- drop mode ---
 # Dropping files onto the executable (or passing bare file paths) patches every HEIC among
 # them, next to its original, and skips everything else. Windows starts a program with the
 # dropped paths as its arguments, so no subcommand is involved.
+#
+# A HEIC and a MOV with the same name in the same folder are a Live Photo: the photo is
+# patched and its video gets the style parts Photos' editor needs (patch_live_video), saved
+# under the same new name. A MOV without such a HEIC is skipped. When exactly one HEIC and one
+# MOV are dropped and their names differ, they are still processed as one Live Photo, with a
+# warning, and the video takes the photo's Live Photo ID so Photos pairs them.
 
-DROP_SUFFIX_PORT = "_PhotographicStyle.HEIC"
-DROP_SUFFIX_TEXTURE = "_TextureGrain.HEIC"
+DROP_SUFFIX_PORT = "_PhotographicStyle"
+DROP_SUFFIX_TEXTURE = "_TextureGrain"
 
 
 def sniff_photo(path: Path) -> str:
-    """'heic', or a short name for what the file is instead."""
+    """'heic', 'mov', or a short name for what the file is instead."""
     try:
         with path.open("rb") as f:
             head = f.read(12)
@@ -3834,6 +4291,8 @@ def sniff_photo(path: Path) -> str:
         brand = head[8:12]
         if brand in (b"heic", b"heix", b"heim", b"heis", b"hevc", b"hevx", b"mif1", b"msf1"):
             return "heic"
+        if brand == b"qt  ":
+            return "mov"
         return f"ISO media ({brand.decode('latin1', 'replace').strip()})"
     return "not a photo"
 
@@ -3849,13 +4308,17 @@ def is_drop_invocation(argv: List[str]) -> bool:
 
 def unique_path(path: Path) -> Path:
     """path, or 'name (2).ext', 'name (3).ext' … so nothing is ever overwritten."""
-    if not path.exists():
-        return path
-    n = 2
+    return unique_stem(path.parent, path.stem, [path.suffix])[0]
+
+
+def unique_stem(folder: Path, stem: str, suffixes: List[str]) -> List[Path]:
+    """folder/stem+suffix for every suffix, or 'stem (2)' … so that none of them exists."""
+    n = 1
     while True:
-        candidate = path.with_name(f"{path.stem} ({n}){path.suffix}")
-        if not candidate.exists():
-            return candidate
+        name = stem if n == 1 else f"{stem} ({n})"
+        paths = [folder / (name + s) for s in suffixes]
+        if not any(p.exists() for p in paths):
+            return paths
         n += 1
 
 
@@ -3874,6 +4337,31 @@ def launched_from_explorer() -> bool:
     return count <= (2 if getattr(sys, "frozen", False) else 1)
 
 
+def drop_pairs(files: List[Path]):
+    """(heics, {heic: mov}, unpaired movs, others with their kind, warnings)."""
+    kinds = {f: sniff_photo(f) for f in files}
+    heics = [f for f in files if kinds[f] == "heic"]
+    movs = [f for f in files if kinds[f] == "mov"]
+    others = [(f, kinds[f]) for f in files if kinds[f] not in ("heic", "mov")]
+    pairs: Dict[Path, Path] = {}
+    unpaired: List[Path] = []
+    warnings: List[str] = []
+    if (len(files) == 2 and len(heics) == 1 and len(movs) == 1
+            and heics[0].stem.casefold() != movs[0].stem.casefold()):
+        pairs[heics[0]] = movs[0]
+        warnings.append(f"{heics[0].name} and {movs[0].name} have different names; processing "
+                        "them together as one Live Photo anyway")
+    else:
+        by_name = {(h.parent, h.stem.casefold()): h for h in heics}
+        for m in movs:
+            h = by_name.get((m.parent, m.stem.casefold()))
+            if h is None or h in pairs:
+                unpaired.append(m)
+            else:
+                pairs[h] = m
+    return heics, pairs, unpaired, others, warnings
+
+
 def drop_mode(paths: List[str]) -> int:
     # File names can hold characters the console code page (e.g. GBK) cannot print; a name
     # shown with '?' is better than a crash halfway through a batch.
@@ -3885,29 +4373,38 @@ def drop_mode(paths: List[str]) -> int:
         p = Path(a)
         files.extend(sorted(c for c in p.iterdir() if c.is_file()) if p.is_dir() else [p])
 
-    full = shutil.which("ffmpeg") is not None and shutil.which("heif-convert") is not None
+    has_ffmpeg = shutil.which("ffmpeg") is not None
+    full = has_ffmpeg and shutil.which("heif-convert") is not None
     mode = ("full mode (ffmpeg + heif-convert)" if full else
             "no-encoder mode (install ffmpeg and heif-convert for full mode)")
     print(f"Photographic Style Port {VERSION} -- {len(files)} file(s), {mode}\n")
 
+    heics, pairs, unpaired, others, warnings = drop_pairs(files)
+    for w in warnings:
+        print(f"  WARN  {w}")
     done = skipped = failed = 0
-    for src in files:
-        kind = sniff_photo(src)
-        if kind != "heic":
-            print(f"  SKIP  {src.name}: {kind}, not a HEIC")
-            skipped += 1
-            continue
+    for src, kind in others:
+        print(f"  SKIP  {src.name}: {kind}, not a HEIC or MOV")
+        skipped += 1
+    for mov in unpaired:
+        print(f"  SKIP  {mov.name}: no HEIC with the same name to pair it with")
+        skipped += 1
+
+    for src in heics:
+        mov = pairs.get(src)
+        label = src.name + (f" + {mov.name}" if mov else "")
         try:
             native = discover_heic(src.read_bytes())["styles_item"] is not None
         except (PortError, OSError) as e:
-            print(f"  FAIL  {src.name}: {e}")
+            print(f"  FAIL  {label}: {e}")
             failed += 1
             continue
-        out = unique_path(src.with_name(src.stem + (DROP_SUFFIX_TEXTURE if native else DROP_SUFFIX_PORT)))
+        stem = src.stem + (DROP_SUFFIX_TEXTURE if native else DROP_SUFFIX_PORT)
+        out, out_mov = unique_stem(src.parent, stem, [".HEIC", ".MOV"])
         args = argparse.Namespace(
             target=str(src), output=str(out), profile=None, report=False, zip=False, texture="on",
             linear_thumb="generate" if full else "reuse-thumbnail",
-            scene_stats="target" if full else "donor", light_maps="flat")
+            scene_stats="target" if full else "donor", light_maps="flat", graph="auto")
         log = io.StringIO()
         try:
             with contextlib.redirect_stdout(log):
@@ -3915,18 +4412,37 @@ def drop_mode(paths: List[str]) -> int:
         except (PortError, subprocess.CalledProcessError, OSError, zipfile.BadZipFile) as e:
             msg = str(e)
             if "already carries texture_styles" in msg:
-                print(f"  SKIP  {src.name}: already has Texture/Grain, nothing to do")
+                print(f"  SKIP  {label}: already has Texture/Grain, nothing to do")
                 skipped += 1
             else:
                 if "no thumbnail to reuse" in msg:
                     msg = "no embedded thumbnail; this photo needs full mode (ffmpeg + heif-convert)"
-                print(f"  FAIL  {src.name}: {msg}")
+                print(f"  FAIL  {label}: {msg}")
                 failed += 1
             if out.exists() and out.stat().st_size == 0:
                 out.unlink()
             continue
-        print(f"  OK    {src.name} -> {out.name}"
-              + ("  (Texture/Grain added; native style kept)" if native else ""))
+        note = "  (Texture/Grain added; native style kept)" if native else ""
+        if mov is None:
+            print(f"  OK    {src.name} -> {out.name}{note}")
+            done += 1
+            continue
+
+        live_id = live_photo_id(out.read_bytes())
+        try:
+            if not has_ffmpeg and not all(
+                    tag in mov.read_bytes() for tag in (LIVE_THUMB_TAG, *LIVE_MATTE_TAGS)):
+                raise PortError("the video needs ffmpeg (with libx265) to get its style tracks")
+            video, changes = patch_live_video(mov, live_id)
+            out_mov.write_bytes(video)
+        except (PortError, OSError, subprocess.CalledProcessError) as e:
+            print(f"  FAIL  {mov.name}: {e}; {src.name} was saved as a still photo: {out.name}")
+            failed += 1
+            continue
+        print(f"  OK    {label} -> {out.name} + {out_mov.name}{note}")
+        print(f"          video: {', '.join(changes) if changes else 'already had every style part'}")
+        if live_id is None:
+            print(f"  WARN  {src.name} has no Live Photo ID, so Photos won't pair it with the video")
         done += 1
 
     print(f"\n{done} done, {skipped} skipped, {failed} failed. Results are next to the originals.")

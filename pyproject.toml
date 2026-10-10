@@ -1,6 +1,6 @@
 [project]
 name = "photographic-style-port"
-version = "0.6.3"
+version = "0.7.0"
 description = "Experimental HEIC Photographic Style porter (pre-iPhone 16 photos -> iPhone 16/17 styles, plus iOS 27 Texture/Grain)"
 readme = "README.md"
 license = "MIT"

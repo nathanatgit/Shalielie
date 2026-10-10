@@ -134,6 +134,13 @@ jobs:
           printf 'not a photo' > dropped.txt
           "./dist/$EXECUTABLE" dropped.txt | tee drop-output.txt
           grep -q '0 done, 1 skipped, 0 failed' drop-output.txt
+          # A MOV with no HEIC of the same name is skipped, not processed.
+          printf '\000\000\000\024ftypqt  \000\000\000\000qt  ' > lone.MOV
+          "./dist/$EXECUTABLE" dropped.txt lone.MOV | tee drop-output.txt
+          grep -q '0 done, 2 skipped, 0 failed' drop-output.txt
+          grep -q 'no HEIC with the same name' drop-output.txt
+          # The embedded Live Photo video template decodes.
+          python -c "import photographic_style_port as p; t, s = p.live_video_template(); assert len(t) > 1000 and len(s) > 100"
 
       - name: Package executable
         shell: bash

@@ -2,7 +2,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-Current version: v0.6.3
+Current version: v0.7.0
 
 This is an experimental tool that takes a HEIC from an iPhone **older than the iPhone 16**
 (iPhone 15, 14, 13 … — any model whose photos match a supported tile layout) and adds the
@@ -78,6 +78,15 @@ Drop HEIC photos, or a folder of them, onto `photographic-style-port.exe` (or pa
 with no command). Each HEIC is patched next to its original as `NAME_PhotographicStyle.HEIC`;
 photos from iPhone 16/17 get `NAME_TextureGrain.HEIC`. JPEGs, PNGs and other files are
 skipped, existing files are never overwritten, and a summary lists every file.
+
+**Live Photos.** Drop the HEIC together with its MOV. When a HEIC and a MOV have the same name
+in the same folder, the video is processed as well and saved under the same new name
+(`NAME_PhotographicStyle.HEIC` + `NAME_PhotographicStyle.MOV`). Photos on iOS 27 applies the
+style to the video too, and its editor crashes on Live Photo videos that lack the style tracks
+and timed metadata of a native iOS 27 video, so those are added. A MOV without a HEIC of the
+same name is skipped. If you drop exactly one HEIC and one MOV whose names differ, they are
+still processed as one Live Photo, with a warning, and the video takes the photo's Live Photo
+ID. The video needs `ffmpeg` (with libx265); without it the photo is saved as a still.
 
 The executable does **not** include an HEVC encoder. Drag and drop uses full mode when `ffmpeg`
 and `heif-convert` are on PATH, and the [no-encoder mode](#no-encoder-mode) otherwise, which
@@ -261,6 +270,7 @@ thumbnail differently. Only the no-encoder mode is reproducible byte for byte, a
 | v0.6.1      | Exactly empty frames in unfilled matte slots; per-photo`FilmGrainSeed`     | Two donor-derived values gone; palette, styles, people and Soft Skin unchanged ✅ |
 | v0.6.2      | Style items added to the photo's own item graph; 90°/270° rotation fixed      | Any tile layout of a known size; re-saved photos without thumbnail/`tmap`; sky/foliage glow on 270° photos gone ✅ |
 | v0.6.3      | 48 MP photos (8064×6048) on the photo's own item graph                       | 48 MP photos from older iPhones port, with and without an encoder ✅ |
+| v0.7.0      | Live Photos: a dropped HEIC + MOV pair; the video gets the iOS 27 style tracks and timed metadata | Photos' editor opens iPhone 15 Pro Live Photos with style and motion (iOS 27.0.1) ✅ |
 
 **Reverse-engineering tests of key assumptions**
 
