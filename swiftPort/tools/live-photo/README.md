@@ -12,6 +12,9 @@ phone (`Sources/StylePortCore/LivePhotoVideo.swift` and `LinearThumbnailEncoder.
 | `mov_linear_thumb.py TARGET.MOV NATIVE.MOV OUT.MOV` | Adds only the `video-map.smart-style-linear-thumbnail` track |
 | `mov_style_tracks.py TARGET.MOV NATIVE.MOV OUT.MOV` | Adds every style part: linear thumbnail, empty sky/person/skin mattes, `smartstyle-info` timed metadata, moov `smartstyle.*` keys; from an iPhone 18 template also `texturestyle-info` and moov `texturestyle.*` keys |
 | `make_video_template.py NATIVE.MOV OUT.mov` | Builds the app's video template from a native iPhone 18 Pro Live Photo video: the four `video-map` tracks (sky/person/skin with one black sample each, linear thumbnail empty), the `smartstyle-info` and `texturestyle-info` tracks with all samples, and the moov `smartstyle.*` / `texturestyle.*` keys; strips location, dates, device and identifier metadata. Output is `Resources/Profiles/live-photo-video/template.mov`, which the app uses |
+| `mov_style_tracks.py TARGET.MOV NATIVE.MOV OUT.MOV` | Adds every style part: linear thumbnail, empty sky/person/skin mattes, `smartstyle-info` timed metadata, moov `smartstyle.*` keys |
+| `make_p5.py NATIVE.MOV OUT.MOV` | Rebuilds only the native `smartstyle-info` track the way `mov_style_tracks.py` writes it, to test the sample layout |
+| `lscontainer.py BUNDLE_ID` | Lists an installed app's container (pymobiledevice3) |
 | `recent_dcim.py [N]` | Lists the newest HEIC/MOV files on a USB-connected iPhone (pymobiledevice3) |
 
 `NATIVE.MOV` is a Live Photo video from an iPhone 16 or later, used as the template for every
