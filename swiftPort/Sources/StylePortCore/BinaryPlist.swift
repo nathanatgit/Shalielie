@@ -379,4 +379,13 @@ enum BinaryPlist {
         root.set(.dictionary(sectionSeven), for: "7")
         return (try build(.dictionary(root)), before)
     }
+
+    /// Styles key `0`, the metadata version Photos reads as `0.<n>`. Returns the old value.
+    static func setStylesSchema(in blob: Bytes, to schema: Int64) throws -> (Bytes, Int64?) {
+        guard case .dictionary(var root) = try parse(blob) else { return (blob, nil) }
+        var before: Int64?
+        if case .integer(let value) = root.value(for: "0") { before = value }
+        root.set(.integer(schema), for: "0")
+        return (try build(.dictionary(root)), before)
+    }
 }

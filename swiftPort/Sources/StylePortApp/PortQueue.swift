@@ -113,9 +113,9 @@ final class PortQueue: ObservableObject {
 
     /// Port HEIC files chosen in Files. They have no library photo to replace, so they are
     /// always saved as new photos. A HEIC chosen together with a video of the same name
-    /// (`NAME.HEIC` + `NAME.MOV`) that already has a Photographic Style is saved with that
-    /// video as a Live Photo, unchanged: the way to bring a pair prepared elsewhere into
-    /// Photos.
+    /// (`NAME.HEIC` + `NAME.MOV`) is saved with that video as a Live Photo. A HEIC that
+    /// already has a Photographic Style is saved unchanged, its video getting only the style
+    /// parts it lacks: the way to bring a pair prepared elsewhere into Photos.
     func port(files: [URL]) {
         let isVideo = { (url: URL) in ["mov", "mp4"].contains(url.pathExtension.lowercased()) }
         let key = { (url: URL) in url.deletingPathExtension().lastPathComponent.lowercased() }
@@ -175,9 +175,10 @@ final class PortQueue: ObservableObject {
                         $0.report = output.report
                         if original.video != nil && output.video == nil {
                             $0.isLivePhoto = false
+                            let reason = "Saved as a still photo: the video couldn't be styled (\(output.videoError ?? "unknown error"))."
                             $0.warnings.append(batch.replace
-                                ? "Saved as a still photo: Photos can't edit a styled Live Photo yet. The original, with its motion, is in the Backup Bin."
-                                : "Saved as a still photo: Photos can't edit a styled Live Photo yet. The original Live Photo is unchanged.")
+                                ? reason + " The original, with its motion, is in the Backup Bin."
+                                : reason + " The original Live Photo is unchanged.")
                         }
                     }
                 } catch {
@@ -189,20 +190,20 @@ final class PortQueue: ObservableObject {
                 do {
                     update(jobID) { $0.phase = .porting }
                     let original = try Self.readFiles(item)
+                    let eligibility = StylePorter.eligibility(of: original.data)
                     let output: PortOutput
-                    if original.video != nil,
-                       StylePorter.eligibility(of: original.data) == .alreadyStyled {
-                        output = try Self.asIs(original)
+                    if original.video != nil, [.alreadyStyled, .addTexture].contains(eligibility) {
+                        output = try await Self.asIs(original, texture: eligibility == .alreadyStyled)
                         update(jobID) {
                             $0.warnings.append("Already has a Photographic Style; saved unchanged with its video as a Live Photo.")
                         }
                     } else {
                         output = try await port(original, replace: false, options: options)
-                        if original.video != nil && output.video == nil {
-                            update(jobID) {
-                                $0.isLivePhoto = false
-                                $0.warnings.append("Saved as a still photo: Photos can't edit a styled Live Photo yet.")
-                            }
+                    }
+                    if original.video != nil && output.video == nil {
+                        update(jobID) {
+                            $0.isLivePhoto = false
+                            $0.warnings.append("Saved as a still photo: the video couldn't be styled (\(output.videoError ?? "unknown error")).")
                         }
                     }
                     ported.append((jobID: jobID, asset: nil, original: original, output: output))
@@ -284,11 +285,33 @@ final class PortQueue: ObservableObject {
         return OriginalPhoto(data: data, filename: item.photo.lastPathComponent, video: video, hasEdits: false)
     }
 
-    /// A pair saved exactly as chosen.
-    private static func asIs(_ original: OriginalPhoto) throws -> PortOutput {
-        let photoURL = try TemporaryFiles.newDirectory().appendingPathComponent(original.filename)
+    /// A styled photo saved as chosen, with its video given the style parts it lacks
+    /// (`texture`: the photo has Texture/Grain).
+    private static func asIs(_ original: OriginalPhoto, texture: Bool) async throws -> PortOutput {
+        let directory = try TemporaryFiles.newDirectory()
+        let photoURL = directory.appendingPathComponent(original.filename)
         try original.data.write(to: photoURL, options: .atomic)
-        return PortOutput(photoURL: photoURL, photoFilename: original.filename, video: original.video, report: nil)
+        let styled = await styledVideo(original.video, named: original.video?.filename,
+                                       in: directory, texture: texture)
+        return PortOutput(photoURL: photoURL, photoFilename: original.filename, video: styled.video,
+                          report: nil, videoError: styled.error)
+    }
+
+    /// A Live Photo's video with the style parts its styled still needs, or why there is none.
+    static func styledVideo(
+        _ source: PairedVideo?,
+        named name: String?,
+        in directory: URL,
+        texture: Bool
+    ) async -> (video: PairedVideo?, error: String?) {
+        guard let source, let name else { return (nil, nil) }
+        let url = directory.appendingPathComponent(name)
+        do {
+            try await LivePhotoStyler.style(source.url, to: url, texture: texture)
+            return (PairedVideo(url: url, filename: name, typeIdentifier: source.typeIdentifier), nil)
+        } catch {
+            return (nil, error.localizedDescription)
+        }
     }
 
     /// Port off the main actor and write the result to a temporary file.
@@ -299,6 +322,9 @@ final class PortQueue: ObservableObject {
     ) async throws -> PortOutput {
         let porter = porter
         let data = original.data
+        var options = options
+        // A Live Photo's still gets the styles schema native Live Photos have.
+        options.livePhoto = original.video != nil
         let result = try await Task.detached(priority: .userInitiated) {
             try porter.patch(data, options: options)
         }.value
@@ -310,28 +336,15 @@ final class PortQueue: ObservableObject {
         let directory = try TemporaryFiles.newDirectory()
         let photoURL = directory.appendingPathComponent(names.photo)
         try result.data.write(to: photoURL, options: .atomic)
-        var video: PairedVideo?
-        if LivePhotoPolicy.keepsVideo(result.report), let source = original.video, let name = names.video {
-            let url = directory.appendingPathComponent(name)
-            try FileManager.default.copyItem(at: source.url, to: url)
-            video = PairedVideo(url: url, filename: name, typeIdentifier: source.typeIdentifier)
-        }
-        return PortOutput(photoURL: photoURL, photoFilename: names.photo, video: video, report: result.report)
+        let styled = await Self.styledVideo(original.video, named: names.video, in: directory,
+                                            texture: result.report.addedTexture)
+        return PortOutput(photoURL: photoURL, photoFilename: names.photo, video: styled.video,
+                          report: result.report, videoError: styled.error)
     }
 
     private func update(_ id: UUID, _ body: (inout PortJob) -> Void) {
         guard let index = jobs.firstIndex(where: { $0.id == id }) else { return }
         body(&jobs[index])
-    }
-}
-
-/// Which results keep their Live Photo video. Photos' editor applies the style to a Live
-/// Photo's video too and aborts when the video has no style data, which an iPhone 15 or
-/// earlier video lacks. So a newly styled photo is saved as a still; a native style photo
-/// that only gets Texture & Grain keeps its own, style-ready video.
-enum LivePhotoPolicy {
-    static func keepsVideo(_ report: StylePortReport) -> Bool {
-        report.mode == .addTexture
     }
 }
 

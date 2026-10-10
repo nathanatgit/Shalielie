@@ -47,7 +47,7 @@ struct DonorProfile {
 private final class StylePortBundleToken: NSObject {}
 
 enum DonorProfileLoader {
-    private static var resourceBundle: Bundle {
+    static var resourceBundle: Bundle {
         #if SWIFT_PACKAGE
         return .module
         #else
