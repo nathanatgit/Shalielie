@@ -69,6 +69,44 @@ final class StylePortCoreTests: XCTestCase {
         }
     }
 
+    func testLivePhotoVideoTemplateHasEveryPart() throws {
+        let template = try Movie(LivePhotoVideoTemplate.bytes())
+        let parts = try LivePhotoVideo.parts(of: Data(template.data))
+        XCTAssertEqual(parts, [.linearThumbnail, .mattes, .styleInfo, .textureInfo])
+        for tag in LivePhotoVideo.matteTags {
+            XCTAssertEqual(try template.samples(template.requiredTrack(tagged: tag)).count, 1)
+        }
+    }
+
+    #if canImport(AVFoundation) && canImport(VideoToolbox)
+    /// Adds every style part to the Live Photo video STYLEPORT_LIVE_VIDEO and writes it to
+    /// STYLEPORT_OUT, for checking with movdump.py and on a phone. Skipped unless both are set.
+    func testWriteStyledLivePhotoVideo() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let input = environment["STYLEPORT_LIVE_VIDEO"],
+              let output = environment["STYLEPORT_OUT"] else {
+            throw XCTSkip("Set STYLEPORT_LIVE_VIDEO and STYLEPORT_OUT to style a video.")
+        }
+        let url = URL(fileURLWithPath: input)
+        let video = try Data(contentsOf: url)
+        let thumbnail = try await LinearThumbnailEncoder.encode(videoURL: url)
+        XCTAssertEqual(thumbnail.samples.count, try LivePhotoVideo.frameCount(of: video))
+        XCTAssertEqual(thumbnail.syncSamples.first, 0)
+        let styled = try LivePhotoVideo.add(
+            [.linearThumbnail, .mattes, .styleInfo, .textureInfo],
+            to: video,
+            linearThumbnail: thumbnail
+        )
+        XCTAssertEqual(styled.1, [.linearThumbnail, .mattes, .styleInfo, .textureInfo])
+        XCTAssertEqual(try LivePhotoVideo.parts(of: styled.0), [.linearThumbnail, .mattes, .styleInfo, .textureInfo])
+        let moov = try Movie(video.stylePortBytes).moov.offset
+        XCTAssertEqual(styled.0.prefix(moov), video.prefix(moov), "the payloads before moov stay as they are")
+        // Adding again changes nothing.
+        XCTAssertEqual(try LivePhotoVideo.add(.style, to: styled.0, linearThumbnail: nil).1, [])
+        try styled.0.write(to: URL(fileURLWithPath: output).appendingPathComponent(url.lastPathComponent))
+    }
+    #endif
+
     /// Writes the port of every HEIC in STYLEPORT_FIXTURES to STYLEPORT_OUT, for comparing
     /// with photographic_style_port.py byte for byte. Skipped unless both are set.
     func testWriteReferenceComparisons() throws {

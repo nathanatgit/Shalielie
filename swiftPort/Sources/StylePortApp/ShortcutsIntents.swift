@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 struct AddPhotographicStyleIntent: AppIntent {
     static var title: LocalizedStringResource = "Add Photographic Style"
     static var description = IntentDescription(
-        "Adds the Photographic Styles palette to HEIC photos, or Texture & Grain to photos that already have a style. The results are still photos, except Texture & Grain photos, which stay Live Photos.",
+        "Adds the Photographic Styles palette to HEIC photos, or Texture & Grain to photos that already have a style. Live Photos found in the library keep their motion when saved to Photos.",
         categoryName: "Photos"
     )
     static var openAppWhenRun = false
@@ -45,9 +45,11 @@ struct AddPhotographicStyleIntent: AppIntent {
         for photo in photos {
             let data = photo.data
             let name = photo.filename.isEmpty ? "Photo.HEIC" : photo.filename
-            let result = try porter.patch(data, options: options)
             // Shortcuts passes only the still; find the motion part in the library.
             let video = saveToPhotos ? await library.pairedVideo(matchingHEIC: data) : nil
+            var photoOptions = options
+            photoOptions.livePhoto = video != nil
+            let result = try porter.patch(data, options: photoOptions)
             let original = OriginalPhoto(data: data, filename: name, video: video, hasEdits: false)
             let names = OutputNames(
                 original: original,
@@ -57,17 +59,14 @@ struct AddPhotographicStyleIntent: AppIntent {
             let directory = try TemporaryFiles.newDirectory()
             let photoURL = directory.appendingPathComponent(names.photo)
             try result.data.write(to: photoURL)
-            var savedVideo: PairedVideo?
-            if let video, let videoName = names.video, LivePhotoPolicy.keepsVideo(result.report) {
-                let url = directory.appendingPathComponent(videoName)
-                try FileManager.default.copyItem(at: video.url, to: url)
-                savedVideo = PairedVideo(url: url, filename: videoName, typeIdentifier: video.typeIdentifier)
-            }
+            let savedVideo = await PortQueue.styledVideo(video, named: names.video, in: directory,
+                                                         texture: result.report.addedTexture)
             outputs.append(PortOutput(
                 photoURL: photoURL,
                 photoFilename: names.photo,
-                video: savedVideo,
-                report: result.report
+                video: savedVideo.video,
+                report: result.report,
+                videoError: savedVideo.error
             ))
             results.append(IntentFile(data: result.data, filename: names.photo, type: .heic))
         }

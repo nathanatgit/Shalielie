@@ -28,6 +28,8 @@ struct PortOutput: Sendable {
     let photoFilename: String
     let video: PairedVideo?
     let report: StylePortReport?
+    /// Why a Live Photo's video was left out, so the result is a still.
+    var videoError: String? = nil
 }
 
 /// What a replaced photo had in the library besides its resources, so a replacement and a

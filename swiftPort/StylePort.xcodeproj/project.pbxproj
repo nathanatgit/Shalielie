@@ -15,10 +15,12 @@
 		B10000000000000000000006 /* Graft.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000006 /* Graft.swift */; };
 		B10000000000000000000007 /* HEIF.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000007 /* HEIF.swift */; };
 		B10000000000000000000008 /* ISOBoxes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000008 /* ISOBoxes.swift */; };
-		B10000000000000000000009 /* StyleMaps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000009 /* StyleMaps.swift */; };
-		B1000000000000000000000A /* StylePortError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000A /* StylePortError.swift */; };
-		B1000000000000000000000B /* StylePorter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000B /* StylePorter.swift */; };
-		B1000000000000000000000C /* Texture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000C /* Texture.swift */; };
+		B10000000000000000000009 /* LinearThumbnailEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000009 /* LinearThumbnailEncoder.swift */; };
+		B1000000000000000000000A /* LivePhotoVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000A /* LivePhotoVideo.swift */; };
+		B1000000000000000000000B /* StyleMaps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000B /* StyleMaps.swift */; };
+		B1000000000000000000000C /* StylePortError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000C /* StylePortError.swift */; };
+		B1000000000000000000000D /* StylePorter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000D /* StylePorter.swift */; };
+		B1000000000000000000000E /* Texture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000E /* Texture.swift */; };
 		B20000000000000000000001 /* ActivitySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000001 /* ActivitySheet.swift */; };
 		B20000000000000000000002 /* AlbumsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* AlbumsTab.swift */; };
 		B20000000000000000000003 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000003 /* AppSettings.swift */; };
@@ -27,11 +29,12 @@
 		B20000000000000000000006 /* BackupBinTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000006 /* BackupBinTab.swift */; };
 		B20000000000000000000007 /* BackupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000007 /* BackupStore.swift */; };
 		B20000000000000000000008 /* LibraryTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000008 /* LibraryTab.swift */; };
-		B20000000000000000000009 /* PhotoLibraryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000009 /* PhotoLibraryService.swift */; };
-		B2000000000000000000000A /* PortQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000A /* PortQueue.swift */; };
-		B2000000000000000000000B /* SettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000B /* SettingsTab.swift */; };
-		B2000000000000000000000C /* ShortcutsIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000C /* ShortcutsIntents.swift */; };
-		B2000000000000000000000D /* StylePortApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000D /* StylePortApp.swift */; };
+		B20000000000000000000009 /* LivePhotoStyler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000009 /* LivePhotoStyler.swift */; };
+		B2000000000000000000000A /* PhotoLibraryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000A /* PhotoLibraryService.swift */; };
+		B2000000000000000000000B /* PortQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000B /* PortQueue.swift */; };
+		B2000000000000000000000C /* SettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000C /* SettingsTab.swift */; };
+		B2000000000000000000000D /* ShortcutsIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000D /* ShortcutsIntents.swift */; };
+		B2000000000000000000000E /* StylePortApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000E /* StylePortApp.swift */; };
 		B30000000000000000000001 /* StylePortCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000001 /* StylePortCoreTests.swift */; };
 		B40000000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* PrivacyInfo.xcprivacy */; };
 		B40000000000000000000002 /* Profiles in Resources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000001 /* Profiles */; };
@@ -83,10 +86,12 @@
 		C00000000000000000000006 /* Graft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Graft.swift; sourceTree = "<group>"; };
 		C00000000000000000000007 /* HEIF.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HEIF.swift; sourceTree = "<group>"; };
 		C00000000000000000000008 /* ISOBoxes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ISOBoxes.swift; sourceTree = "<group>"; };
-		C00000000000000000000009 /* StyleMaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StyleMaps.swift; sourceTree = "<group>"; };
-		C0000000000000000000000A /* StylePortError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePortError.swift; sourceTree = "<group>"; };
-		C0000000000000000000000B /* StylePorter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePorter.swift; sourceTree = "<group>"; };
-		C0000000000000000000000C /* Texture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Texture.swift; sourceTree = "<group>"; };
+		C00000000000000000000009 /* LinearThumbnailEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinearThumbnailEncoder.swift; sourceTree = "<group>"; };
+		C0000000000000000000000A /* LivePhotoVideo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePhotoVideo.swift; sourceTree = "<group>"; };
+		C0000000000000000000000B /* StyleMaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StyleMaps.swift; sourceTree = "<group>"; };
+		C0000000000000000000000C /* StylePortError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePortError.swift; sourceTree = "<group>"; };
+		C0000000000000000000000D /* StylePorter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePorter.swift; sourceTree = "<group>"; };
+		C0000000000000000000000E /* Texture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Texture.swift; sourceTree = "<group>"; };
 		A00000000000000000000001 /* ActivitySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivitySheet.swift; sourceTree = "<group>"; };
 		A00000000000000000000002 /* AlbumsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumsTab.swift; sourceTree = "<group>"; };
 		A00000000000000000000003 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
@@ -95,11 +100,12 @@
 		A00000000000000000000006 /* BackupBinTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupBinTab.swift; sourceTree = "<group>"; };
 		A00000000000000000000007 /* BackupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupStore.swift; sourceTree = "<group>"; };
 		A00000000000000000000008 /* LibraryTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryTab.swift; sourceTree = "<group>"; };
-		A00000000000000000000009 /* PhotoLibraryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoLibraryService.swift; sourceTree = "<group>"; };
-		A0000000000000000000000A /* PortQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortQueue.swift; sourceTree = "<group>"; };
-		A0000000000000000000000B /* SettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTab.swift; sourceTree = "<group>"; };
-		A0000000000000000000000C /* ShortcutsIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsIntents.swift; sourceTree = "<group>"; };
-		A0000000000000000000000D /* StylePortApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePortApp.swift; sourceTree = "<group>"; };
+		A00000000000000000000009 /* LivePhotoStyler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePhotoStyler.swift; sourceTree = "<group>"; };
+		A0000000000000000000000A /* PhotoLibraryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoLibraryService.swift; sourceTree = "<group>"; };
+		A0000000000000000000000B /* PortQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortQueue.swift; sourceTree = "<group>"; };
+		A0000000000000000000000C /* SettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTab.swift; sourceTree = "<group>"; };
+		A0000000000000000000000D /* ShortcutsIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsIntents.swift; sourceTree = "<group>"; };
+		A0000000000000000000000E /* StylePortApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePortApp.swift; sourceTree = "<group>"; };
 		D00000000000000000000001 /* StylePortCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePortCoreTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		E00000000000000000000001 /* Profiles */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Profiles; sourceTree = "<group>"; };
@@ -142,10 +148,12 @@
 				C00000000000000000000006 /* Graft.swift */,
 				C00000000000000000000007 /* HEIF.swift */,
 				C00000000000000000000008 /* ISOBoxes.swift */,
-				C00000000000000000000009 /* StyleMaps.swift */,
-				C0000000000000000000000A /* StylePortError.swift */,
-				C0000000000000000000000B /* StylePorter.swift */,
-				C0000000000000000000000C /* Texture.swift */,
+				C00000000000000000000009 /* LinearThumbnailEncoder.swift */,
+				C0000000000000000000000A /* LivePhotoVideo.swift */,
+				C0000000000000000000000B /* StyleMaps.swift */,
+				C0000000000000000000000C /* StylePortError.swift */,
+				C0000000000000000000000D /* StylePorter.swift */,
+				C0000000000000000000000E /* Texture.swift */,
 			);
 			path = Sources/StylePortCore;
 			sourceTree = "<group>";
@@ -161,11 +169,12 @@
 				A00000000000000000000006 /* BackupBinTab.swift */,
 				A00000000000000000000007 /* BackupStore.swift */,
 				A00000000000000000000008 /* LibraryTab.swift */,
-				A00000000000000000000009 /* PhotoLibraryService.swift */,
-				A0000000000000000000000A /* PortQueue.swift */,
-				A0000000000000000000000B /* SettingsTab.swift */,
-				A0000000000000000000000C /* ShortcutsIntents.swift */,
-				A0000000000000000000000D /* StylePortApp.swift */,
+				A00000000000000000000009 /* LivePhotoStyler.swift */,
+				A0000000000000000000000A /* PhotoLibraryService.swift */,
+				A0000000000000000000000B /* PortQueue.swift */,
+				A0000000000000000000000C /* SettingsTab.swift */,
+				A0000000000000000000000D /* ShortcutsIntents.swift */,
+				A0000000000000000000000E /* StylePortApp.swift */,
 				A10000000000000000000001 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Sources/StylePortApp;
@@ -307,10 +316,12 @@
 				B10000000000000000000006 /* Graft.swift in Sources */,
 				B10000000000000000000007 /* HEIF.swift in Sources */,
 				B10000000000000000000008 /* ISOBoxes.swift in Sources */,
-				B10000000000000000000009 /* StyleMaps.swift in Sources */,
-				B1000000000000000000000A /* StylePortError.swift in Sources */,
-				B1000000000000000000000B /* StylePorter.swift in Sources */,
-				B1000000000000000000000C /* Texture.swift in Sources */,
+				B10000000000000000000009 /* LinearThumbnailEncoder.swift in Sources */,
+				B1000000000000000000000A /* LivePhotoVideo.swift in Sources */,
+				B1000000000000000000000B /* StyleMaps.swift in Sources */,
+				B1000000000000000000000C /* StylePortError.swift in Sources */,
+				B1000000000000000000000D /* StylePorter.swift in Sources */,
+				B1000000000000000000000E /* Texture.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -326,11 +337,12 @@
 				B20000000000000000000006 /* BackupBinTab.swift in Sources */,
 				B20000000000000000000007 /* BackupStore.swift in Sources */,
 				B20000000000000000000008 /* LibraryTab.swift in Sources */,
-				B20000000000000000000009 /* PhotoLibraryService.swift in Sources */,
-				B2000000000000000000000A /* PortQueue.swift in Sources */,
-				B2000000000000000000000B /* SettingsTab.swift in Sources */,
-				B2000000000000000000000C /* ShortcutsIntents.swift in Sources */,
-				B2000000000000000000000D /* StylePortApp.swift in Sources */,
+				B20000000000000000000009 /* LivePhotoStyler.swift in Sources */,
+				B2000000000000000000000A /* PhotoLibraryService.swift in Sources */,
+				B2000000000000000000000B /* PortQueue.swift in Sources */,
+				B2000000000000000000000C /* SettingsTab.swift in Sources */,
+				B2000000000000000000000D /* ShortcutsIntents.swift in Sources */,
+				B2000000000000000000000E /* StylePortApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
