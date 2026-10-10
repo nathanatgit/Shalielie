@@ -10,26 +10,40 @@ It works through PhotoKit, so it reads each photo's original HEIC (and a Live Ph
 straight from the library and saves the result back, with no files to move around.
 
 > **Live Photos:** Photos' editor applies the style to a Live Photo's video too, and aborts
-> when the video has no style data, which iPhone 15 and earlier videos lack. Until the video
-> side is ported, a newly styled Live Photo is saved as a **still**; the original keeps its
-> motion (and in replace mode the original, with its video, stays in the Backup Bin).
+> when the video has no style data, which iPhone 15 and earlier videos lack. The app can't
+> add that data to a video yet, so a newly styled Live Photo is saved as a **still**; the
+> original keeps its motion (and in replace mode the original, with its video, stays in the
+> Backup Bin). A video styled on a computer with `tools/live-photo/mov_style_tracks.py` can
+> be brought in through **Import HEIC (and MOV) Files…** together with the original HEIC: the
+> HEIC is then styled for a Live Photo and kept with that video (see Status).
 > iPhone 16/17 Live Photos that only get Texture & Grain keep their own video.
 
 ## Status
 
-Phone-tested on 2026-10-09 (iPhone 15 Pro, iOS 27.0.1):
+Phone-tested on 2026-10-09 (iPhone 15 Pro, iOS 27.0.1) and 2026-10-10 (iPhone 17 Pro,
+iOS 27.0; an iPhone 13 photo):
 
 | Case | Result |
 |---|---|
 | Still photo, save as new or replace | ✅ Styles palette works in Photos' editor |
 | Live Photo saved with its original video | ❌ Photos crashes on **Edit** |
+| Live Photo, video styled by `mov_style_tracks.py` (iPhone 17 Pro template), HEIC without Texture & Grain, styles schema 16 | ✅ Styles and Live in the editor; the video takes the style too |
+| The same with Texture & Grain in the HEIC | ❌ Photos crashes on **Edit** |
 
-The Live Photo crash, from the device log: Photos' editor connects the style step to the
-video's own linear thumbnail, `/asset:>SEQ(NAME[media],NAME[video],NAME[linearThumbnail])`,
-fails with "Failed to resolve dst port ref" because an iPhone 15 or earlier video has none,
-and aborts. Where a native style Live Photo's video keeps that thumbnail is not known yet; a
-native iPhone 16+ Live Photo pair (HEIC + MOV) is needed to find out. Until then this build
-saves a newly styled Live Photo as a still.
+Each crash, from the device log, is Photos' editor failing to connect a style step to a part
+of the video ("Failed to resolve dst port ref") and aborting:
+
+- With an unstyled video, the linear thumbnail,
+  `/asset:>SEQ(NAME[media],NAME[video],NAME[linearThumbnail])`.
+- With Texture & Grain in the HEIC, `/asset:>SEQ(NAME[media],NAME[video],NAME[textureStyle])`
+  for `photographicStyleLearn`. Neither iPhone 13 nor native iPhone 17 Pro videos have it, so
+  a Live Photo is styled without Texture & Grain until an iPhone 18 Pro Live Photo shows where
+  it lives. The same may apply to an iPhone 16/17 Live Photo given Texture & Grain with its
+  own video; that case is not phone-tested.
+
+Native iOS 27 Live Photos carry styles key `0` = 16 (Photos logs it as metadata version
+0.16); the donors carry 14. Whether 16 is needed or only the missing Texture & Grain matters
+has not been isolated, so a Live Photo HEIC gets 16.
 
 ## What it does
 

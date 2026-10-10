@@ -38,6 +38,22 @@ final class StylePortCoreTests: XCTestCase {
         XCTAssertTrue(enabled)
     }
 
+    func testLivePhotoStylesSchema() throws {
+        for name in ["45-15", "48-12"] {
+            let profile = try DonorProfileLoader.load(named: name)
+            let styles = try XCTUnwrap(profile.retainedPayloads[profile.manifest.donorStylesItem])
+            let changed = try BinaryPlist.setStylesSchema(in: styles, to: StylePorter.livePhotoStylesSchema)
+            XCTAssertEqual(changed.1, 14)
+            guard case .dictionary(let root) = try BinaryPlist.parse(changed.0),
+                  case .dictionary(let before) = try BinaryPlist.parse(styles),
+                  case .integer(let schema)? = root.first(where: { $0.0 == "0" })?.1 else {
+                return XCTFail("Styles key 0 was missing.")
+            }
+            XCTAssertEqual(schema, 16)
+            XCTAssertEqual(root.map(\.0), before.map(\.0))
+        }
+    }
+
     func testISOBoxParsing() throws {
         let fileType = makeBox("ftyp", payload: Array("heic\0\0\0\0".utf8))
         let mediaData = makeBox("mdat", payload: [1, 2, 3, 4])

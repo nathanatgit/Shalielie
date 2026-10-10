@@ -14,7 +14,16 @@ videos on a PC to find out which parts are needed (see the Status section of the
 `NATIVE.MOV` is a Live Photo video from an iPhone 16 or later, used as the template for every
 added track. Needs ffmpeg with libx265 on PATH; `recent_dcim.py` needs pymobiledevice3.
 
-To test a result on the phone: copy `NAME.HEIC` (already ported) and `NAME.MOV` into the
-app's Documents folder (`pymobiledevice3 apps push <bundle id> FILE /Documents/FILE`), then in
-the app use Library → ⋯ → Import HEIC (and MOV) Files… and pick both; it saves the pair as a
-Live Photo unchanged. Read Photos' complaint with `pymobiledevice3 syslog live -pn Photos`.
+To test a result on the phone: copy `NAME.HEIC` and the patched `NAME.MOV` into the app's
+Documents folder (`pymobiledevice3 apps push <bundle id> FILE /Documents/FILE`, or
+`xcrun devicectl device copy to … --domain-type appDataContainer`), then in the app use
+Library → ⋯ → Import HEIC (and MOV) Files… and pick both. An already styled HEIC is saved
+with the video unchanged; the original, unstyled HEIC is styled for a Live Photo (no Texture &
+Grain, styles schema 16) and saved with the video. Read Photos' complaint with
+`pymobiledevice3 syslog live -pn Photos`.
+
+Found on 2026-10-10 (iPhone 17 Pro, iOS 27.0) with an iPhone 13 Live Photo and a native
+iPhone 17 Pro one as `NATIVE.MOV`: `mov_style_tracks.py` output is enough for Photos to edit
+the Live Photo and restyle its video, as long as the HEIC has no Texture & Grain. With
+Texture & Grain, Photos also asks the video for a `textureStyle` part, which iPhone 17 Pro
+videos don't have either; an iPhone 18 Pro Live Photo is the next template to try.

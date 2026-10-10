@@ -115,7 +115,8 @@ final class PortQueue: ObservableObject {
     /// always saved as new photos. A HEIC chosen together with a video of the same name
     /// (`NAME.HEIC` + `NAME.MOV`) that already has a Photographic Style is saved with that
     /// video as a Live Photo, unchanged: the way to bring a pair prepared elsewhere into
-    /// Photos.
+    /// Photos. A HEIC without one whose video already carries the style tracks
+    /// (`tools/live-photo/mov_style_tracks.py`) is ported for a Live Photo and kept with it.
     func port(files: [URL]) {
         let isVideo = { (url: URL) in ["mov", "mp4"].contains(url.pathExtension.lowercased()) }
         let key = { (url: URL) in url.deletingPathExtension().lastPathComponent.lowercased() }
@@ -189,12 +190,22 @@ final class PortQueue: ObservableObject {
                 do {
                     update(jobID) { $0.phase = .porting }
                     let original = try Self.readFiles(item)
+                    let eligibility = StylePorter.eligibility(of: original.data)
                     let output: PortOutput
-                    if original.video != nil,
-                       StylePorter.eligibility(of: original.data) == .alreadyStyled {
+                    if original.video != nil, [.alreadyStyled, .addTexture].contains(eligibility) {
+                        // Adding Texture/Grain here would make Photos ask the video for a
+                        // textureStyle part it lacks, and crash on Edit.
                         output = try Self.asIs(original)
                         update(jobID) {
                             $0.warnings.append("Already has a Photographic Style; saved unchanged with its video as a Live Photo.")
+                        }
+                    } else if let video = original.video, eligibility == .port,
+                              LivePhotoPolicy.videoHasStyleTracks(video.url) {
+                        var livePhotoOptions = options
+                        livePhotoOptions.livePhoto = true
+                        output = try await port(original, replace: false, options: livePhotoOptions)
+                        update(jobID) {
+                            $0.warnings.append("Styled for a Live Photo with its styled video, without Texture & Grain.")
                         }
                     } else {
                         output = try await port(original, replace: false, options: options)
@@ -311,7 +322,8 @@ final class PortQueue: ObservableObject {
         let photoURL = directory.appendingPathComponent(names.photo)
         try result.data.write(to: photoURL, options: .atomic)
         var video: PairedVideo?
-        if LivePhotoPolicy.keepsVideo(result.report), let source = original.video, let name = names.video {
+        if LivePhotoPolicy.keepsVideo(result.report) || options.livePhoto,
+           let source = original.video, let name = names.video {
             let url = directory.appendingPathComponent(name)
             try FileManager.default.copyItem(at: source.url, to: url)
             video = PairedVideo(url: url, filename: name, typeIdentifier: source.typeIdentifier)
@@ -332,6 +344,14 @@ final class PortQueue: ObservableObject {
 enum LivePhotoPolicy {
     static func keepsVideo(_ report: StylePortReport) -> Bool {
         report.mode == .addTexture
+    }
+
+    /// Whether a Live Photo video has the style parts Photos' editor connects to: the
+    /// linear-thumbnail video map and the smartstyle-info timed metadata.
+    static func videoHasStyleTracks(_ url: URL) -> Bool {
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return false }
+        return data.range(of: Data("com.apple.quicktime.video-map.smart-style-linear-thumbnail".utf8)) != nil
+            && data.range(of: Data("com.apple.quicktime.smartstyle-info".utf8)) != nil
     }
 }
 

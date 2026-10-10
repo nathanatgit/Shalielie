@@ -6,10 +6,16 @@ public struct StylePortOptions: Sendable {
     public var analyzePhoto: Bool
     /// Add the iOS 27 Texture/Grain set (v0.5+). Off reproduces the v0.4.4 output.
     public var texture: Bool
+    /// The photo is the still of a Live Photo whose video carries the style tracks. Photos
+    /// then edits the pair only without Texture/Grain (with it, Photos also needs a video
+    /// `textureStyle` part no known template has) and with styles schema 16, as native
+    /// iOS 27 Live Photos have. Overrides `texture`.
+    public var livePhoto: Bool
 
-    public init(analyzePhoto: Bool = true, texture: Bool = true) {
+    public init(analyzePhoto: Bool = true, texture: Bool = true, livePhoto: Bool = false) {
         self.analyzePhoto = analyzePhoto
         self.texture = texture
+        self.livePhoto = livePhoto
     }
 }
 
@@ -66,6 +72,8 @@ public struct StylePortResult: Sendable {
 
 public struct StylePorter: Sendable {
     public static let version = "0.6.3-swift"
+    /// Styles key `0` of native iOS 27 Live Photos (phone-tested 2026-10-10); the donors carry 14.
+    public static let livePhotoStylesSchema: Int64 = 16
 
     public init() {}
 
@@ -91,6 +99,8 @@ public struct StylePorter: Sendable {
         _ targetData: Data,
         options: StylePortOptions = .init()
     ) throws -> StylePortResult {
+        var options = options
+        if options.livePhoto { options.texture = false }
         let targetBytes = targetData.stylePortBytes
         let target = try HEIF.discover(targetBytes)
 
@@ -241,6 +251,9 @@ extension StylePorter {
         }
         if hasMattes {
             styles = try BinaryPlist.setPersonMasksValid(in: styles).0
+        }
+        if options.livePhoto {
+            styles = try BinaryPlist.setStylesSchema(in: styles, to: Self.livePhotoStylesSchema).0
         }
         return styles
     }
