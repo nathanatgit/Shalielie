@@ -15,7 +15,8 @@ straight from the library and saves the result back, with no files to move aroun
 > original keeps its motion (and in replace mode the original, with its video, stays in the
 > Backup Bin). A video styled on a computer with `tools/live-photo/mov_style_tracks.py` can
 > be brought in through **Import HEIC (and MOV) Files…** together with the original HEIC: the
-> HEIC is then styled for a Live Photo and kept with that video (see Status).
+> HEIC is then styled for a Live Photo and kept with that video, with Texture & Grain when
+> the video came from an iPhone 18 template (see Status).
 > iPhone 16/17 Live Photos that only get Texture & Grain keep their own video.
 
 ## Status
@@ -29,6 +30,7 @@ iOS 27.0; an iPhone 13 photo):
 | Live Photo saved with its original video | ❌ Photos crashes on **Edit** |
 | Live Photo, video styled by `mov_style_tracks.py` (iPhone 17 Pro template), HEIC without Texture & Grain, styles schema 16 | ✅ Styles and Live in the editor; the video takes the style too |
 | The same with Texture & Grain in the HEIC | ❌ Photos crashes on **Edit** |
+| Texture & Grain in the HEIC, video styled with an iPhone 18 Pro template (adds `texturestyle-info`) | ✅ Styles and Texture in the editor; Texture & Grain renders on the still only, as with native iPhone 18 Pro Live Photos |
 
 Each crash, from the device log, is Photos' editor failing to connect a style step to a part
 of the video ("Failed to resolve dst port ref") and aborting:
@@ -36,14 +38,21 @@ of the video ("Failed to resolve dst port ref") and aborting:
 - With an unstyled video, the linear thumbnail,
   `/asset:>SEQ(NAME[media],NAME[video],NAME[linearThumbnail])`.
 - With Texture & Grain in the HEIC, `/asset:>SEQ(NAME[media],NAME[video],NAME[textureStyle])`
-  for `photographicStyleLearn`. Neither iPhone 13 nor native iPhone 17 Pro videos have it, so
-  a Live Photo is styled without Texture & Grain until an iPhone 18 Pro Live Photo shows where
-  it lives. The same may apply to an iPhone 16/17 Live Photo given Texture & Grain with its
-  own video; that case is not phone-tested.
+  for `photographicStyleLearn`. It is the `com.apple.quicktime.texturestyle-info` timed
+  metadata (with moov `texturestyle.*` keys) that iPhone 18 videos carry and iPhone 13 and
+  17 Pro videos lack; `mov_style_tracks.py` copies it from an iPhone 18 template. The same
+  may apply to an iPhone 16/17 Live Photo given Texture & Grain with its own video; that case
+  is not phone-tested.
 
 Native iOS 27 Live Photos carry styles key `0` = 16 (Photos logs it as metadata version
 0.16); the donors carry 14. Whether 16 is needed or only the missing Texture & Grain matters
 has not been isolated, so a Live Photo HEIC gets 16.
+
+Open: on a bright, backlit outdoor scene the Film texture's red halation jumps at a narrow
+intensity band (94–97; 93 and 98 look normal). It happens on a ported iPhone 13 photo and on
+a native iPhone 17 Pro style photo given only Texture & Grain, whose texture record matches a
+native iPhone 18 Pro one field by field, so it may be Photos' own behaviour. A native
+iPhone 18 Pro photo of a similar scene is needed to tell.
 
 ## What it does
 

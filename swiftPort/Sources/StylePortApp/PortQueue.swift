@@ -116,7 +116,8 @@ final class PortQueue: ObservableObject {
     /// (`NAME.HEIC` + `NAME.MOV`) that already has a Photographic Style is saved with that
     /// video as a Live Photo, unchanged: the way to bring a pair prepared elsewhere into
     /// Photos. A HEIC without one whose video already carries the style tracks
-    /// (`tools/live-photo/mov_style_tracks.py`) is ported for a Live Photo and kept with it.
+    /// (`tools/live-photo/mov_style_tracks.py`) is ported for a Live Photo and kept with it,
+    /// with Texture & Grain only when the video has that track too.
     func port(files: [URL]) {
         let isVideo = { (url: URL) in ["mov", "mp4"].contains(url.pathExtension.lowercased()) }
         let key = { (url: URL) in url.deletingPathExtension().lastPathComponent.lowercased() }
@@ -194,7 +195,7 @@ final class PortQueue: ObservableObject {
                     let output: PortOutput
                     if original.video != nil, [.alreadyStyled, .addTexture].contains(eligibility) {
                         // Adding Texture/Grain here would make Photos ask the video for a
-                        // textureStyle part it lacks, and crash on Edit.
+                        // textureStyle part it may lack, and crash on Edit.
                         output = try Self.asIs(original)
                         update(jobID) {
                             $0.warnings.append("Already has a Photographic Style; saved unchanged with its video as a Live Photo.")
@@ -203,9 +204,13 @@ final class PortQueue: ObservableObject {
                               LivePhotoPolicy.videoHasStyleTracks(video.url) {
                         var livePhotoOptions = options
                         livePhotoOptions.livePhoto = true
+                        livePhotoOptions.texture = options.texture
+                            && LivePhotoPolicy.videoHasTextureTrack(video.url)
                         output = try await port(original, replace: false, options: livePhotoOptions)
-                        update(jobID) {
-                            $0.warnings.append("Styled for a Live Photo with its styled video, without Texture & Grain.")
+                        if options.texture && !livePhotoOptions.texture {
+                            update(jobID) {
+                                $0.warnings.append("Styled for a Live Photo without Texture & Grain: its video has no Texture & Grain track.")
+                            }
                         }
                     } else {
                         output = try await port(original, replace: false, options: options)
@@ -349,9 +354,19 @@ enum LivePhotoPolicy {
     /// Whether a Live Photo video has the style parts Photos' editor connects to: the
     /// linear-thumbnail video map and the smartstyle-info timed metadata.
     static func videoHasStyleTracks(_ url: URL) -> Bool {
+        contains(url, "com.apple.quicktime.video-map.smart-style-linear-thumbnail")
+            && contains(url, "com.apple.quicktime.smartstyle-info")
+    }
+
+    /// Whether it also has the Texture/Grain timed metadata iPhone 18 videos carry, which
+    /// Photos connects to when the still has Texture/Grain.
+    static func videoHasTextureTrack(_ url: URL) -> Bool {
+        contains(url, "com.apple.quicktime.texturestyle-info")
+    }
+
+    private static func contains(_ url: URL, _ tag: String) -> Bool {
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return false }
-        return data.range(of: Data("com.apple.quicktime.video-map.smart-style-linear-thumbnail".utf8)) != nil
-            && data.range(of: Data("com.apple.quicktime.smartstyle-info".utf8)) != nil
+        return data.range(of: Data(tag.utf8)) != nil
     }
 }
 

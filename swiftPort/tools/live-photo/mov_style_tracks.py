@@ -7,7 +7,9 @@ Adds, cloned from the native template's tracks and fitted to the target's own fr
   - video-map.sky / .person / .skin: empty (black) 256x192 mattes, every 2nd frame
   - com.apple.quicktime.smartstyle-info timed metadata: the template's samples, spread over
     the target's frames
-and the template's moov-level com.apple.quicktime.smartstyle.* keys. The target's own boxes
+  - com.apple.quicktime.texturestyle-info timed metadata, the same way, when the template has
+    it (iPhone 18, iOS 27 Texture & Grain)
+and the template's moov-level com.apple.quicktime.smartstyle.* / texturestyle.* keys. The target's own boxes
 and payloads are untouched; new samples go into a second mdat after moov.
 """
 import struct
@@ -144,7 +146,8 @@ def qt_meta_items(data, meta):
     return keys, items
 
 
-def merged_meta(target, tmeta, template, nmeta, prefix=b"com.apple.quicktime.smartstyle."):
+def merged_meta(target, tmeta, template, nmeta,
+                prefix=(b"com.apple.quicktime.smartstyle.", b"com.apple.quicktime.texturestyle.")):
     keys, items = qt_meta_items(target, tmeta)
     nkeys, nitems = qt_meta_items(template, nmeta)
     have = {k[8:] for k in keys}
@@ -210,8 +213,15 @@ def main(target_path, template_path, out_path):
     add(b"com.apple.quicktime.smartstyle-info",
         [nss[min(len(nss) - 1, i * len(nss) // frames)] for i in range(frames)], deltas)
 
-    # New moov: auxv tracks after the main video, the metadata track last, smartstyle keys
-    # merged into moov/meta, next_track_ID bumped.
+    # texturestyle-info (iPhone 18 templates, iOS 27 Texture & Grain): spread the same way.
+    texture_info = b"com.apple.quicktime.texturestyle-info"
+    if any(texture_info in raw(template, t) for t in ntracks):
+        tss = samples(template, native(texture_info))
+        add(texture_info, [tss[min(len(tss) - 1, i * len(tss) // frames)] for i in range(frames)], deltas)
+    metadata_tracks = 2 if any(texture_info in raw(template, t) for t in ntracks) else 1
+
+    # New moov: auxv tracks after the main video, the metadata tracks last, smartstyle and
+    # texturestyle keys merged into moov/meta, next_track_ID bumped.
     parts = []
     nmeta = child(template, nmp + nmh, nmp + nms, b"meta")
     for p, s, h, t in boxes(target, mp + mh, mp + ms):
@@ -222,8 +232,8 @@ def main(target_path, template_path, out_path):
             chunk = merged_meta(target, (p, s, h), template, nmeta)
         parts.append(chunk)
         if (p, s, h) == main_video:
-            parts += new_traks[:-1]
-    parts.append(new_traks[-1])
+            parts += new_traks[:-metadata_tracks]
+    parts += new_traks[-metadata_tracks:]
     moov = box(b"moov", *parts)
     head = target[:mp]
     cursor = len(head) + len(moov) + 8

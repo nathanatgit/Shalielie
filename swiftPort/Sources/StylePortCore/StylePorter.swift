@@ -6,10 +6,10 @@ public struct StylePortOptions: Sendable {
     public var analyzePhoto: Bool
     /// Add the iOS 27 Texture/Grain set (v0.5+). Off reproduces the v0.4.4 output.
     public var texture: Bool
-    /// The photo is the still of a Live Photo whose video carries the style tracks. Photos
-    /// then edits the pair only without Texture/Grain (with it, Photos also needs a video
-    /// `textureStyle` part no known template has) and with styles schema 16, as native
-    /// iOS 27 Live Photos have. Overrides `texture`.
+    /// The photo is the still of a Live Photo whose video carries the style tracks: the
+    /// styles schema is written as 16, as native iOS 27 Live Photos have. Leave `texture` on
+    /// only when the video also has the Texture/Grain track (`texturestyle-info`); without
+    /// it Photos aborts on Edit.
     public var livePhoto: Bool
 
     public init(analyzePhoto: Bool = true, texture: Bool = true, livePhoto: Bool = false) {
@@ -99,8 +99,6 @@ public struct StylePorter: Sendable {
         _ targetData: Data,
         options: StylePortOptions = .init()
     ) throws -> StylePortResult {
-        var options = options
-        if options.livePhoto { options.texture = false }
         let targetBytes = targetData.stylePortBytes
         let target = try HEIF.discover(targetBytes)
 
