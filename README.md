@@ -212,8 +212,10 @@ device — is documented in **[facts.md](facts.md)**.
   from the photo itself, never invented.
 - **Not validated by Apple, and results vary by photo.** Try the flags above before concluding
   it does not work.
-- **The standalone iOS app** in the `swift-port` branch is under construction and not available
-  until my new Mac arrives.
+- **The standalone iOS app** lives in the `agent/swift-port` branch, co-authored by
+  [@lzh20025](https://github.com/lzh20025), who added its Live Photo support
+  ([#7](https://github.com/nathanatgit/Shalielie/pull/7)). It is a pre-release: an unsigned IPA
+  for sideloading in [ios-v0.7.0-beta.1](https://github.com/nathanatgit/Shalielie/releases/tag/ios-v0.7.0-beta.1).
 
 Open metadata questions are tracked in [facts.md](facts.md) (donor-derived values).
 

@@ -178,7 +178,7 @@ iOS 27 的 `texture_styles` 项，以及随之出现的 12 个 2026 语义遮罩
 - **质感/颗粒需要打开照片的手机运行 iOS 27。**
 - **无法把普通照片变成“人像”照片。** 人像数据只会从照片本身复制，绝不会凭空生成。
 - **未经 Apple 验证，效果因照片而异。** 在放弃之前，可以请先试试上面的不同的运行参数。
-- swift-port 分支中的独立 iOS 应用仍在开发中，等到我的新 Mac 到货后才会推出。
+- 独立 iOS 应用在 `agent/swift-port` 分支中，由 [@lzh20025](https://github.com/lzh20025) 共同开发，实况照片支持由其完成（[#7](https://github.com/nathanatgit/Shalielie/pull/7)）。目前为预发布版：可侧载的未签名 IPA 见 [ios-v0.7.0-beta.1](https://github.com/nathanatgit/Shalielie/releases/tag/ios-v0.7.0-beta.1)。
 
 未解决的元数据问题（仍来自 donor 的数值等）记录在 [facts.md](facts.md) 中。
 
