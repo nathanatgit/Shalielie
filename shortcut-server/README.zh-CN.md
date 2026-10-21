@@ -114,3 +114,17 @@
 启动参数：`--port`（端口）、`--name`（局域网里显示的名字）、`--ip`（指定对外显示的地址）、
 `--no-encoder`（不使用编码器）、`--no-browser`（启动时不打开浏览器）。把它们写在启动文件名后面，
 或运行 `uv run --group server python shortcut-server/server.py --help` 查看说明。
+
+
+## 实况照片文件对（0.7.1 测试版）
+
+向 `/patch-live` 发送 multipart 表单，包含两个文件字段：`photo`（原始 HEIC）
+和 `video`（对应的原始 MOV）。动态视频处理需要 FFmpeg。返回 ZIP，内含同名
+HEIC、MOV 和 `report.json`。有编码填充边缘的视频会先裁剪有效画面，再重新编码，
+以修复照片 App 风格处理中出现的底部模糊条；原文件不覆盖，音频样本保留。
+报告会说明视频是否重新编码。
+
+在“文件”中保存并解压 ZIP，然后用盘它同时导入 HEIC 和 MOV，生成新的实况照片。
+快捷指令仅保存 HEIC 仍会得到静态照片；现有 `/patch` 接口继续用于静态照片。
+MOV 处理失败会返回错误，不会静默退化成静态照片。iOS 真机测试版通过 Actions
+构建产物提供，正式发布需待真机验证。

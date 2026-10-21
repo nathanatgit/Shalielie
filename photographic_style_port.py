@@ -109,7 +109,7 @@ import zlib
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
-VERSION = "0.7.0"
+VERSION = "0.7.1"
 
 URI_HDR_GAIN = "urn:com:apple:photo:2020:aux:hdrgainmap"
 URI_LINEAR_THUMB = "tag:apple.com,2023:photo:aux:linearthumbnail"
@@ -3807,6 +3807,13 @@ def build_parser():
     a = sub.add_parser("inspect", help="Inspect Photographic-Style-related HEIC item structure")
     a.add_argument("heic")
     a.set_defaults(func=cmd_inspect)
+
+    a = sub.add_parser("patch-video", help="Style a paired Live Photo MOV; cropped video is re-encoded")
+    a.add_argument("input", help="Original paired MOV")
+    a.add_argument("output", help="New output MOV")
+    a.add_argument("--photo", help="Paired HEIC whose Live Photo identifier should be used")
+    a.add_argument("--report", help="Write video processing details as JSON")
+    a.set_defaults(func=cmd_patch_video)
     return p
 
 
@@ -4130,14 +4137,145 @@ def mov_live_photo_id(video: bytes) -> Optional[str]:
     return None
 
 
+def live_video_aperture(video: bytes):
+    """(coded width, height, clean width, height, horizontal offset, vertical offset).
+
+    Offsets are signed rationals relative to the picture center. Reject malformed crops
+    rather than silently exposing the padding or applying a different field of view.
+    """
+    _moov, tracks = _mov_tracks(video)
+    main = next((t for t in tracks if _mov_handler(video, t) == b"vide"), None)
+    if main is None:
+        raise PortError("MOV: no video track")
+    sd = _mov_stbl(video, main)[b"stsd"]
+    if int.from_bytes(video[sd[0] + sd[2] + 4:sd[0] + sd[2] + 8], "big") != 1:
+        raise PortError("MOV: multiple video sample descriptions are not supported")
+    entry = sd[0] + sd[2] + 8
+    size = int.from_bytes(video[entry:entry + 4], "big")
+    if size < 86 or entry + size > sd[0] + sd[1]:
+        raise PortError("MOV: invalid video sample description")
+    width, height = struct.unpack(">HH", video[entry + 32:entry + 36])
+    if not width or not height:
+        raise PortError("MOV: invalid video dimensions")
+    clap = _mov_child(video, entry + 86, entry + size, b"clap")
+    if clap is None:
+        return width, height, float(width), float(height), 0.0, 0.0
+    body = video[clap[0] + clap[2]:clap[0] + clap[1]]
+    if len(body) != 32:
+        raise PortError("MOV: invalid clean aperture")
+    wn, wd, hn, hd, xn, xd, yn, yd = struct.unpack(">IIIIiIiI", body)
+    if not all((wd, hd, xd, yd)):
+        raise PortError("MOV: zero clean-aperture denominator")
+    cw, ch, x, y = wn / wd, hn / hd, xn / xd, yn / yd
+    if not (0 < cw <= width and 0 < ch <= height and
+            abs(x) + cw / 2 <= width / 2 + 1e-6 and
+            abs(y) + ch / 2 <= height / 2 + 1e-6):
+        raise PortError("MOV: clean aperture is outside the coded picture")
+    return width, height, cw, ch, x, y
+
+
+def normalize_live_video_aperture(video_path: Path, video: bytes) -> Tuple[bytes, bool]:
+    """Bake a non-full clean aperture into the main video before styling.
+
+    Photos' style pipeline can expose coded padding despite clap. Encode the visible
+    picture to the original coded size so its coordinate system and Live Photo transforms
+    stay valid. Audio, other tracks, identifiers and original files are retained.
+    """
+    width, height, cw, ch, x, y = live_video_aperture(video)
+    if (cw, ch, x, y) == (float(width), float(height), 0.0, 0.0):
+        return video, False
+    (mp, ms, mh), tracks = _mov_tracks(video)
+    main = next(t for t in tracks if _mov_handler(video, t) == b"vide")
+    deltas = _mov_stts(video, _mov_stbl(video, main))
+    # Make cropping explicit so older FFmpeg builds behave like newer ones. Clear the
+    # input clap without moving any sample offsets, then crop exactly once. Preserve
+    # orientation metadata rather than rotating pixels.
+    sd = _mov_stbl(video, main)[b"stsd"]
+    entry = sd[0] + sd[2] + 8
+    entry_size = int.from_bytes(video[entry:entry + 4], "big")
+    clap = _mov_child(video, entry + 86, entry + entry_size, b"clap")
+    cp, cn, chdr = clap
+    uncropped = (video[:cp + chdr] + struct.pack(">8I", width, 1, height, 1, 0, 1, 0, 1)
+                 + video[cp + cn:])
+    crop_x, crop_y = (width - cw) / 2 + x, (height - ch) / 2 + y
+    with tempfile.TemporaryDirectory(prefix="stylelive_decode_") as tmp:
+        source = Path(tmp) / "uncropped.MOV"
+        source.write_bytes(uncropped)
+        ss, hvcc, sync = _encode_live_track(
+            ["-noautorotate", "-i", str(source), "-map", "0:v:0", "-an", "-fps_mode", "passthrough"],
+            f"crop=w={cw:g}:h={ch:g}:x={crop_x:g}:y={crop_y:g}:exact=1,"
+            f"scale={width}:{height}:flags=lanczos", "yuv420p", len(deltas))
+    new_media = _mov_box(b"mdat", b"".join(ss))
+    if mp + ms == len(video):
+        head = video[:mp]
+    else:
+        # A previously styled MOV can have a second mdat after moov. Keep all offsets
+        # stable by turning the old moov into a same-size free box, then append a new one.
+        head = video[:mp + 4] + b"free" + video[mp + 8:]
+    offset = len(head) + 8
+
+    def rebuild(start, end):
+        out = []
+        for q, n, h, typ in _mov_boxes(video, start, end):
+            body = video[q + h:q + n]
+            if typ in (b"mdia", b"minf", b"stbl"):
+                out.append(_mov_box(typ, rebuild(q + h, q + n)))
+            elif typ == b"stsd":
+                entry = q + h + 8
+                size = int.from_bytes(video[entry:entry + 4], "big")
+                extras = []
+                for ep, en, eh, et in _mov_boxes(video, entry + 86, entry + size):
+                    if et == b"hvcC":
+                        extras.append(hvcc)
+                    elif et == b"clap":
+                        extras.append(_mov_box(b"clap", struct.pack(">8I", width, 1, height, 1, 0, 1, 0, 1)))
+                    else:
+                        extras.append(video[ep:ep + en])
+                visual = video[entry + 4:entry + 86] + b"".join(extras)
+                out.append(_mov_box(b"stsd", _mov_full(0), struct.pack(">II", 1, 4 + len(visual)), visual))
+            elif typ == b"stts":
+                out.append(_mov_stts_box(deltas))
+            elif typ == b"stsc":
+                out.append(_mov_box(b"stsc", _mov_full(0), struct.pack(">IIII", 1, 1, len(ss), 1)))
+            elif typ == b"stsz":
+                out.append(_mov_box(b"stsz", _mov_full(0), struct.pack(">II", 0, len(ss)),
+                                    struct.pack(f">{len(ss)}I", *map(len, ss))))
+                out.append(sync)
+            elif typ in (b"stco", b"co64"):
+                out.append(_mov_box(b"stco", _mov_full(0), struct.pack(">II", 1, offset)))
+            elif typ not in (b"stss", b"sdtp", b"ctts", b"sgpd", b"sbgp", b"cslg"):
+                out.append(video[q:q + n])
+        return b"".join(out)
+
+    main_box = _mov_box(b"trak", rebuild(main[0] + main[2], main[0] + main[1]))
+    moov = _mov_box(b"moov", *(main_box if (q, n, h) == main else video[q:q + n]
+                               for q, n, h, _typ in _mov_boxes(video, mp + mh, mp + ms)))
+    normalized = head + new_media + moov
+    # Re-extract the new stream before accepting the output. Non-video payload offsets
+    # remain unchanged because new media was appended before moov.
+    nt = next(t for t in _mov_tracks(normalized)[1] if _mov_handler(normalized, t) == b"vide")
+    if _mov_samples(normalized, nt) != ss:
+        raise PortError("MOV: normalized video samples failed verification")
+    return normalized, True
+
+
 def patch_live_video(video_path: Path, live_id: Optional[str]) -> Tuple[bytes, List[str]]:
+    """Normalize cropped video and add missing style parts. Originals are never changed."""
+    video, normalized = normalize_live_video_aperture(video_path, video_path.read_bytes())
+    # The thumbnail must be decoded from the normalized picture as well.
+    with tempfile.TemporaryDirectory(prefix="stylelive_crop_") as tmp:
+        source = Path(tmp) / "normalized.MOV" if normalized else video_path
+        if normalized:
+            source.write_bytes(video)
+        result, changes = _patch_live_video(source, live_id)
+    return result, (["clean aperture baked into re-encoded video"] if normalized else []) + changes
+
+
+def _patch_live_video(video_path: Path, live_id: Optional[str]) -> Tuple[bytes, List[str]]:
     """The video with every missing Photographic Style part added and, when live_id is given,
     its Live Photo ID set to it. Returns (new bytes, what changed)."""
     video = video_path.read_bytes()
     template, style_sample = live_video_template()
-    top = [t for _p, _s, _h, t in _mov_boxes(video, 0, len(video))]
-    if top[-1] != b"moov":
-        raise PortError("MOV: moov is not the last box (not an iPhone Live Photo video)")
     (mp, ms, mh), tracks = _mov_tracks(video)
     main = next((t for t in tracks if _mov_handler(video, t) == b"vide"), None)
     if main is None:
@@ -4249,7 +4387,8 @@ def patch_live_video(video_path: Path, live_id: Optional[str]) -> Tuple[bytes, L
     if lpi is None:
         parts += meta_traks
     moov = _mov_box(b"moov", *parts)
-    head = video[:mp]
+    # Preserve existing sample offsets even for already styled / fast-start movies.
+    head = video[:mp] if mp + ms == len(video) else video[:mp + 4] + b"free" + video[mp + 8:]
     cursor = len(head) + len(moov) + 8
     blob = b""
     for tid, payload in payloads.items():
@@ -4259,6 +4398,22 @@ def patch_live_video(video_path: Path, live_id: Optional[str]) -> Tuple[bytes, L
         moov = moov.replace(marker, struct.pack(">I", cursor + len(blob)))
         blob += payload
     return head + moov + (_mov_box(b"mdat", blob) if payloads else b""), changes
+
+
+def cmd_patch_video(args):
+    source, output = Path(args.input), Path(args.output)
+    if source.resolve() == output.resolve() or output.exists():
+        raise PortError("MOV: output must be a new file; originals are never overwritten")
+    live_id = live_photo_id(Path(args.photo).read_bytes()) if args.photo else None
+    if args.photo and live_id is None:
+        raise PortError("The paired HEIC has no Live Photo identifier")
+    video, changes = patch_live_video(source, live_id)
+    output.write_bytes(video)
+    report = {"version": VERSION, "changes": changes,
+              "video_reencoded": any("re-encoded" in change for change in changes)}
+    if args.report:
+        Path(args.report).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report))
 
 
 # ---------------------------------------------------------------- drop mode ---
@@ -4301,7 +4456,7 @@ def is_drop_invocation(argv: List[str]) -> bool:
     """True when every argument is an existing file or folder and none is a subcommand."""
     if not argv or argv[0].startswith("-"):
         return False
-    if argv[0] in {"patch", "add-texture", "extract-donor", "profiles", "inspect"}:
+    if argv[0] in {"patch", "patch-video", "add-texture", "extract-donor", "profiles", "inspect"}:
         return False
     return all(Path(a).exists() for a in argv)
 
