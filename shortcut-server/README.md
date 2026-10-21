@@ -88,3 +88,19 @@ The status page walks through it, with your actual address filled in:
 Options: `--port`, `--name` (mDNS host name), `--ip` (advertise a specific address),
 `--no-encoder`, `--no-browser`. Pass them after the launcher name, or run
 `uv run --group server python shortcut-server/server.py --help`.
+
+
+## Live Photo pairs (0.7.1 test build)
+
+POST `/patch-live` with a multipart form containing exactly two File fields:
+`photo` (original HEIC) and `video` (its original MOV). FFmpeg is required for motion.
+The response is a ZIP containing the styled HEIC, matching MOV and `report.json`.
+Videos with a smaller clean aperture are cropped and re-encoded to remove the padded
+edge exposed by Photos while styling. Original files and audio samples are preserved.
+The report states whether the video was re-encoded.
+
+Save and extract the ZIP in Files, then import both files together in Palettify as a
+new Live Photo. Saving the HEIC alone through Shortcuts produces a still; the existing
+`/patch` endpoint remains the still-photo route. A failed MOV returns an error rather
+than a silent still-only result. The iOS test build is distributed as an Actions artifact;
+a proper iOS release awaits phone validation.

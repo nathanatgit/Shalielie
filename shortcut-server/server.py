@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import ipaddress
+import io
 import json
 import os
 import re
@@ -27,6 +28,9 @@ import tempfile
 import threading
 import time
 import webbrowser
+import zipfile
+from email import policy
+from email.parser import BytesParser
 from collections import deque
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -259,6 +263,44 @@ class Porter:
         job.update(status="ok", route=route, seconds=round(time.monotonic() - started, 1))
         return result, out_name, report
 
+    def run_live(self, photo: bytes, video: bytes, name: str | None, client: str):
+        """Return a HEIC+MOV ZIP. Use the same CLI video correction as drag and drop."""
+        if video[4:8] != b"ftyp" or video[8:12] in HEIF_BRANDS:
+            raise PortFailure(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "The video field must hold an original MOV.")
+        try:
+            result, out_name, photo_report = self.run(photo, name, client)
+        except PortFailure as error:
+            if error.status != HTTPStatus.CONFLICT or "already carries texture_styles" not in error.message:
+                raise
+            result, out_name, photo_report = photo, safe_stem(name) + "_PhotographicStyle.HEIC", {"mode": "unchanged"}
+        with self.lock, tempfile.TemporaryDirectory(prefix="shalielie-live-") as tmp:
+            self.busy = True
+            try:
+                folder = Path(tmp)
+                still, source, output = folder / "photo.HEIC", folder / "original.MOV", folder / "styled.MOV"
+                still.write_bytes(result)
+                source.write_bytes(video)
+                report_file = folder / "video-report.json"
+                cmd = [sys.executable, str(PORTER), "patch-video", str(source), str(output),
+                       "--photo", str(still), "--report", str(report_file)]
+                try:
+                    process = subprocess.run(cmd, cwd=tmp, env=tool_env(), capture_output=True,
+                                             encoding="utf-8", errors="replace", timeout=PORT_TIMEOUT)
+                except subprocess.TimeoutExpired:
+                    raise PortFailure(HTTPStatus.GATEWAY_TIMEOUT, "Live Photo video processing timed out.")
+                if process.returncode or not output.exists():
+                    raise PortFailure(HTTPStatus.UNPROCESSABLE_ENTITY,
+                                      _porter_error(process.stderr) or "Live Photo video processing failed.")
+                video_report = json.loads(report_file.read_text(encoding="utf-8"))
+                archive = io.BytesIO()
+                with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as z:
+                    z.writestr(out_name, result)
+                    z.writestr(Path(out_name).with_suffix(".MOV").name, output.read_bytes())
+                    z.writestr("report.json", json.dumps({"photo": photo_report, "video": video_report}, indent=2))
+                return archive.getvalue(), Path(out_name).with_suffix(".zip").name, video_report
+            finally:
+                self.busy = False
+
     @staticmethod
     def _fail(job: dict, started: float, msg: str):
         job.update(status="error", detail=msg, seconds=round(time.monotonic() - started, 1))
@@ -294,6 +336,22 @@ def parse_multipart(body: bytes, content_type: str) -> tuple[bytes | None, str |
         if fallback[0] is None and payload:
             fallback = (payload, None)
     return fallback
+
+
+def parse_live_multipart(body: bytes, content_type: str):
+    message = BytesParser(policy=policy.default).parsebytes(
+        ("Content-Type: " + content_type + "\r\nMIME-Version: 1.0\r\n\r\n").encode("utf-8") + body)
+    fields = {}
+    if message.is_multipart():
+        for part in message.iter_parts():
+            name = part.get_param("name", header="content-disposition")
+            if name in ("photo", "video"):
+                if name in fields:
+                    raise ValueError("Each of photo and video must be supplied exactly once.")
+                fields[name] = (part.get_payload(decode=True), part.get_filename())
+    if set(fields) != {"photo", "video"} or any(not value[0] for value in fields.values()):
+        raise ValueError("Send multipart File fields named photo (HEIC) and video (MOV).")
+    return fields
 
 
 # ---------------------------------------------------------------------------
@@ -372,8 +430,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._guard():
             return
         url = urlsplit(self.path)
-        if url.path != "/patch":
-            self._text(404, "Not found. Photos go to /patch.")
+        if url.path not in ("/patch", "/patch-live"):
+            self._text(404, "Not found. Photos go to /patch; Live Photo pairs go to /patch-live.")
             return
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -389,6 +447,26 @@ class Handler(BaseHTTPRequestHandler):
         body = self.rfile.read(length)
         name = parse_qs(url.query).get("name", [None])[0]
         ctype = self.headers.get("Content-Type", "")
+        if url.path == "/patch-live":
+            try:
+                fields = parse_live_multipart(body, ctype)
+            except ValueError as error:
+                self._text(400, str(error))
+                return
+            photo, filename = fields["photo"]
+            video, _video_name = fields["video"]
+            try:
+                result, out_name, report = self.state.porter.run_live(
+                    photo, video, name or filename, self.client_address[0])
+            except PortFailure as error:
+                self._text(error.status, error.message)
+                return
+            self._send(200, result, "application/zip", {
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(out_name)}",
+                "X-Shalielie-Status": "ok", "X-Shalielie-Mode": "live-photo",
+                "X-Shalielie-Video-Reencoded": str(report["video_reencoded"]).lower(),
+            })
+            return
         if ctype.lower().startswith("multipart/form-data"):
             data, fn = parse_multipart(body, ctype)
             if data is None:
