@@ -24,7 +24,7 @@ tile 布局即可）拍摄的 HEIC 照片补上 iPhone 16/17 照片所携带的�
 
 风格调节效果、以及质感/颗粒的细节效果微调，将在主体工作完成后进行，使其更接近新款 iPhone 原生**摄影风格**的调节表现。在此之前，与原生照片存在差异属于预期情况。欢迎反馈问题和提供样图。
 
-**目录：** [网页版](#在浏览器中使用) · [可执行文件](#下载可执行文件) · [从源码安装](#从源码安装) · [用法](#用法) · [工作原理](#工作原理) · [已知问题与限制](#已知问题与限制) · [测试移植结果](#测试移植结果for-ai-testing) · [版本历史](#版本历史) · [AI 智能体](#通过-ai-智能体使用) · [开发者工具](#开发者工具)
+**目录：** [网页版](#在浏览器中使用) · [iPhone 应用](#侧载-iphone-应用) · [可执行文件](#下载可执行文件) · [从源码安装](#从源码安装) · [用法](#用法) · [工作原理](#工作原理) · [已知问题与限制](#已知问题与限制) · [测试移植结果](#测试移植结果for-ai-testing) · [版本历史](#版本历史) · [AI 智能体](#通过-ai-智能体使用) · [开发者工具](#开发者工具)
 
 ## 在浏览器中使用
 
@@ -38,6 +38,26 @@ tile 布局即可）拍摄的 HEIC 照片补上 iPhone 16/17 照片所携带的�
 
 网页版与 命令行/Python 工具使用同一套移植逻辑，见 [`web/README.md`](web/README.md)。
 批量处理或需要基于编码器，需要生成内嵌缩略图时请用 命令行/Python 版本。
+
+## 侧载 iPhone 应用
+
+iOS 应用目前为预发布版，以未签名的 IPA 文件分发。请先从
+[iOS 测试版发布页](https://github.com/nathanatgit/Shalielie/releases/tag/ios-v0.7.0-beta.1)
+下载 `.ipa`，再选择以下一种方式侧载安装：
+
+- **[SideStore](https://docs.sidestore.io/docs/intro)：** 按照官方指南完成初始设置，
+  然后将下载的 IPA 导入 SideStore 安装。
+- **[LiveContainer + SideStore](https://livecontainer.github.io/docs/installation)：**
+  按照官方指南设置 LiveContainer 及其签名证书。打开 LiveContainer，点击 **+**，
+  选择下载的 IPA，再从应用列表启动。兼容性可能因情况而异；如果无法使用，
+  可以尝试通过 SideStore 或 Sideloadly 直接安装。
+- **[Sideloadly](https://sideloadly.io/)（Windows / macOS）：** 安装 Sideloadly，
+  连接 iPhone 并在手机上信任电脑，将 IPA 拖入 Sideloadly，选择设备，
+  输入 Apple ID 后开始安装。官网提供设置说明和常见问题解答。
+
+如有提示，请按照侧载工具的说明开启开发者模式并信任开发者。
+使用免费 Apple ID 直接侧载的应用通常需要每 **7 天**重新签名一次，请使用侧载工具的刷新功能。
+通过 LiveContainer 运行时，请按照其指南刷新宿主应用和证书。
 
 ## 下载可执行文件
 

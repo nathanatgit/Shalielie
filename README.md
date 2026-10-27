@@ -29,7 +29,7 @@ The tool is currently at the *functionality* stage. The goal right now is to mak
 
 Fine-tuning comes next. Bringing the rendered look of styles, and the finer detail of Texture and Grain, closer to photos taken on newer iPhones will be the focus once the core work is complete. Until then, small differences from a native photo are expected. Feedback and sample photos are very welcome.
 
-**Contents:** [Browser](#use-it-in-a-browser) · [Binary](#download-a-binary) ·
+**Contents:** [Browser](#use-it-in-a-browser) · [iPhone app](#sideload-the-iphone-app) · [Binary](#download-a-binary) ·
 [From source](#install-from-source) · [Usage](#usage) · [What it does](#what-it-actually-does) ·
 [Known issues and limits](#known-issues-and-limits) · [Testing a port](#testing-a-port) ·
 [Version history](#version-history) · [AI agents](#use-from-an-ai-agent) ·
@@ -52,6 +52,29 @@ It runs the same porting logic as the Python tool, checked against it item by it
 [`web/README.md`](web/README.md) for how that is verified, and for the two iPhone quirks it
 works around. The command-line tool remains the reference implementation and is the one to use
 for batches or for the encoder-based linear thumbnail.
+
+## Sideload the iPhone app
+
+The iOS app is a pre-release distributed as an unsigned IPA. Download the `.ipa` from
+the [iOS beta release](https://github.com/nathanatgit/Shalielie/releases/tag/ios-v0.7.0-beta.1),
+then choose one of these methods:
+
+- **[SideStore](https://docs.sidestore.io/docs/intro):** follow the official setup guide,
+  then import the downloaded IPA into SideStore to install it.
+- **[LiveContainer + SideStore](https://livecontainer.github.io/docs/installation):**
+  follow the official guide to set up LiveContainer and its signing certificate. Open
+  LiveContainer, tap **+**, select the downloaded IPA, and launch it from the app list.
+  Compatibility can vary; if it does not work, try installing directly with SideStore
+  or Sideloadly.
+- **[Sideloadly](https://sideloadly.io/) (Windows / macOS):** install Sideloadly,
+  connect and trust your iPhone, drag the IPA into Sideloadly, select your device,
+  enter your Apple ID, and start the installation. Its website includes setup help
+  and an FAQ.
+
+Follow your installer's prompts for Developer Mode and developer trust if required.
+With a free Apple ID, directly sideloaded apps normally need refreshing every **7 days**.
+Use your installer's refresh feature; for LiveContainer, follow its guide for refreshing
+the host app and certificate.
 
 ## Download a binary
 
