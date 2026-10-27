@@ -67,6 +67,27 @@ Photographic Style" action to Shortcuts. Its source is in [`swiftPort/`](swiftPo
 install it with a sideloading tool such as Sideloadly or AltStore, which signs it with your own
 Apple ID. It needs iOS 17 or later; Texture/Grain needs iOS 27.
 
+### Sideloading
+
+Download the IPA linked above, then choose one of these methods:
+
+- **[SideStore](https://docs.sidestore.io/docs/intro):** follow the official setup guide,
+  then import the downloaded IPA into SideStore to install it.
+- **[LiveContainer + SideStore](https://livecontainer.github.io/docs/installation):**
+  follow the official guide to set up LiveContainer and its signing certificate. Open
+  LiveContainer, tap **+**, select the downloaded IPA, and launch it from the app list.
+  Compatibility can vary; if it does not work, try installing directly with SideStore
+  or Sideloadly.
+- **[Sideloadly](https://sideloadly.io/) (Windows / macOS):** install Sideloadly,
+  connect and trust your iPhone, drag the IPA into Sideloadly, select your device,
+  enter your Apple ID, and start the installation. Its website includes setup help
+  and an FAQ.
+
+Follow your installer's prompts for Developer Mode and developer trust if required.
+With a free Apple ID, directly sideloaded apps normally need refreshing every **7 days**.
+Use your installer's refresh feature; for LiveContainer, follow its guide for refreshing
+the host app and certificate.
+
 ## Download a binary
 
 [![Release downloads](<https://img.shields.io/github/downloads/nathanatgit/Shalielie/total?label=release%20downloads&style=flat-square>)](https://github.com/nathanatgit/Shalielie/releases)

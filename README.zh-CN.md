@@ -51,6 +51,24 @@ tile 布局即可）拍摄的 HEIC 照片补上 iPhone 16/17 照片所携带的�
 `Palettify-unsigned.ipa`，与命令行可执行文件放在一起。应用未上架 App Store，需要用 Sideloadly 或 AltStore 等侧载工具安装，
 它们会用你自己的 Apple ID 为应用签名。需要 iOS 17 或更高版本；质感/颗粒需要 iOS 27。
 
+### 侧载安装
+
+下载上方链接中的 IPA，再选择以下一种方式安装：
+
+- **[SideStore](https://docs.sidestore.io/docs/intro)：** 按照官方指南完成初始设置，
+  然后将下载的 IPA 导入 SideStore 安装。
+- **[LiveContainer + SideStore](https://livecontainer.github.io/docs/installation)：**
+  按照官方指南设置 LiveContainer 及其签名证书。打开 LiveContainer，点击 **+**，
+  选择下载的 IPA，再从应用列表启动。兼容性可能因情况而异；如果无法使用，
+  可以尝试通过 SideStore 或 Sideloadly 直接安装。
+- **[Sideloadly](https://sideloadly.io/)（Windows / macOS）：** 安装 Sideloadly，
+  连接 iPhone 并在手机上信任电脑，将 IPA 拖入 Sideloadly，选择设备，
+  输入 Apple ID 后开始安装。官网提供设置说明和常见问题解答。
+
+如有提示，请按照侧载工具的说明开启开发者模式并信任开发者。
+使用免费 Apple ID 直接侧载的应用通常需要每 **7 天**重新签名一次，请使用侧载工具的刷新功能。
+通过 LiveContainer 运行时，请按照其指南刷新宿主应用和证书。
+
 ## 下载可执行文件
 
 [![Release downloads](<https://img.shields.io/github/downloads/nathanatgit/Shalielie/total?label=release%20downloads&style=flat-square>)](https://github.com/nathanatgit/Shalielie/releases)
