@@ -122,18 +122,21 @@ Originals stay in the app's Application Support folder until you act on them:
 ### Share sheet
 
 Select one or more photos in Photos (or HEIC files in Files), tap **Share** and choose
-**Palettify**. The style is added straight away and the results are saved to Photos as new
-photos, `<name>_PhotographicStyle.HEIC` next to the original, which is never replaced:
+**Palettify**. It lists the photos with what each will get, plus the style settings:
+**Analyze Each Photo**, **Add Texture & Grain** and **Keep Live Photo Motion**. Swipe a photo
+away to leave it out, then tap **Add Photographic Style**. The results are saved to Photos as
+new photos, `<name>_PhotographicStyle.HEIC` next to the original, which is never replaced:
 the share sheet always works in save-as-new mode, whatever Settings says. When it's done,
 **Share Styled Photos** passes the styled HEICs on, for example to Save to Files.
 
 - A Live Photo shared from Photos keeps its motion. A HEIC shared from Files keeps it when
   its video of the same name (`NAME.HEIC` + `NAME.MOV`) is shared with it, or, with Photos
-  access, when the library holds the Live Photo it came from.
-- Photos that aren't HEIC, such as JPEGs and screenshots, are listed with the reason and
-  skipped.
-- The extension has its own settings storage, so it always uses the defaults: photo
-  analysis and Texture & Grain on.
+  access, when the library holds the Live Photo it came from. Turn off Keep Live Photo
+  Motion to save stills.
+- Photos that can't be styled (not HEIC, such as JPEGs and screenshots, or already styled
+  with Texture & Grain) are listed with the reason and skipped.
+- The extension keeps its own settings: the toggles are remembered from one share to the
+  next, separately from the app's Settings.
 
 ### Shortcuts
 

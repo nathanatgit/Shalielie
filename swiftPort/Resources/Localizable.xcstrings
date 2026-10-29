@@ -4761,6 +4761,142 @@
           }
         }
       }
+    },
+    "Already has a Photographic Style. Turn on Texture & Grain to add it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already has a Photographic Style. Turn on Texture & Grain to add it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已有摄影风格。打开“添加质感与颗粒”即可添加质感与颗粒。"
+          }
+        }
+      }
+    },
+    "Keep Live Photo Motion": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep Live Photo Motion"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保留实况照片动态效果"
+          }
+        }
+      }
+    },
+    "A Live Photo's video gets the parts Photos' editor needs for the style. Turn this off to save stills, which is quicker.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A Live Photo's video gets the parts Photos' editor needs for the style. Turn this off to save stills, which is quicker."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "实况照片的视频会补上照片编辑器调整风格所需的部分。关闭后存为静态照片，速度更快。"
+          }
+        }
+      }
+    },
+    "Can't Be Styled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't Be Styled"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法添加风格"
+          }
+        }
+      }
+    },
+    "Add Photographic Style to 1 Photo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Photographic Style to 1 Photo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为 1 张照片添加摄影风格"
+          }
+        }
+      }
+    },
+    "Add Photographic Style to %lld Photos": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Photographic Style to %lld Photos"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为 %lld 张照片添加摄影风格"
+          }
+        }
+      }
+    },
+    "Gets Texture & Grain": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gets Texture & Grain"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将添加质感与颗粒"
+          }
+        }
+      }
+    },
+    "Gets a Photographic Style": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gets a Photographic Style"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将添加摄影风格"
+          }
+        }
+      }
     }
   }
 }

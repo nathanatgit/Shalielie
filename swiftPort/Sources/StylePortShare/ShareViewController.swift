@@ -1,12 +1,14 @@
 import Photos
 import PhotosUI
+import StylePortCore
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
 /// Palettify in the share sheet: photos shared from Photos, or HEIC (and MOV) files shared from
-/// Files, get the style straight away and are saved to the library as new photos. It never
-/// replaces: the share sheet hands over copies, so the originals always stay as they are.
+/// Files, are listed with the style settings; Add Photographic Style styles them and saves the
+/// results to the library as new photos. It never replaces: the share sheet hands over copies,
+/// so the originals always stay as they are.
 final class ShareViewController: UIViewController {
     private lazy var queue = PortQueue()
     private lazy var model = ShareModel(queue: queue)
@@ -27,14 +29,42 @@ final class ShareViewController: UIViewController {
         host.didMove(toParent: self)
 
         let items = extensionContext?.inputItems as? [NSExtensionItem] ?? []
-        model.start(items.flatMap { $0.attachments ?? [] })
+        model.load(items.flatMap { $0.attachments ?? [] })
     }
 }
 
-/// Copies what was shared into the extension's temporary folder, then hands it to the queue
-/// as a file import that always gets the style.
+/// Copies what was shared into the extension's temporary folder and lists it for review; once
+/// the person starts, hands it to the queue as a file import that always gets the style.
 @MainActor
 final class ShareModel: ObservableObject {
+    enum Stage {
+        case loading
+        case review
+        case styling
+    }
+
+    /// A shared HEIC, with the video it pairs with.
+    struct Candidate: Identifiable {
+        let id = UUID()
+        let photo: URL
+        let video: URL?
+        let thumbnail: UIImage?
+        let eligibility: StylePorter.Eligibility
+
+        var name: String { photo.lastPathComponent }
+
+        /// Why it can't be styled with these settings; nil when it can.
+        func problem(texture: Bool) -> String? {
+            switch eligibility {
+            case .port: return nil
+            case .addTexture:
+                return texture ? nil : L("Already has a Photographic Style. Turn on Texture & Grain to add it.")
+            case .alreadyStyled: return L("This photo already has a Photographic Style and Texture/Grain.")
+            case .unsupported: return L("This HEIC is not supported yet.")
+            }
+        }
+    }
+
     /// Something shared that can't be styled, with why.
     struct Skipped: Identifiable {
         let id = UUID()
@@ -42,7 +72,8 @@ final class ShareModel: ObservableObject {
         let reason: String
     }
 
-    @Published private(set) var isLoading = true
+    @Published private(set) var stage = Stage.loading
+    @Published var candidates: [Candidate] = []
     @Published private(set) var skipped: [Skipped] = []
     let queue: PortQueue
 
@@ -50,7 +81,7 @@ final class ShareModel: ObservableObject {
         self.queue = queue
     }
 
-    func start(_ providers: [NSItemProvider]) {
+    func load(_ providers: [NSItemProvider]) {
         Task {
             var files: [URL] = []
             var usedNames: Set<String> = []
@@ -69,13 +100,36 @@ final class ShareModel: ObservableObject {
             }
             // A video is styled only together with the HEIC of the same name.
             let key = { (url: URL) in url.deletingPathExtension().lastPathComponent.lowercased() }
-            let photoNames = Set(files.filter { !Self.isVideo($0) }.map(key))
-            for video in files where Self.isVideo(video) && !photoNames.contains(key(video)) {
+            let videos = Dictionary(files.filter { Self.isVideo($0) }.map { (key($0), $0) }) { first, _ in first }
+            let photos = files.filter { !Self.isVideo($0) }
+            let photoNames = Set(photos.map(key))
+            for (name, video) in videos where !photoNames.contains(name) {
                 skipped.append(Skipped(name: video.lastPathComponent, reason: L("A video gets the style only when it is shared together with its HEIC of the same name.")))
             }
-            isLoading = false
-            queue.port(files: files, shared: true)
+            for photo in photos {
+                candidates.append(await Self.candidate(photo, video: videos[key(photo)]))
+            }
+            stage = .review
         }
+    }
+
+    /// What Add Photographic Style styles with these settings.
+    func styleable(texture: Bool) -> [Candidate] {
+        candidates.filter { $0.problem(texture: texture) == nil }
+    }
+
+    /// Style the photos that can be, with the settings chosen (the queue reads the photo
+    /// analysis and Texture & Grain settings, which the toggles change).
+    func start(texture: Bool, keepsMotion: Bool) {
+        let chosen = styleable(texture: texture)
+        guard !chosen.isEmpty else { return }
+        stage = .styling
+        var files: [URL] = []
+        for candidate in chosen {
+            files.append(candidate.photo)
+            if keepsMotion, let video = candidate.video { files.append(video) }
+        }
+        queue.port(files: files, shared: true, findsLibraryVideos: keepsMotion)
     }
 
     /// The styled HEICs, to share on from here.
@@ -84,6 +138,15 @@ final class ShareModel: ObservableObject {
             if case .done = job.phase { return job.outputURL }
             return nil
         }
+    }
+
+    private static func candidate(_ photo: URL, video: URL?) async -> Candidate {
+        let (thumbnail, eligibility) = await Task.detached(priority: .userInitiated) {
+            let thumbnail = BackupStore.thumbnail(of: photo, maxPixelSize: 240)
+            let data = try? Data(contentsOf: photo, options: .mappedIfSafe)
+            return (thumbnail, data.map(StylePorter.eligibility) ?? .unsupported)
+        }.value
+        return Candidate(photo: photo, video: video, thumbnail: thumbnail, eligibility: eligibility)
     }
 
     private static func isVideo(_ url: URL) -> Bool {
@@ -206,56 +269,183 @@ struct ShareView: View {
     let done: () -> Void
     let cancel: () -> Void
 
-    private var isWorking: Bool { model.isLoading || queue.isRunning }
-
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    ForEach(queue.jobs) { job in
-                        JobRow(job: job)
-                    }
-                    ForEach(model.skipped) { item in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label(item.name, systemImage: "xmark.circle")
-                                .lineLimit(1)
-                            Text(item.reason)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .padding(.leading, 32)
-                        }
-                        .padding(.vertical, 2)
-                    }
-                } footer: {
-                    if !queue.jobs.isEmpty {
-                        Text("Styled copies are saved to Photos as new photos. The originals stay as they are.")
-                    }
-                }
-            }
-            .overlay {
-                if model.isLoading {
+            Group {
+                switch model.stage {
+                case .loading:
                     ProgressView("Reading the shared photos…")
-                } else if queue.jobs.isEmpty && model.skipped.isEmpty {
-                    ContentUnavailableView("Nothing to Style", systemImage: "photo")
+                case .review:
+                    ShareReview(model: model, cancel: cancel)
+                case .styling:
+                    ShareProgress(model: model, queue: queue, done: done, cancel: cancel)
                 }
             }
             .navigationTitle(AppSettings.displayName)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if isWorking {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel", action: cancel)
+        }
+    }
+}
+
+/// The shared photos and the style settings, before anything is styled.
+private struct ShareReview: View {
+    @ObservedObject var model: ShareModel
+    let cancel: () -> Void
+    @AppStorage(AppSettings.analyzePhotoKey) private var analyzePhoto = true
+    @AppStorage(AppSettings.textureKey) private var texture = true
+    @AppStorage(AppSettings.shareKeepsMotionKey) private var keepsMotion = true
+
+    private var count: Int { model.styleable(texture: texture).count }
+
+    var body: some View {
+        List {
+            if !model.candidates.isEmpty {
+                Section {
+                    ForEach(model.candidates) { candidate in
+                        CandidateRow(candidate: candidate, texture: texture, keepsMotion: keepsMotion)
                     }
+                    .onDelete { model.candidates.remove(atOffsets: $0) }
+                } header: {
+                    Text("Photos")
+                } footer: {
+                    Text("Styled copies are saved to Photos as new photos. The originals stay as they are.")
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done", action: done)
-                        .disabled(isWorking)
+                Section {
+                    Toggle("Analyze Each Photo", isOn: $analyzePhoto)
+                    Toggle("Add Texture & Grain", isOn: $texture)
+                } header: {
+                    Text("Style")
+                } footer: {
+                    Text("Analyzing measures the photo's own tones for the palette instead of using the reference photo's. Texture & Grain adds the iOS 27 controls, and Soft Skin when the photo has the face data for it.")
                 }
-                if !isWorking && !model.results.isEmpty {
-                    ToolbarItem(placement: .bottomBar) {
-                        ShareLink(items: model.results) {
-                            Label("Share Styled Photos", systemImage: "square.and.arrow.up")
-                        }
+                Section {
+                    Toggle("Keep Live Photo Motion", isOn: $keepsMotion)
+                } footer: {
+                    Text("A Live Photo's video gets the parts Photos' editor needs for the style. Turn this off to save stills, which is quicker.")
+                }
+            }
+            if !model.skipped.isEmpty {
+                Section("Can't Be Styled") {
+                    ForEach(model.skipped) { SkippedRow(item: $0) }
+                }
+            }
+        }
+        .overlay {
+            if model.candidates.isEmpty && model.skipped.isEmpty {
+                ContentUnavailableView("Nothing to Style", systemImage: "photo")
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                model.start(texture: texture, keepsMotion: keepsMotion)
+            } label: {
+                Text(count == 1 ? L("Add Photographic Style to 1 Photo") : L("Add Photographic Style to \(count) Photos"))
+                    .frame(maxWidth: .infinity)
+            }
+            .modernProminentButton()
+            .controlSize(.large)
+            .disabled(count == 0)
+            .padding()
+        }
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel", action: cancel)
+            }
+        }
+    }
+}
+
+private struct CandidateRow: View {
+    let candidate: ShareModel.Candidate
+    let texture: Bool
+    let keepsMotion: Bool
+
+    var body: some View {
+        let problem = candidate.problem(texture: texture)
+        HStack(spacing: 12) {
+            Group {
+                if let thumbnail = candidate.thumbnail {
+                    Image(uiImage: thumbnail)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Color.secondary.opacity(0.2)
+                }
+            }
+            .frame(width: 52, height: 52)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(alignment: .bottomLeading) {
+                if candidate.video != nil && keepsMotion {
+                    Image(systemName: "livephoto")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .shadow(radius: 2)
+                        .padding(3)
+                }
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(candidate.name)
+                    .lineLimit(1)
+                Text(problem ?? detail)
+                    .font(.caption)
+                    .foregroundStyle(problem == nil ? Color.secondary : Color.orange)
+            }
+        }
+        .opacity(problem == nil ? 1 : 0.6)
+    }
+
+    private var detail: String {
+        var parts = [candidate.eligibility == .addTexture ? L("Gets Texture & Grain") : L("Gets a Photographic Style")]
+        if candidate.video != nil && keepsMotion { parts.append(L("Live Photo")) }
+        return parts.joined(separator: " · ")
+    }
+}
+
+private struct SkippedRow: View {
+    let item: ShareModel.Skipped
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(item.name, systemImage: "xmark.circle")
+                .lineLimit(1)
+            Text(item.reason)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 32)
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+/// Each photo as it is styled and saved.
+private struct ShareProgress: View {
+    @ObservedObject var model: ShareModel
+    @ObservedObject var queue: PortQueue
+    let done: () -> Void
+    let cancel: () -> Void
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(queue.jobs) { JobRow(job: $0) }
+            } footer: {
+                Text("Styled copies are saved to Photos as new photos. The originals stay as they are.")
+            }
+        }
+        .toolbar {
+            if queue.isRunning {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: cancel)
+                }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done", action: done)
+                    .disabled(queue.isRunning)
+            }
+            if !queue.isRunning && !model.results.isEmpty {
+                ToolbarItem(placement: .bottomBar) {
+                    ShareLink(items: model.results) {
+                        Label("Share Styled Photos", systemImage: "square.and.arrow.up")
                     }
                 }
             }

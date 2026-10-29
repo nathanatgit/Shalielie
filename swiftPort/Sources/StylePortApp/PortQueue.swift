@@ -109,9 +109,10 @@ final class PortQueue: ObservableObject {
     struct FileItem {
         let photo: URL
         let video: URL?
-        /// Shared to the share extension: always styled (never saved as it is), and without a
-        /// video, the library Live Photo the HEIC came from gives it one.
+        /// Shared to the share extension: always styled, never saved as it is.
         var isShared = false
+        /// Without a video, the library Live Photo the HEIC came from gives it one.
+        var findsLibraryVideo = false
     }
 
     /// Port HEIC files chosen in Files. They have no library photo to replace, so they are
@@ -119,15 +120,15 @@ final class PortQueue: ObservableObject {
     /// (`NAME.HEIC` + `NAME.MOV`) is saved with that video as a Live Photo. A HEIC that
     /// already has a Photographic Style is saved unchanged, its video getting only the style
     /// parts it lacks: the way to bring a pair prepared elsewhere into Photos.
-    /// `shared`: files handed to the share extension, which always get the style. A shared
-    /// HEIC without a video may be a Live Photo's still handed over alone; its video is then
-    /// looked up in the library, as the Shortcuts action does.
-    func port(files: [URL], shared: Bool = false) {
+    /// `shared`: files handed to the share extension, which always get the style.
+    /// `findsLibraryVideos`: a HEIC without a video may be a Live Photo's still handed over
+    /// alone; its video is then looked up in the library, as the Shortcuts action does.
+    func port(files: [URL], shared: Bool = false, findsLibraryVideos: Bool = false) {
         let isVideo = { (url: URL) in ["mov", "mp4"].contains(url.pathExtension.lowercased()) }
         let key = { (url: URL) in url.deletingPathExtension().lastPathComponent.lowercased() }
         let videos = Dictionary(files.filter(isVideo).map { (key($0), $0) }) { first, _ in first }
         let items = files.filter { !isVideo($0) }.map {
-            FileItem(photo: $0, video: videos[key($0)], isShared: shared)
+            FileItem(photo: $0, video: videos[key($0)], isShared: shared, findsLibraryVideo: findsLibraryVideos)
         }
         guard !items.isEmpty else { return }
         let newJobs = items.map {
@@ -202,7 +203,7 @@ final class PortQueue: ObservableObject {
                         return (original, StylePorter.eligibility(of: original.data))
                     }.value
                     var original = read
-                    if original.video == nil, item.isShared,
+                    if original.video == nil, item.findsLibraryVideo,
                        let video = await library.pairedVideo(matchingHEIC: original.data) {
                         original = OriginalPhoto(data: original.data, filename: original.filename,
                                                  video: video, hasEdits: false)

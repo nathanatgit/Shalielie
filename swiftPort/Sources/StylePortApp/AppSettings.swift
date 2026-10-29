@@ -8,6 +8,8 @@ enum AppSettings {
     static let librarySortKey = "librarySort"
     static let libraryAscendingKey = "libraryAscending"
     static let gridTileSizeKey = "libraryGridTileSize"
+    /// The share extension's "Keep Live Photo Motion"; the extension keeps its own settings.
+    static let shareKeepsMotionKey = "shareKeepsMotion"
 
     static let repositoryURL = URL(string: "https://github.com/nathanatgit/Shalielie")!
 
@@ -17,7 +19,8 @@ enum AppSettings {
             analyzePhotoKey: true,
             textureKey: true,
             librarySortKey: LibrarySort.captured.rawValue,
-            libraryAscendingKey: false
+            libraryAscendingKey: false,
+            shareKeepsMotionKey: true
         ])
     }
 

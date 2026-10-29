@@ -282,3 +282,11 @@
 282,Share extension,Reading the shared photos…,正在读取分享的照片…
 283,Share extension,Nothing to Style,没有可添加风格的照片
 284,Share extension,Share Styled Photos,分享添加风格后的照片
+284,Share extension,Already has a Photographic Style. Turn on Texture & Grain to add it.,已有摄影风格。打开“添加质感与颗粒”即可添加质感与颗粒。
+285,Share extension,Keep Live Photo Motion,保留实况照片动态效果
+286,Share extension,"A Live Photo's video gets the parts Photos' editor needs for the style. Turn this off to save stills, which is quicker.",实况照片的视频会补上照片编辑器调整风格所需的部分。关闭后存为静态照片，速度更快。
+287,Share extension,Can't Be Styled,无法添加风格
+288,Share extension,Add Photographic Style to 1 Photo,为 1 张照片添加摄影风格
+289,Share extension,Add Photographic Style to %lld Photos,为 %lld 张照片添加摄影风格
+290,Share extension,Gets Texture & Grain,将添加质感与颗粒
+291,Share extension,Gets a Photographic Style,将添加摄影风格
