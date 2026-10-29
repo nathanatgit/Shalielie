@@ -10,6 +10,12 @@ root = Path(sys.argv[1])
 core = sorted(p.name for p in (root / "Sources/StylePortCore").glob("*.swift"))
 app = sorted(p.name for p in (root / "Sources/StylePortApp").glob("*.swift"))
 tests = sorted(p.name for p in (root / "Tests/StylePortCoreTests").glob("*.swift"))
+share = sorted(p.name for p in (root / "Sources/StylePortShare").glob("*.swift"))
+# App files the share extension compiles too: the queue and what it needs, nothing that uses
+# UIApplication (an extension can't).
+SHARED = ["AppSettings.swift", "BackupStore.swift", "JobRow.swift", "LivePhotoStyler.swift",
+          "ModernUI.swift", "PhotoLibraryService.swift", "PortQueue.swift"]
+assert set(SHARED) <= set(app), set(SHARED) - set(app)
 
 
 def ident(prefix, n):
@@ -26,17 +32,24 @@ for i, n in enumerate(app, 1):
 for i, n in enumerate(tests, 1):
     files[("test", n)] = ident("D0", i)
     build[("test", n)] = ident("B3", i)
+for i, n in enumerate(share, 1):
+    files[("share", n)] = ident("A3", i)
+    build[("share", n)] = ident("B6", i)
+# The extension's own build files for the shared app sources.
+shared_build = {n: ident("B7", i) for i, n in enumerate(SHARED, 1)}
 PRIV, PRIV_B = ident("A1", 1), ident("B4", 1)
 PROF, PROF_B = ident("E0", 1), ident("B4", 2)
 ASSETS, ASSETS_B = ident("E0", 2), ident("B4", 3)
 INFO_VG, INFO_B = ident("E0", 3), ident("B4", 4)
 INFO_EN, INFO_ZH = ident("E0", 4), ident("E0", 5)
 LOCALIZABLE, LOCALIZABLE_B = ident("E0", 6), ident("B4", 5)
-FW, APP, XCT = ident("F1", 1), ident("F1", 2), ident("F1", 3)
+FW, APP, XCT, APPEX = ident("F1", 1), ident("F1", 2), ident("F1", 3), ident("F1", 4)
 FW_LINK, FW_EMBED, FW_TEST, XCT_B = ident("B5", 1), ident("B5", 2), ident("B5", 3), ident("B5", 4)
+FW_SHARE, APPEX_EMBED = ident("B5", 5), ident("B5", 6)
+SHARE_LOCALIZABLE_B, SHARE_INFO_B, SHARE_PRIV_B = ident("B8", 1), ident("B8", 2), ident("B8", 3)
 XCTEST_FW = ident("F0", 1)
 G = {name: ident("A2", i) for i, name in enumerate(
-    ["main", "StylePortCore", "StylePortApp", "Resources", "Tests", "Frameworks", "Products"], 1)}
+    ["main", "StylePortCore", "StylePortApp", "Resources", "Tests", "Frameworks", "Products", "StylePortShare"], 1)}
 Q = '"'
 
 out = []
@@ -54,13 +67,23 @@ w(f"\t\t{FW_LINK} /* StylePortCore.framework in Frameworks */ = {{isa = PBXBuild
 w(f"\t\t{FW_EMBED} /* StylePortCore.framework in Embed Frameworks */ = {{isa = PBXBuildFile; fileRef = {FW} /* StylePortCore.framework */; settings = {{ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }}; }};")
 w(f"\t\t{FW_TEST} /* StylePortCore.framework in Frameworks */ = {{isa = PBXBuildFile; fileRef = {FW} /* StylePortCore.framework */; }};")
 w(f"\t\t{XCT_B} /* XCTest.framework in Frameworks */ = {{isa = PBXBuildFile; fileRef = {XCTEST_FW} /* XCTest.framework */; }};")
+for n, b in shared_build.items():
+    w(f"\t\t{b} /* {n} in Sources */ = {{isa = PBXBuildFile; fileRef = {files[('app', n)]} /* {n} */; }};")
+w(f"\t\t{SHARE_LOCALIZABLE_B} /* Localizable.xcstrings in Resources */ = {{isa = PBXBuildFile; fileRef = {LOCALIZABLE} /* Localizable.xcstrings */; }};")
+w(f"\t\t{SHARE_INFO_B} /* InfoPlist.strings in Resources */ = {{isa = PBXBuildFile; fileRef = {INFO_VG} /* InfoPlist.strings */; }};")
+w(f"\t\t{SHARE_PRIV_B} /* PrivacyInfo.xcprivacy in Resources */ = {{isa = PBXBuildFile; fileRef = {PRIV} /* PrivacyInfo.xcprivacy */; }};")
+w(f"\t\t{FW_SHARE} /* StylePortCore.framework in Frameworks */ = {{isa = PBXBuildFile; fileRef = {FW} /* StylePortCore.framework */; }};")
+w(f"\t\t{APPEX_EMBED} /* StylePortShare.appex in Embed Foundation Extensions */ = {{isa = PBXBuildFile; fileRef = {APPEX} /* StylePortShare.appex */; settings = {{ATTRIBUTES = (RemoveHeadersOnCopy, ); }}; }};")
 w("/* End PBXBuildFile section */\n")
 
 w("/* Begin PBXContainerItemProxy section */")
-for pid in ("900000000000000000000001", "900000000000000000000002"):
+for pid, remote, info in (("900000000000000000000001", "500000000000000000000001", "StylePortCore"),
+                          ("900000000000000000000002", "500000000000000000000001", "StylePortCore"),
+                          ("900000000000000000000005", "500000000000000000000001", "StylePortCore"),
+                          ("900000000000000000000006", "500000000000000000000004", "StylePortShare")):
     w(f"\t\t{pid} /* PBXContainerItemProxy */ = {{\n\t\t\tisa = PBXContainerItemProxy;\n"
       f"\t\t\tcontainerPortal = 800000000000000000000001 /* Project object */;\n\t\t\tproxyType = 1;\n"
-      f"\t\t\tremoteGlobalIDString = 500000000000000000000001;\n\t\t\tremoteInfo = StylePortCore;\n\t\t}};")
+      f"\t\t\tremoteGlobalIDString = {remote};\n\t\t\tremoteInfo = {info};\n\t\t}};")
 w("/* End PBXContainerItemProxy section */\n")
 
 w("/* Begin PBXCopyFilesBuildPhase section */")
@@ -68,6 +91,10 @@ w(f"\t\t400000000000000000000001 /* Embed Frameworks */ = {{\n\t\t\tisa = PBXCop
   f"\t\t\tbuildActionMask = 2147483647;\n\t\t\tdstPath = {Q}{Q};\n\t\t\tdstSubfolderSpec = 10;\n"
   f"\t\t\tfiles = (\n\t\t\t\t{FW_EMBED} /* StylePortCore.framework in Embed Frameworks */,\n\t\t\t);\n"
   f"\t\t\tname = {Q}Embed Frameworks{Q};\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};")
+w(f"\t\t400000000000000000000002 /* Embed Foundation Extensions */ = {{\n\t\t\tisa = PBXCopyFilesBuildPhase;\n"
+  f"\t\t\tbuildActionMask = 2147483647;\n\t\t\tdstPath = {Q}{Q};\n\t\t\tdstSubfolderSpec = 13;\n"
+  f"\t\t\tfiles = (\n\t\t\t\t{APPEX_EMBED} /* StylePortShare.appex in Embed Foundation Extensions */,\n\t\t\t);\n"
+  f"\t\t\tname = {Q}Embed Foundation Extensions{Q};\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};")
 w("/* End PBXCopyFilesBuildPhase section */\n")
 
 GROUP_TREE = f"sourceTree = {Q}<group>{Q};"
@@ -84,12 +111,14 @@ w(f"\t\t{XCTEST_FW} /* XCTest.framework */ = {{isa = PBXFileReference; lastKnown
 w(f"\t\t{FW} /* StylePortCore.framework */ = {{isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = StylePortCore.framework; sourceTree = BUILT_PRODUCTS_DIR; }};")
 w(f"\t\t{APP} /* StylePort.app */ = {{isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StylePort.app; sourceTree = BUILT_PRODUCTS_DIR; }};")
 w(f"\t\t{XCT} /* StylePortCoreTests.xctest */ = {{isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StylePortCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; }};")
+w(f"\t\t{APPEX} /* StylePortShare.appex */ = {{isa = PBXFileReference; explicitFileType = {Q}wrapper.app-extension{Q}; includeInIndex = 0; path = StylePortShare.appex; sourceTree = BUILT_PRODUCTS_DIR; }};")
 w("/* End PBXFileReference section */\n")
 
 w("/* Begin PBXFrameworksBuildPhase section */")
 w("\t\t300000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };")
 w(f"\t\t300000000000000000000002 /* Frameworks */ = {{isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = ({FW_LINK} /* StylePortCore.framework in Frameworks */, ); runOnlyForDeploymentPostprocessing = 0; }};")
 w(f"\t\t300000000000000000000003 /* Frameworks */ = {{isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = ({FW_TEST} /* StylePortCore.framework in Frameworks */, {XCT_B} /* XCTest.framework in Frameworks */, ); runOnlyForDeploymentPostprocessing = 0; }};")
+w(f"\t\t300000000000000000000004 /* Frameworks */ = {{isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = ({FW_SHARE} /* StylePortCore.framework in Frameworks */, ); runOnlyForDeploymentPostprocessing = 0; }};")
 w("/* End PBXFrameworksBuildPhase section */\n")
 
 
@@ -102,13 +131,14 @@ def group(gid, name, children, path=None, named=False):
 
 
 w("/* Begin PBXGroup section */")
-group(G["main"], "", [f"{G[n]} /* {n} */" for n in ["StylePortCore", "StylePortApp", "Resources", "Tests", "Frameworks", "Products"]])
+group(G["main"], "", [f"{G[n]} /* {n} */" for n in ["StylePortCore", "StylePortApp", "StylePortShare", "Resources", "Tests", "Frameworks", "Products"]])
 group(G["StylePortCore"], "StylePortCore", [f"{files[('core', n)]} /* {n} */" for n in core], "Sources/StylePortCore")
 group(G["StylePortApp"], "StylePortApp", [f"{files[('app', n)]} /* {n} */" for n in app] + [f"{PRIV} /* PrivacyInfo.xcprivacy */"], "Sources/StylePortApp")
+group(G["StylePortShare"], "StylePortShare", [f"{files[('share', n)]} /* {n} */" for n in share], "Sources/StylePortShare")
 group(G["Resources"], "Resources", [f"{ASSETS} /* Assets.xcassets */", f"{LOCALIZABLE} /* Localizable.xcstrings */", f"{INFO_VG} /* InfoPlist.strings */", f"{PROF} /* Profiles */"], "Resources")
 group(G["Tests"], "Tests", [f"{files[('test', n)]} /* {n} */" for n in tests], "Tests/StylePortCoreTests")
 group(G["Frameworks"], "Frameworks", [f"{XCTEST_FW} /* XCTest.framework */"], named=True)
-group(G["Products"], "Products", [f"{FW} /* StylePortCore.framework */", f"{APP} /* StylePort.app */", f"{XCT} /* StylePortCoreTests.xctest */"], named=True)
+group(G["Products"], "Products", [f"{FW} /* StylePortCore.framework */", f"{APP} /* StylePort.app */", f"{XCT} /* StylePortCoreTests.xctest */", f"{APPEX} /* StylePortShare.appex */"], named=True)
 w("/* End PBXGroup section */\n")
 
 
@@ -127,11 +157,14 @@ target("500000000000000000000001", "StylePortCore", "700000000000000000000002",
        ["100000000000000000000001 /* Sources */", "300000000000000000000001 /* Frameworks */", "200000000000000000000001 /* Resources */"],
        [], FW, "com.apple.product-type.framework", "StylePortCore.framework")
 target("500000000000000000000002", "StylePort", "700000000000000000000003",
-       ["100000000000000000000002 /* Sources */", "300000000000000000000002 /* Frameworks */", "200000000000000000000002 /* Resources */", "400000000000000000000001 /* Embed Frameworks */"],
-       ["900000000000000000000003"], APP, "com.apple.product-type.application", "StylePort.app")
+       ["100000000000000000000002 /* Sources */", "300000000000000000000002 /* Frameworks */", "200000000000000000000002 /* Resources */", "400000000000000000000001 /* Embed Frameworks */", "400000000000000000000002 /* Embed Foundation Extensions */"],
+       ["900000000000000000000003", "900000000000000000000008"], APP, "com.apple.product-type.application", "StylePort.app")
 target("500000000000000000000003", "StylePortCoreTests", "700000000000000000000004",
        ["100000000000000000000003 /* Sources */", "300000000000000000000003 /* Frameworks */", "200000000000000000000003 /* Resources */"],
        ["900000000000000000000004"], XCT, "com.apple.product-type.bundle.unit-test", "StylePortCoreTests.xctest")
+target("500000000000000000000004", "StylePortShare", "700000000000000000000005",
+       ["100000000000000000000004 /* Sources */", "300000000000000000000004 /* Frameworks */", "200000000000000000000004 /* Resources */"],
+       ["900000000000000000000007"], APPEX, "com.apple.product-type.app-extension", "StylePortShare.appex")
 w("/* End PBXNativeTarget section */\n")
 
 w("/* Begin PBXProject section */")
@@ -139,19 +172,21 @@ w("\t\t800000000000000000000001 /* Project object */ = {\n\t\t\tisa = PBXProject
   "\t\t\t\tBuildIndependentTargetsInParallel = 1;\n\t\t\t\tLastSwiftUpdateCheck = 1600;\n\t\t\t\tLastUpgradeCheck = 1600;\n"
   "\t\t\t\tTargetAttributes = {\n\t\t\t\t\t500000000000000000000001 = {CreatedOnToolsVersion = 16.0; };\n"
   "\t\t\t\t\t500000000000000000000002 = {CreatedOnToolsVersion = 16.0; };\n"
-  "\t\t\t\t\t500000000000000000000003 = {CreatedOnToolsVersion = 16.0; };\n\t\t\t\t};\n\t\t\t};\n"
+  "\t\t\t\t\t500000000000000000000003 = {CreatedOnToolsVersion = 16.0; };\n"
+  "\t\t\t\t\t500000000000000000000004 = {CreatedOnToolsVersion = 16.0; };\n\t\t\t\t};\n\t\t\t};\n"
   f"\t\t\tbuildConfigurationList = 700000000000000000000001 /* Build configuration list for PBXProject {Q}StylePort{Q} */;\n"
   f"\t\t\tcompatibilityVersion = {Q}Xcode 14.0{Q};\n\t\t\tdevelopmentRegion = en;\n\t\t\thasScannedForEncodings = 0;\n"
   f"\t\t\tknownRegions = (en, Base, {Q}zh-Hans{Q}, );\n\t\t\tmainGroup = {G['main']};\n"
   f"\t\t\tproductRefGroup = {G['Products']} /* Products */;\n\t\t\tprojectDirPath = {Q}{Q};\n\t\t\tprojectRoot = {Q}{Q};\n"
   "\t\t\ttargets = (\n\t\t\t\t500000000000000000000001 /* StylePortCore */,\n\t\t\t\t500000000000000000000002 /* StylePort */,\n"
-  "\t\t\t\t500000000000000000000003 /* StylePortCoreTests */,\n\t\t\t);\n\t\t};")
+  "\t\t\t\t500000000000000000000003 /* StylePortCoreTests */,\n\t\t\t\t500000000000000000000004 /* StylePortShare */,\n\t\t\t);\n\t\t};")
 w("/* End PBXProject section */\n")
 
 w("/* Begin PBXResourcesBuildPhase section */")
 w(f"\t\t200000000000000000000001 /* Resources */ = {{isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({PROF_B} /* Profiles in Resources */, ); runOnlyForDeploymentPostprocessing = 0; }};")
 w(f"\t\t200000000000000000000002 /* Resources */ = {{isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({ASSETS_B} /* Assets.xcassets in Resources */, {LOCALIZABLE_B} /* Localizable.xcstrings in Resources */, {INFO_B} /* InfoPlist.strings in Resources */, {PRIV_B} /* PrivacyInfo.xcprivacy in Resources */, ); runOnlyForDeploymentPostprocessing = 0; }};")
 w("\t\t200000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };")
+w(f"\t\t200000000000000000000004 /* Resources */ = {{isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ({SHARE_LOCALIZABLE_B} /* Localizable.xcstrings in Resources */, {SHARE_INFO_B} /* InfoPlist.strings in Resources */, {SHARE_PRIV_B} /* PrivacyInfo.xcprivacy in Resources */, ); runOnlyForDeploymentPostprocessing = 0; }};")
 w("/* End PBXResourcesBuildPhase section */\n")
 
 w("/* Begin PBXSourcesBuildPhase section */")
@@ -160,11 +195,17 @@ for pid, kind, names in (("100000000000000000000001", "core", core), ("100000000
     body = "".join(f"\t\t\t\t{build[(kind, n)]} /* {n} in Sources */,\n" for n in names)
     w(f"\t\t{pid} /* Sources */ = {{\n\t\t\tisa = PBXSourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n"
       f"\t\t\tfiles = (\n{body}\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};")
+body = "".join(f"\t\t\t\t{build[('share', n)]} /* {n} in Sources */,\n" for n in share)
+body += "".join(f"\t\t\t\t{b} /* {n} in Sources */,\n" for n, b in shared_build.items())
+w(f"\t\t100000000000000000000004 /* Sources */ = {{\n\t\t\tisa = PBXSourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n"
+  f"\t\t\tfiles = (\n{body}\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};")
 w("/* End PBXSourcesBuildPhase section */\n")
 
 w("/* Begin PBXTargetDependency section */")
 w("\t\t900000000000000000000003 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = 500000000000000000000001 /* StylePortCore */; targetProxy = 900000000000000000000001 /* PBXContainerItemProxy */; };")
 w("\t\t900000000000000000000004 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = 500000000000000000000001 /* StylePortCore */; targetProxy = 900000000000000000000002 /* PBXContainerItemProxy */; };")
+w("\t\t900000000000000000000007 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = 500000000000000000000001 /* StylePortCore */; targetProxy = 900000000000000000000005 /* PBXContainerItemProxy */; };")
+w("\t\t900000000000000000000008 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = 500000000000000000000004 /* StylePortShare */; targetProxy = 900000000000000000000006 /* PBXContainerItemProxy */; };")
 w("/* End PBXTargetDependency section */\n")
 
 w("/* Begin PBXVariantGroup section */")
@@ -196,7 +237,7 @@ settings("600000000000000000000002", "Release", [
     ("GCC_C_LANGUAGE_STANDARD", "gnu17"), ("SWIFT_COMPILATION_MODE", "wholemodule"),
     ("SWIFT_OPTIMIZATION_LEVEL", q("-O")), ("VALIDATE_PRODUCT", "YES")])
 core_settings = [
-    ("CODE_SIGN_STYLE", "Automatic"), ("CURRENT_PROJECT_VERSION", "6"), ("DEFINES_MODULE", "YES"),
+    ("APPLICATION_EXTENSION_API_ONLY", "YES"), ("CODE_SIGN_STYLE", "Automatic"), ("CURRENT_PROJECT_VERSION", "6"), ("DEFINES_MODULE", "YES"),
     ("DYLIB_INSTALL_NAME_BASE", q("@rpath")), ("INSTALL_PATH", q("$(LOCAL_LIBRARY_DIR)/Frameworks")),
     ("LD_RUNPATH_SEARCH_PATHS", q("$(inherited) @executable_path/Frameworks @loader_path/Frameworks")),
     ("GENERATE_INFOPLIST_FILE", "YES"), ("IPHONEOS_DEPLOYMENT_TARGET", "17.0"), ("MACOSX_DEPLOYMENT_TARGET", "14.0"),
@@ -247,6 +288,30 @@ test_settings = [
     ("TARGETED_DEVICE_FAMILY", q("1,2")), ("TEST_HOST", q(""))]
 settings("600000000000000000000007", "Debug", test_settings)
 settings("600000000000000000000008", "Release", test_settings)
+share_settings = [
+    ("APPLICATION_EXTENSION_API_ONLY", "YES"),
+    ("CODE_SIGN_STYLE", "Automatic"),
+    ("CURRENT_PROJECT_VERSION", "6"),
+    ("GENERATE_INFOPLIST_FILE", "YES"),
+    ("INFOPLIST_FILE", "Sources/StylePortShare/Info.plist"),
+    ("INFOPLIST_KEY_CFBundleDisplayName", "Palettify"),
+    ("INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription", q("Palettify saves the styled photos to your library.")),
+    ("INFOPLIST_KEY_NSPhotoLibraryUsageDescription",
+     q("Palettify reads the original HEIC and Live Photo video of the photos you style, and replaces them when you ask it to.")),
+    ("IPHONEOS_DEPLOYMENT_TARGET", "17.0"),
+    ("LD_RUNPATH_SEARCH_PATHS", q("$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks")),
+    ("MARKETING_VERSION", VERSION),
+    ("PRODUCT_BUNDLE_IDENTIFIER", "com.nathanhanapps.styleport.share"),
+    ("PRODUCT_NAME", q("$(TARGET_NAME)")),
+    ("SDKROOT", "iphoneos"),
+    ("SKIP_INSTALL", "YES"),
+    ("SUPPORTED_PLATFORMS", q("iphoneos iphonesimulator")),
+    ("SUPPORTS_MACCATALYST", "NO"),
+    ("SWIFT_VERSION", "5.0"),
+    ("TARGETED_DEVICE_FAMILY", q("1,2")),
+]
+settings("600000000000000000000009", "Debug", share_settings)
+settings("60000000000000000000000A", "Release", share_settings)
 w("/* End XCBuildConfiguration section */\n")
 
 w("/* Begin XCConfigurationList section */")
@@ -254,9 +319,10 @@ for lid, name, a, b in (
         ("700000000000000000000001", f"PBXProject {Q}StylePort{Q}", "600000000000000000000001", "600000000000000000000002"),
         ("700000000000000000000002", f"PBXNativeTarget {Q}StylePortCore{Q}", "600000000000000000000003", "600000000000000000000004"),
         ("700000000000000000000003", f"PBXNativeTarget {Q}StylePort{Q}", "600000000000000000000005", "600000000000000000000006"),
-        ("700000000000000000000004", f"PBXNativeTarget {Q}StylePortCoreTests{Q}", "600000000000000000000007", "600000000000000000000008")):
+        ("700000000000000000000004", f"PBXNativeTarget {Q}StylePortCoreTests{Q}", "600000000000000000000007", "600000000000000000000008"),
+        ("700000000000000000000005", f"PBXNativeTarget {Q}StylePortShare{Q}", "600000000000000000000009", "60000000000000000000000A")):
     w(f"\t\t{lid} /* Build configuration list for {name} */ = {{isa = XCConfigurationList; buildConfigurations = ({a} /* Debug */, {b} /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; }};")
 w("/* End XCConfigurationList section */")
 w("\t};\n\trootObject = 800000000000000000000001 /* Project object */;\n}")
 (root / "StylePort.xcodeproj/project.pbxproj").write_text("\n".join(out) + "\n", encoding="utf-8", newline="\n")
-print(len(core), len(app), len(tests))
+print(len(core), len(app), len(tests), len(share))

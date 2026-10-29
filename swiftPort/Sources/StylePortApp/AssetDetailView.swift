@@ -619,25 +619,6 @@ private struct PhotoCameraInfo {
     }
 }
 
-/// Warnings and errors for a finished job.
-struct JobNotes: View {
-    let job: PortJob
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if case .failed(let message) = job.phase {
-                Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-            }
-            ForEach(job.warnings, id: \.self) { warning in
-                Label(warning, systemImage: "info.circle")
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .font(.footnote)
-    }
-}
-
 private struct LivePhotoPlayer: UIViewRepresentable {
     let asset: PHAsset
 

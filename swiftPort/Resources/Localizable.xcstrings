@@ -4642,6 +4642,125 @@
           }
         }
       }
+    },
+    "A video gets the style only when it is shared together with its HEIC of the same name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A video gets the style only when it is shared together with its HEIC of the same name."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "视频只有和同名的 HEIC 一起分享时，才会添加风格。"
+          }
+        }
+      }
+    },
+    "Item": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Item"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "项目"
+          }
+        }
+      }
+    },
+    "Not a HEIC photo. Only HEIC photos, as an iPhone takes them, can get a Photographic Style.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not a HEIC photo. Only HEIC photos, as an iPhone takes them, can get a Photographic Style."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不是 HEIC 照片。只有 iPhone 拍摄的 HEIC 照片才能添加摄影风格。"
+          }
+        }
+      }
+    },
+    "Nothing to Style": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to Style"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有可添加风格的照片"
+          }
+        }
+      }
+    },
+    "Reading the shared photos…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading the shared photos…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在读取分享的照片…"
+          }
+        }
+      }
+    },
+    "Share Styled Photos": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share Styled Photos"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享添加风格后的照片"
+          }
+        }
+      }
+    },
+    "Styled copies are saved to Photos as new photos. The originals stay as they are.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Styled copies are saved to Photos as new photos. The originals stay as they are."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加风格后的副本会作为新照片存入照片，原图保持不变。"
+          }
+        }
+      }
     }
   }
 }

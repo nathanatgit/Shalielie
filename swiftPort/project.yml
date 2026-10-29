@@ -27,6 +27,7 @@ targets:
         PRODUCT_NAME: StylePortCore
         DEFINES_MODULE: YES
         SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
   StylePort:
     type: application
     supportedDestinations: [iOS]
@@ -41,6 +42,7 @@ targets:
     dependencies:
       - target: StylePortCore
         embed: true
+      - target: StylePortShare
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.nathanhanapps.styleport
@@ -57,6 +59,41 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+  StylePortShare:
+    type: app-extension
+    supportedDestinations: [iOS]
+    sources:
+      - path: Sources/StylePortShare
+        excludes:
+          - Info.plist
+      # The queue and what it needs, shared with the app.
+      - path: Sources/StylePortApp/AppSettings.swift
+      - path: Sources/StylePortApp/BackupStore.swift
+      - path: Sources/StylePortApp/JobRow.swift
+      - path: Sources/StylePortApp/LivePhotoStyler.swift
+      - path: Sources/StylePortApp/ModernUI.swift
+      - path: Sources/StylePortApp/PhotoLibraryService.swift
+      - path: Sources/StylePortApp/PortQueue.swift
+      - path: Sources/StylePortApp/PrivacyInfo.xcprivacy
+      - path: Resources/Localizable.xcstrings
+      - path: Resources/en.lproj
+      - path: Resources/zh-Hans.lproj
+    dependencies:
+      - target: StylePortCore
+        embed: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nathanhanapps.styleport.share
+        PRODUCT_NAME: StylePortShare
+        APPLICATION_EXTENSION_API_ONLY: YES
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: Sources/StylePortShare/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Palettify
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Palettify reads the original HEIC and Live Photo video of the photos you style, and replaces them when you ask it to.
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: Palettify saves the styled photos to your library.
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
   StylePortCoreTests:

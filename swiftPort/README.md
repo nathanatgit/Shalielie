@@ -62,8 +62,8 @@ of the video ("Failed to resolve dst port ref") and aborting:
   is not phone-tested.
 
 Not phone-tested yet: Add Style on a Live Photo picked in the app's Library, replace mode with
-a Live Photo, the Shortcuts action, and iPhone 16/17 Live Photos given Texture & Grain with
-their own video.
+a Live Photo, the Shortcuts action, the share sheet, and iPhone 16/17 Live Photos given
+Texture & Grain with their own video.
 
 Native iOS 27 Live Photos carry styles key `0` = 16 (Photos logs it as metadata version
 0.16); the donors carry 14. Whether 16 is needed or only the missing Texture & Grain matters
@@ -119,6 +119,22 @@ Originals stay in the app's Application Support folder until you act on them:
 - **Export** shares the original files.
 - **Delete** removes them for good.
 
+### Share sheet
+
+Select one or more photos in Photos (or HEIC files in Files), tap **Share** and choose
+**Palettify**. The style is added straight away and the results are saved to Photos as new
+photos, `<name>_PhotographicStyle.HEIC` next to the original, which is never replaced:
+the share sheet always works in save-as-new mode, whatever Settings says. When it's done,
+**Share Styled Photos** passes the styled HEICs on, for example to Save to Files.
+
+- A Live Photo shared from Photos keeps its motion. A HEIC shared from Files keeps it when
+  its video of the same name (`NAME.HEIC` + `NAME.MOV`) is shared with it, or, with Photos
+  access, when the library holds the Live Photo it came from.
+- Photos that aren't HEIC, such as JPEGs and screenshots, are listed with the reason and
+  skipped.
+- The extension has its own settings storage, so it always uses the defaults: photo
+  analysis and Texture & Grain on.
+
 ### Shortcuts
 
 The **Add Photographic Style** action takes HEIC files (for example from *Select Photos*),
@@ -141,7 +157,9 @@ bash scripts/build-apple.sh
 `.github/workflows/swift-port.yml` runs the same on a macOS runner after a push and keeps two
 artifacts for 14 days: an unsigned simulator app and an **unsigned device IPA**. Sideloading
 tools such as Sideloadly or AltStore sign the IPA with your own Apple ID when they install
-it; with a free Apple ID the install lasts 7 days.
+it; with a free Apple ID the install lasts 7 days. The share extension is its own bundle
+(`com.nathanhanapps.styleport.share`) inside the app, so it takes one more of a free Apple
+ID's app IDs; Xcode needs your team set on the `StylePortShare` target too.
 
 The core (`StylePortCore`) also builds and tests on Linux with `swift test`, which is how its
 output was compared with the Python tool: identical bytes for photos without people and for
@@ -157,6 +175,7 @@ The app icon is drawn by `tools/generate_app_icon.py` (Pillow).
 |---|---|
 | `Sources/StylePortCore/` | HEIF item graph, Exif, binary plist, Texture & Grain, Live Photo video parts, the port itself |
 | `Sources/StylePortApp/` | SwiftUI tabs, PhotoKit reading/saving/replacing, Backup Bin, Shortcuts |
+| `Sources/StylePortShare/` | The share extension; it also compiles the queue and PhotoKit files from `StylePortApp` |
 | `Resources/Profiles/` | Built-in donor profiles, expanded |
 | `Resources/Profiles/live-photo-video/` | Live Photo video template (`template.mov`) |
 | `Resources/*.lproj/` | Localized app name |

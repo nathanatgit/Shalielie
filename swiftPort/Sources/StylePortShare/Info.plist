@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Merged into the generated Info.plist: the share extension's entry point. -->
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionAttributes</key>
+		<dict>
+			<!-- Offered for one or more photos (a Live Photo included) or image files; videos
+			     shared with them pair with the HEIC of the same name. -->
+			<key>NSExtensionActivationRule</key>
+			<string>SUBQUERY (
+    extensionItems, $extensionItem,
+    SUBQUERY (
+        $extensionItem.attachments, $attachment,
+        ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.image"
+        || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.apple.live-photo-bundle"
+    ).@count &gt;= 1
+).@count &gt;= 1</string>
+		</dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.share-services</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).ShareViewController</string>
+	</dict>
+</dict>
+</plist>

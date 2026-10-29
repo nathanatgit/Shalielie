@@ -66,6 +66,10 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Info.plist")" = "0.7.1"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$app/Info.plist")" = "6"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleDisplayName' "$app/Info.plist")" = "Palettify"
+          share="$app/PlugIns/StylePortShare.appex/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print NSExtension:NSExtensionPointIdentifier' "$share")" = "com.apple.share-services"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$share")" = "0.7.1"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$share")" = "6"
       - name: Upload unsigned iOS and iPadOS Simulator app
         uses: actions/upload-artifact@v7
         with:
