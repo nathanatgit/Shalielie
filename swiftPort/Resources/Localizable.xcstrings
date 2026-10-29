@@ -4660,23 +4660,6 @@
         }
       }
     },
-    "Item": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Item"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "项目"
-          }
-        }
-      }
-    },
     "Not a HEIC photo. Only HEIC photos, as an iPhone takes them, can get a Photographic Style.": {
       "extractionState": "manual",
       "localizations": {
@@ -4894,6 +4877,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "将添加摄影风格"
+          }
+        }
+      }
+    },
+    "Item %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Item %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "项目 %lld"
           }
         }
       }

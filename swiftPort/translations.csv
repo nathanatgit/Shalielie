@@ -275,7 +275,7 @@
 275,Errors,The selected asset's original photo is not HEIC.,所选照片的原图不是 HEIC。
 276,Backup Bin,Today,今天
 277,Added later,unknown error,未知错误
-278,Share extension,Item,项目
+278,Share extension,Item %lld,项目 %lld
 279,Share extension,"Not a HEIC photo. Only HEIC photos, as an iPhone takes them, can get a Photographic Style.",不是 HEIC 照片。只有 iPhone 拍摄的 HEIC 照片才能添加摄影风格。
 280,Share extension,A video gets the style only when it is shared together with its HEIC of the same name.,视频只有和同名的 HEIC 一起分享时，才会添加风格。
 281,Share extension,Styled copies are saved to Photos as new photos. The originals stay as they are.,添加风格后的副本会作为新照片存入照片，原图保持不变。

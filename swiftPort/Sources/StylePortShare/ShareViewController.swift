@@ -70,6 +70,7 @@ final class ShareModel: ObservableObject {
         let id = UUID()
         let name: String
         let reason: String
+        var thumbnail: UIImage?
     }
 
     @Published private(set) var stage = Stage.loading
@@ -85,17 +86,22 @@ final class ShareModel: ObservableObject {
         Task {
             var files: [URL] = []
             var usedNames: Set<String> = []
-            for provider in providers {
-                let name = provider.suggestedName ?? L("Item")
+            for (index, provider) in providers.enumerated() {
                 do {
                     let loaded = try await Self.load(provider)
                     guard !loaded.isEmpty else {
-                        skipped.append(Skipped(name: name, reason: L("Not a HEIC photo. Only HEIC photos, as an iPhone takes them, can get a Photographic Style.")))
+                        let preview = await Self.preview(provider)
+                        skipped.append(Skipped(
+                            name: preview.name ?? Self.fallbackName(provider, number: index + 1),
+                            reason: L("Not a HEIC photo. Only HEIC photos, as an iPhone takes them, can get a Photographic Style."),
+                            thumbnail: preview.thumbnail
+                        ))
                         continue
                     }
                     files += try Self.uniquelyNamed(loaded, avoiding: &usedNames)
                 } catch {
-                    skipped.append(Skipped(name: name, reason: error.localizedDescription))
+                    skipped.append(Skipped(name: Self.fallbackName(provider, number: index + 1),
+                                           reason: error.localizedDescription))
                 }
             }
             // A video is styled only together with the HEIC of the same name.
@@ -147,6 +153,44 @@ final class ShareModel: ObservableObject {
             return (thumbnail, data.map(StylePorter.eligibility) ?? .unsupported)
         }.value
         return Candidate(photo: photo, video: video, thumbnail: thumbnail, eligibility: eligibility)
+    }
+
+    /// The name of an item that can't be styled, as its file is called, and a thumbnail when
+    /// it is a picture: so a JPEG or a screenshot can be told apart in the list.
+    private static func preview(_ provider: NSItemProvider) async -> (name: String?, thumbnail: UIImage?) {
+        let types = provider.registeredTypeIdentifiers.compactMap { UTType($0) }
+        guard let type = types.first(where: { $0.conforms(to: .image) })
+                ?? types.first(where: { $0.conforms(to: .data) }) else {
+            return (provider.suggestedName, nil)
+        }
+        let suggested = provider.suggestedName
+        return await withCheckedContinuation { continuation in
+            _ = provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, _ in
+                guard let url else {
+                    continuation.resume(returning: (suggested, nil))
+                    return
+                }
+                // Photos suggests the name without its extension; the file has it.
+                var name = url.lastPathComponent
+                if let suggested, !suggested.isEmpty {
+                    name = (suggested as NSString).pathExtension.isEmpty && !url.pathExtension.isEmpty
+                        ? suggested + "." + url.pathExtension
+                        : suggested
+                }
+                let thumbnail = type.conforms(to: .image)
+                    ? BackupStore.thumbnail(of: url, maxPixelSize: 240)
+                    : nil
+                continuation.resume(returning: (name, thumbnail))
+            }
+        }
+    }
+
+    /// For an item with no name of its own: its kind and its place in the selection, such as
+    /// "JPEG image 3".
+    private static func fallbackName(_ provider: NSItemProvider, number: Int) -> String {
+        if let suggested = provider.suggestedName, !suggested.isEmpty { return suggested }
+        let kind = provider.registeredTypeIdentifiers.lazy.compactMap { UTType($0)?.localizedDescription }.first
+        return kind.map { "\($0) \(number)" } ?? L("Item \(number)")
     }
 
     private static func isVideo(_ url: URL) -> Bool {
@@ -355,6 +399,30 @@ private struct ShareReview: View {
     }
 }
 
+/// A shared picture's thumbnail, or a placeholder for one without.
+private struct ShareThumbnail: View {
+    let image: UIImage?
+    var systemImage = "photo"
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Color.secondary.opacity(0.2)
+                    .overlay {
+                        Image(systemName: systemImage)
+                            .foregroundStyle(.secondary)
+                    }
+            }
+        }
+        .frame(width: 52, height: 52)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
 private struct CandidateRow: View {
     let candidate: ShareModel.Candidate
     let texture: Bool
@@ -363,26 +431,16 @@ private struct CandidateRow: View {
     var body: some View {
         let problem = candidate.problem(texture: texture)
         HStack(spacing: 12) {
-            Group {
-                if let thumbnail = candidate.thumbnail {
-                    Image(uiImage: thumbnail)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    Color.secondary.opacity(0.2)
+            ShareThumbnail(image: candidate.thumbnail)
+                .overlay(alignment: .bottomLeading) {
+                    if candidate.video != nil && keepsMotion {
+                        Image(systemName: "livephoto")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .shadow(radius: 2)
+                            .padding(3)
+                    }
                 }
-            }
-            .frame(width: 52, height: 52)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(alignment: .bottomLeading) {
-                if candidate.video != nil && keepsMotion {
-                    Image(systemName: "livephoto")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .shadow(radius: 2)
-                        .padding(3)
-                }
-            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(candidate.name)
                     .lineLimit(1)
@@ -405,15 +463,21 @@ private struct SkippedRow: View {
     let item: ShareModel.Skipped
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(item.name, systemImage: "xmark.circle")
-                .lineLimit(1)
-            Text(item.reason)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.leading, 32)
+        HStack(spacing: 12) {
+            ShareThumbnail(image: item.thumbnail, systemImage: isVideo ? "video" : "xmark")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.name)
+                    .lineLimit(1)
+                Text(item.reason)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .padding(.vertical, 2)
+        .opacity(0.6)
+    }
+
+    private var isVideo: Bool {
+        ["mov", "mp4"].contains((item.name as NSString).pathExtension.lowercased())
     }
 }
 
