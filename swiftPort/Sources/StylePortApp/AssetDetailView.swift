@@ -42,11 +42,21 @@ struct AssetDetailView: View {
 
     /// Told which photo is showing, so closing zooms back into the right tile.
     var onShow: ((String) -> Void)?
+    /// Closing: the photo's frame on screen (window coordinates) and how opaque the backdrop
+    /// still is, so it can fly back into its tile from where it is.
+    var close: ((CGRect?, Double) -> Void)?
+    /// Where the photo sits on screen, once laid out; the opening flight lands there.
+    var reportPhotoFrame: ((CGRect) -> Void)?
+    /// The photo's frame on screen, kept up to date without redrawing.
+    @State private var photoFrame = PhotoFrameBox()
 
-    init(identifier: String, assets: [PHAsset] = [], onShow: ((String) -> Void)? = nil) {
+    init(identifier: String, assets: [PHAsset] = [], onShow: ((String) -> Void)? = nil,
+         close: ((CGRect?, Double) -> Void)? = nil, reportPhotoFrame: ((CGRect) -> Void)? = nil) {
         self.identifier = identifier
         self.assets = assets
         self.onShow = onShow
+        self.close = close
+        self.reportPhotoFrame = reportPhotoFrame
         _selectedIdentifier = State(initialValue: identifier)
         _pagerID = State(initialValue: identifier)
     }
@@ -61,9 +71,15 @@ struct AssetDetailView: View {
         guard let source = StyleRecords.shared.source(of: selectedIdentifier), source != .noOriginal else { return nil }
         return source
     }
-    private static var systemZoom: Bool {
-        if #available(iOS 18.0, *) { return true }
-        return false
+    /// How far a pull-down has gone, 0 to 1: the backdrop and buttons fade with it.
+    private var pullProgress: Double { min(Double(dismissOffset) / 300, 1) }
+
+    private func leave() {
+        if let close {
+            close(photoFrame.frame, 1 - pullProgress)
+        } else {
+            dismiss()
+        }
     }
     private var motion: Animation? { reduceMotion ? nil : .spring(duration: 0.32, bounce: 0.08) }
     private var running: Bool { job.map { !$0.isFinished } ?? false }
@@ -81,13 +97,11 @@ struct AssetDetailView: View {
                     description: Text("This photo is no longer in your library."))
             } else { ProgressView() }
         }
-        .background(Color(uiColor: .systemBackground))
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden()
-        .toolbar(.hidden, for: .tabBar)
-        .toolbar(showingControls ? .visible : .hidden, for: .navigationBar)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar { viewerToolbar }
+        // Fades as the photo is pulled down, so the grid shows through, as in Photos.
+        .background { Color(uiColor: .systemBackground).opacity(1 - pullProgress).ignoresSafeArea() }
+        .overlay(alignment: .top) {
+            if showingControls { header.opacity(dismissOffset > 0 ? 0 : 1) }
+        }
         .task(id: "\(selectedIdentifier)-\(jobState)") {
             // Wait for a swipe to settle before reading the original or its info.
             if asset != nil {
@@ -134,13 +148,15 @@ struct AssetDetailView: View {
         } message: { Text("The original is kept in the Backup Bin, and iOS asks you to confirm deleting it from your library.") }
     }
 
-    @ToolbarContentBuilder
-    private var viewerToolbar: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
-            Button { dismiss() } label: { Image(systemName: "chevron.left").font(.headline) }
-                .accessibilityLabel("Back")
-        }
-        ToolbarItem(placement: .principal) {
+    /// Back, the place and date, and the actions menu, over the photo.
+    private var header: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Button { leave() } label: {
+                Image(systemName: "chevron.left").font(.headline).frame(width: 44, height: 44)
+            }
+            .floatingGlass()
+            .accessibilityLabel("Back")
+            Spacer(minLength: 0)
             if let asset {
                 VStack(spacing: 1) {
                     if let placeName { Text(placeName).font(.subheadline.weight(.semibold)).lineLimit(1) }
@@ -152,12 +168,15 @@ struct AssetDetailView: View {
                 .padding(.horizontal, 16).padding(.vertical, 6)
                 .floatingGlass()
             }
-        }
-        ToolbarItem(placement: .topBarTrailing) {
+            Spacer(minLength: 0)
             if let asset {
                 LibrarySelectionActions(assets: [asset], sourceAlbum: nil) { Task { await refresh() } }
+                    .floatingGlass()
             }
         }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
     }
 
     private func viewer(_ asset: PHAsset) -> some View {
@@ -201,6 +220,7 @@ struct AssetDetailView: View {
                     if !showingInfo, !assets.isEmpty { filmstrip }
                     controls(asset)
                 }
+                .opacity(dismissOffset > 0 ? 0 : 1)
                 // Sized for a hand, not the screen: on iPad the controls stay together.
                 .frame(maxWidth: 560)
                 .padding(.horizontal, 16).padding(.bottom, 8)
@@ -231,8 +251,6 @@ struct AssetDetailView: View {
             // info, or, with the info closed, goes back to the grid the photo came from.
             .simultaneousGesture(DragGesture(minimumDistance: 28)
                 .onChanged { value in
-                    // iOS 18+ closes with the system zoom, which follows the finger itself.
-                    guard !Self.systemZoom else { return }
                     let delta = value.translation
                     guard !showingInfo, delta.height > 0, delta.height > abs(delta.width) else { return }
                     dismissOffset = delta.height
@@ -244,9 +262,9 @@ struct AssetDetailView: View {
                         withAnimation(motion) { showingControls = true; showingInfo = true }
                     } else if vertical, delta.height > 60, showingInfo {
                         withAnimation(motion) { showingInfo = false }
-                    } else if !Self.systemZoom, vertical, !showingInfo,
+                    } else if vertical, !showingInfo,
                               delta.height > 110 || value.predictedEndTranslation.height > 300 {
-                        dismiss()
+                        leave()
                         return
                     }
                     if dismissOffset != 0 {
@@ -254,7 +272,27 @@ struct AssetDetailView: View {
                     }
                 })
             .task(id: selectedIdentifier) { prefetchNeighbors(size: geometry.size) }
+            .onAppear { trackPhotoFrame(asset, in: geometry) }
+            .onChange(of: selectedIdentifier) { _, _ in trackPhotoFrame(asset, in: geometry) }
+            .onChange(of: geometry.size) { _, _ in trackPhotoFrame(asset, in: geometry) }
+            .onChange(of: dismissOffset) { _, _ in trackPhotoFrame(asset, in: geometry) }
         }
+    }
+
+    /// The photo's rectangle in window coordinates: fitted into the media area, then moved and
+    /// shrunk as a pull-down moves and shrinks it.
+    private func trackPhotoFrame(_ asset: PHAsset, in geometry: GeometryProxy) {
+        let area = geometry.frame(in: .global)
+        let ratio = CGFloat(max(asset.pixelWidth, 1)) / CGFloat(max(asset.pixelHeight, 1))
+        let width = min(area.width, area.height * ratio)
+        let height = width / ratio
+        let scale = 1 - min(dismissOffset, 400) / 1600
+        let frame = CGRect(x: area.midX - width * scale / 2,
+                           y: area.midY + dismissOffset * scale - height * scale / 2,
+                           width: width * scale, height: height * scale)
+        let first = photoFrame.frame == nil
+        photoFrame.frame = frame
+        if first { reportPhotoFrame?(frame) }
     }
 
     @ViewBuilder
@@ -449,7 +487,9 @@ struct AssetDetailView: View {
             do {
                 try await PhotoLibraryService().requireReadWriteAccess()
                 try await PHPhotoLibrary.shared().performChanges { PHAssetChangeRequest.deleteAssets([asset] as NSArray) }
-                dismiss()
+                // Gone from the grid: fade out rather than fly into a tile.
+                photoFrame.frame = nil
+                leave()
             } catch { message = error.localizedDescription }
         }
     }
@@ -600,6 +640,11 @@ private struct Filmstrip: View {
             .onChange(of: selectedID) { _, id in withAnimation(motion) { proxy.scrollTo(id, anchor: .center) } }
         }
     }
+}
+
+/// Holds the photo's on-screen frame without making the viewer redraw when it changes.
+final class PhotoFrameBox {
+    var frame: CGRect?
 }
 
 /// The original of a styled photo, shown while Compare is held.
@@ -754,5 +799,139 @@ private struct LivePhotoPlayer: UIViewRepresentable {
     final class Coordinator {
         var identifier: String?
         var request: PHImageRequestID?
+    }
+}
+
+/// Hands the queue to the viewer, which sits outside the grid's environment.
+struct QueueEnvironment: ViewModifier {
+    let queue: PortQueue?
+
+    func body(content: Content) -> some View {
+        if let queue { content.environmentObject(queue) } else { content }
+    }
+}
+
+/// The viewer as Photos shows it: only the photo flies out of its tile and grows into place
+/// while the backdrop fades in, then the viewer's buttons appear. Closing flies the photo,
+/// from wherever it is (also mid pull-down), back into its tile while the grid fades back.
+struct PhotoViewerHost: View {
+    let route: AssetRoute
+    let assets: [PHAsset]
+    /// The tile of a photo, when it is on screen.
+    let tileFrame: (String) -> CGRect?
+    /// Which tile to hide: the photo shown, or nil once closed.
+    let showing: (String?) -> Void
+    let closed: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hero: Hero?
+    @State private var viewerVisible = false
+    @State private var backdrop = 0.0
+    @State private var currentID: String
+    @State private var opened = false
+
+    struct Hero {
+        let asset: PHAsset
+        var frame: CGRect
+        var opacity = 1.0
+    }
+
+    init(route: AssetRoute, assets: [PHAsset], tileFrame: @escaping (String) -> CGRect?,
+         showing: @escaping (String?) -> Void, closed: @escaping () -> Void) {
+        self.route = route
+        self.assets = assets
+        self.tileFrame = tileFrame
+        self.showing = showing
+        self.closed = closed
+        _currentID = State(initialValue: route.identifier)
+    }
+
+    var body: some View {
+        ZStack {
+            Color(uiColor: .systemBackground).opacity(backdrop).ignoresSafeArea()
+            AssetDetailView(
+                identifier: route.identifier,
+                assets: assets,
+                onShow: { id in
+                    currentID = id
+                    showing(id)
+                },
+                close: { frame, backdropLeft in close(from: frame, backdrop: backdropLeft) },
+                reportPhotoFrame: { frame in open(to: frame) }
+            )
+            .opacity(viewerVisible ? 1 : 0)
+            .allowsHitTesting(viewerVisible)
+            if let hero {
+                AssetImage(asset: hero.asset, contentMode: .fill)
+                    .frame(width: hero.frame.width, height: hero.frame.height)
+                    .clipped()
+                    .position(x: hero.frame.midX, y: hero.frame.midY)
+                    .opacity(hero.opacity)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+        }
+        .onAppear {
+            showing(route.identifier)
+            guard let asset = asset(route.identifier) else { return }
+            // From the tile; or, when it can't be seen, a small fade from the middle.
+            let start = tileFrame(route.identifier) ?? CGRect(
+                x: UIScreen.main.bounds.midX - 40, y: UIScreen.main.bounds.midY - 40, width: 80, height: 80)
+            hero = Hero(asset: asset, frame: start, opacity: tileFrame(route.identifier) == nil ? 0 : 1)
+        }
+    }
+
+    private func asset(_ identifier: String) -> PHAsset? {
+        assets.first { $0.localIdentifier == identifier }
+            ?? PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil).firstObject
+    }
+
+    /// The viewer has laid the photo out at `frame`: fly there, then hand over.
+    private func open(to frame: CGRect) {
+        guard !opened else { return }
+        opened = true
+        guard !reduceMotion, hero != nil else {
+            backdrop = 1
+            viewerVisible = true
+            hero = nil
+            return
+        }
+        withAnimation(.spring(duration: 0.38, bounce: 0.12)) {
+            hero?.frame = frame
+            hero?.opacity = 1
+            backdrop = 1
+        } completion: {
+            viewerVisible = true
+            // Keep the flying photo a moment over the viewer while its own image loads.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(180))
+                hero = nil
+            }
+        }
+    }
+
+    private func close(from frame: CGRect?, backdrop left: Double) {
+        let target = tileFrame(currentID)
+        guard !reduceMotion, let asset = asset(currentID), let frame else {
+            showing(nil)
+            closed()
+            return
+        }
+        hero = Hero(asset: asset, frame: frame)
+        backdrop = left
+        viewerVisible = false
+        withAnimation(.spring(duration: 0.34, bounce: 0.06)) {
+            if let target {
+                hero?.frame = target
+            } else {
+                // The tile scrolled away: shrink and fade where the photo is.
+                hero?.frame = frame.insetBy(dx: frame.width * 0.3, dy: frame.height * 0.3)
+                hero?.opacity = 0
+            }
+            backdrop = 0
+        } completion: {
+            showing(nil)
+            closed()
+        }
     }
 }

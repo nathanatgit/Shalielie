@@ -30,25 +30,6 @@ private struct ReadableWidth: ViewModifier {
 func L(_ key: String.LocalizationValue) -> String { String(localized: key) }
 
 extension View {
-    /// The tile a photo zooms out of and back into (iOS 18+).
-    @ViewBuilder
-    func zoomSource(id: String, in namespace: Namespace.ID) -> some View {
-        if #available(iOS 18.0, *) {
-            self.matchedTransitionSource(id: id, in: namespace)
-        } else {
-            self
-        }
-    }
-
-    /// Open and close with the system zoom, which also gives the pull-down-to-close gesture.
-    @ViewBuilder
-    func zoomTransition(id: String, in namespace: Namespace.ID) -> some View {
-        if #available(iOS 18.0, *) {
-            self.navigationTransition(.zoom(sourceID: id, in: namespace))
-        } else {
-            self
-        }
-    }
 
     /// Keep a list or form at a comfortable reading width on iPad and in landscape.
     func readableWidth(_ maxWidth: CGFloat = 720) -> some View {

@@ -250,8 +250,40 @@ enum FilenameCache {
     }
 }
 
-struct AssetRoute: Hashable {
+/// A photo opened from a grid.
+struct AssetRoute: Hashable, Identifiable {
     let identifier: String
+    var id: String { identifier }
+}
+
+/// Where each tile is on screen (window coordinates), so a photo can fly out of its tile and
+/// back. Written as tiles move, read only when opening and closing: never redraws anything.
+final class TileFrames {
+    private var frames: [String: CGRect] = [:]
+
+    func set(_ frame: CGRect, for identifier: String) { frames[identifier] = frame }
+
+    /// The tile's frame when it is on screen now; nil when it scrolled away.
+    func visible(_ identifier: String) -> CGRect? {
+        guard let frame = frames[identifier] else { return nil }
+        let screen = UIScreen.main.bounds
+        return screen.intersects(frame) && screen.intersection(frame).width > frame.width * 0.5 ? frame : nil
+    }
+}
+
+/// The tile whose photo is open, hidden while it is up, as in Photos.
+final class OpenTile: ObservableObject {
+    @Published var identifier: String?
+}
+
+/// Hides a tile while its photo is open. Only this small view watches, not the grid.
+private struct HiddenWhileOpen: ViewModifier {
+    let identifier: String
+    @ObservedObject var open: OpenTile
+
+    func body(content: Content) -> some View {
+        content.opacity(open.identifier == identifier ? 0 : 1)
+    }
 }
 
 /// A Photos-like grid with selection and the Add Style action.
@@ -269,10 +301,10 @@ struct AssetGridView<Empty: View>: View {
     @State private var confirmingReplace = false
     @State private var searchText = ""
     @State private var searchPresented = false
-    @State private var previewRoute: AssetRoute?
-    /// The photo the viewer shows now; closing zooms back into its tile.
-    @State private var zoomID: String?
-    @Namespace private var zoomNamespace
+    @State private var viewerRoute: AssetRoute?
+    @State private var tileFrames = TileFrames()
+    @State private var openTile = OpenTile()
+    @EnvironmentObject private var backups: BackupStore
 
     @AppStorage(AppSettings.gridTileSizeKey) private var tileSize = 100.0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -404,9 +436,23 @@ struct AssetGridView<Empty: View>: View {
                 selectionBar.transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .navigationDestination(item: $previewRoute) { route in
-            AssetDetailView(identifier: route.identifier, assets: model.assets) { zoomID = $0 }
-                .zoomTransition(id: zoomID ?? route.identifier, in: zoomNamespace)
+        // Over everything, with no presentation animation of its own: the photo flies out of
+        // its tile instead (PhotoViewerHost), and the grid stays visible underneath.
+        .fullScreenCover(item: $viewerRoute) { route in
+            PhotoViewerHost(
+                route: route,
+                assets: model.assets,
+                tileFrame: { tileFrames.visible($0) },
+                showing: { openTile.identifier = $0 },
+                closed: {
+                    var plain = Transaction()
+                    plain.disablesAnimations = true
+                    withTransaction(plain) { viewerRoute = nil }
+                }
+            )
+            .environmentObject(backups)
+            .modifier(QueueEnvironment(queue: queue))
+            .presentationBackground(.clear)
         }
         .confirmationDialog(
             replaceTitle,
@@ -488,11 +534,15 @@ struct AssetGridView<Empty: View>: View {
         } else {
             Button {
                 guard !isPinching, !tileTapsBlocked else { return }
-                zoomID = asset.localIdentifier
-                previewRoute = AssetRoute(identifier: asset.localIdentifier)
+                var plain = Transaction()
+                plain.disablesAnimations = true
+                withTransaction(plain) { viewerRoute = AssetRoute(identifier: asset.localIdentifier) }
             } label: { tile }
             .buttonStyle(GalleryTileButtonStyle())
-            .zoomSource(id: asset.localIdentifier, in: zoomNamespace)
+            .modifier(HiddenWhileOpen(identifier: asset.localIdentifier, open: openTile))
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                tileFrames.set(frame, for: asset.localIdentifier)
+            }
         }
     }
 
