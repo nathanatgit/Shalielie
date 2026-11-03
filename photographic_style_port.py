@@ -3094,6 +3094,71 @@ def prepare_any_image(source: Path, work: Path):
     return path, decoded, source.name
 
 
+APPLE_EMPTY_MAKERNOTE = b"Apple iOS\x00" + b"\x00\x01" + b"MM" + b"\x00\x00" + b"\x00\x00\x00\x00"
+
+
+def _carry_exif(tiff: bytes, width: int, height: int) -> Optional[bytes]:
+    """The source's own Exif for the converted HEIC: location, camera, lens, dates and an Apple
+    MakerNote stay byte for byte where they are; a rewritten IFD0 and ExifIFD are appended
+    (orientation upright, the new pixel size, an empty Apple MakerNote when there is none) and
+    the header points at them. The old embedded JPEG thumbnail is dropped. None when the source
+    Exif can't be read."""
+    if len(tiff) < 8 or tiff[:2] not in (b"II", b"MM"):
+        return None
+    order = "little" if tiff[:2] == b"II" else "big"
+    rd = lambda off, n: int.from_bytes(tiff[off:off + n], order)
+    if rd(2, 2) != 42:
+        return None
+
+    def read_ifd(off):
+        if off < 8 or off + 2 > len(tiff):
+            raise ValueError("bad IFD offset")
+        n = rd(off, 2)
+        if off + 2 + 12 * n + 4 > len(tiff):
+            raise ValueError("truncated IFD")
+        return {rd(off + 2 + 12 * i, 2): bytes(tiff[off + 2 + 12 * i:off + 14 + 12 * i]) for i in range(n)}
+
+    try:
+        ifd0 = read_ifd(rd(4, 4))
+        exif = read_ifd(int.from_bytes(ifd0[0x8769][8:12], order)) if 0x8769 in ifd0 else {}
+    except ValueError:
+        return None
+    out = bytearray(tiff)
+
+    def append(blob):
+        if len(out) & 1:
+            out.append(0)
+        off = len(out)
+        out.extend(blob)
+        return off
+
+    def entry(tag, typ, count, value):
+        return tag.to_bytes(2, order) + typ.to_bytes(2, order) + count.to_bytes(4, order) + value
+
+    long_ = lambda v: v.to_bytes(4, order)
+    short = lambda v: v.to_bytes(2, order) + b"\x00\x00"
+    maker = exif.get(0x927C)
+    apple = False
+    if maker is not None:
+        count, off = int.from_bytes(maker[4:8], order), int.from_bytes(maker[8:12], order)
+        apple = count > 20 and tiff[off:off + 9] == b"Apple iOS"
+    if not apple:
+        exif[0x927C] = entry(0x927C, 7, len(APPLE_EMPTY_MAKERNOTE), long_(append(APPLE_EMPTY_MAKERNOTE)))
+    exif[0xA002] = entry(0xA002, 4, 1, long_(width))
+    exif[0xA003] = entry(0xA003, 4, 1, long_(height))
+    ifd0[0x0112] = entry(0x0112, 3, 1, short(1))      # the pixels are upright now
+    for tag, value in ((0x0100, width), (0x0101, height)):
+        if tag in ifd0:
+            ifd0[tag] = entry(tag, 4, 1, long_(value))
+
+    def ifd_bytes(entries):
+        return len(entries).to_bytes(2, order) + b"".join(v for _, v in sorted(entries.items())) + bytes(4)
+
+    ifd0[0x8769] = entry(0x8769, 4, 1, long_(append(ifd_bytes(exif))))
+    out[4:8] = append(ifd_bytes(ifd0)).to_bytes(4, order)
+    return b"\x00\x00\x00\x06Exif\x00\x00" + bytes(out)
+
+
 def _apple_exif(width: int, height: int, date: Optional[str]) -> bytes:
     """A minimal big-endian Exif with an empty Apple MakerNote, which the port then gives the
     0x54 Photographic Style record. Keeps the original capture date when there is one."""
@@ -3208,6 +3273,9 @@ def build_heic_from_image(source: Path, work: Path):
         opened = Image.open(source)
         exif = opened.getexif()
         date = exif.get_ifd(0x8769).get(0x9003) or exif.get(0x0132)
+        raw_exif = opened.info.get("exif") or b""
+        if raw_exif.startswith(b"Exif\x00\x00"):
+            raw_exif = raw_exif[6:]
         icc = opened.info.get("icc_profile")
         image = ImageOps.exif_transpose(opened)
         alpha = image.convert("RGBA").getchannel("A") if (
@@ -3249,7 +3317,8 @@ def build_heic_from_image(source: Path, work: Path):
     tw, th = (max(2, int(round(n * scale / 2)) * 2) for n in (width, height))
     hvcc, sample, _ = encode_hevc_still(decoded, work, tw, th, name="thumbnail", full_range_709=True)
     heic = assemble_heic(width, height, tiles, (hvcc, sample, tw, th),
-                         _apple_exif(width, height, str(date) if date else None))
+                         _carry_exif(raw_exif, width, height)
+                         or _apple_exif(width, height, str(date) if date else None))
     return heic, decoded
 
 
