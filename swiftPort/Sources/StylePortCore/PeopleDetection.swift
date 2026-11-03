@@ -25,7 +25,7 @@ enum PeopleDetection {
     static let analysisEdge = 1536
 
     /// Why nothing was estimated; shown in the Texture summary so a skipped estimate is not silent.
-    enum Failure: String {
+    enum Failure: String, Error {
         case unreadable = "could not read the picture"
         case visionFailed = "Vision could not analyse the picture"
         case noFace = "no face found"
