@@ -2769,10 +2769,15 @@ def replace_idat_item(meta: bytes, iid: int, payload: bytes) -> bytes:
     return bytes(data)
 
 
-def discover_target(data: bytes):
+def discover_target(data: bytes, allow_sdr: bool = False):
+    """allow_sdr (experimental, --sdr): accept a photo without an HDR gain map. Its style items
+    are attached to the primary image only; nothing stands in for the missing gain map."""
     disc = discover_heic(data)
     if disc["hdr_grid"] is None or not disc["hdr_tiles"]:
-        raise PortError("Target has no HDR gain-map grid")
+        if not allow_sdr:
+            raise PortError("Target has no HDR gain-map grid (an SDR photo); "
+                            "--sdr tries it experimentally")
+        disc["sdr"] = True
     # A missing thumbnail is allowed: patch synthesizes one from the primary. Files re-saved
     # by iOS (they carry an extra XMP item and no tmap) have been seen without one.
     if disc["exif_item"] is None:
@@ -3022,6 +3027,7 @@ def patch_with_photo_graph(args, target: Path, output: Path, target_data: bytes,
     output.write_bytes(result)
     report = {"tool_version": VERSION, "target": target.name, "output": output.name,
               "output_sha256": sha256_bytes(result), "linear_thumb_mode": args.linear_thumb,
+              "sdr": bool(td.get("sdr")),
               "person_masks_valid_hint": 1.0 if has_mattes else None,
               **report, **stats_report, **maps_report}
     report_json = json.dumps(report, indent=2)
@@ -3056,8 +3062,17 @@ def cmd_patch(args):
         print("Native Photographic Style detected: adding Texture/Grain only (no port)")
         write_add_texture(target, output, args.report, args.zip)
         return
-    td = discover_target(target_data)
+    td = discover_target(target_data, allow_sdr=getattr(args, "sdr", False))
     graph = getattr(args, "graph", "auto")
+    if td.get("sdr"):
+        # The donor graph moves the photo's HDR tiles into the donor's; an SDR photo has none.
+        if graph == "donor":
+            raise PortError("--sdr needs --graph photo or auto, not donor")
+        size = dimensions_for_item(td["props"], int(td["primary"]))
+        if style_delta_size(*size) is None:
+            raise PortError(f"--sdr supports 12, 24 and 48 MP and front-camera photos; "
+                            f"this one is {size[0]}x{size[1]}")
+        print("EXPERIMENTAL --sdr: no HDR gain map; style data is attached to the primary only")
     if graph == "photo" or (graph == "auto" and style_delta_size(
             *dimensions_for_item(td["props"], int(td["primary"]))) is not None):
         patch_with_photo_graph(args, target, output, target_data, td)
@@ -3792,6 +3807,11 @@ def build_parser():
                         "moves the photo into a built-in donor graph (48/12 and 45/15 only, "
                         "the pre-v0.6.2 behaviour); 'auto' (default) uses 'photo' whenever the "
                         "photo's size is known, otherwise 'donor'")
+    a.add_argument("--sdr", action="store_true",
+                   help="EXPERIMENTAL: also port an SDR photo, one without an HDR gain map "
+                        "(older iPhones, re-saved or edited photos). The style data is attached "
+                        "to the primary image only; whether Photos then offers and renders the "
+                        "styles is untested")
     a.set_defaults(func=cmd_patch)
 
     a = sub.add_parser("add-texture",
@@ -4404,7 +4424,7 @@ def drop_mode(paths: List[str]) -> int:
         args = argparse.Namespace(
             target=str(src), output=str(out), profile=None, report=False, zip=False, texture="on",
             linear_thumb="generate" if full else "reuse-thumbnail",
-            scene_stats="target" if full else "donor", light_maps="flat", graph="auto")
+            scene_stats="target" if full else "donor", light_maps="flat", graph="auto", sdr=False)
         log = io.StringIO()
         try:
             with contextlib.redirect_stdout(log):

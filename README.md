@@ -185,6 +185,7 @@ Useful flags:
 | `--scene-stats donor`            | Fall back to donor tone anchors if colours look wrong              |
 | `--linear-thumb reuse-thumbnail` | Skip the encoder entirely                                          |
 | `--texture off`                  | Leave out the iOS 27 Texture/Grain items (v0.4.4 output)           |
+| `--sdr`                          | **Experimental:** also port an SDR photo (no HDR gain map), untested on the phone |
 
 By default the only file written is the output HEIC. A run summary is printed to the terminal;
 pass `--report` or `--zip` to save it as JSON too.
