@@ -339,7 +339,7 @@ enum Texture {
                     skin = skin ?? estimate.skin
                     person = person ?? estimate.person
                 case .failure(let failure):
-                    skipped?(failure.rawValue)
+                    skipped?(failure.message)
                 }
             }
         }

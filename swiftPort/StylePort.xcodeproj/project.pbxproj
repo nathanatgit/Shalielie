@@ -56,6 +56,8 @@
 		B50000000000000000000006 /* PalettifyShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F10000000000000000000004 /* PalettifyShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B40000000000000000000006 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000006 /* Localizable.xcstrings */; };
 		B40000000000000000000007 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000003 /* InfoPlist.strings */; };
+		B40000000000000000000099 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000099 /* Models */; };
+		B50000000000000000000099 /* MediaPipeTasksVision in Frameworks */ = {isa = PBXBuildFile; platformFilter = ios; productRef = D90000000000000000000002 /* MediaPipeTasksVision */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -162,10 +164,11 @@
 		F10000000000000000000002 /* StylePort.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StylePort.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F10000000000000000000003 /* StylePortCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StylePortCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F10000000000000000000004 /* PalettifyShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PalettifyShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E00000000000000000000099 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		300000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		300000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (B50000000000000000000099 /* MediaPipeTasksVision in Frameworks */, ); runOnlyForDeploymentPostprocessing = 0; };
 		300000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (B50000000000000000000001 /* StylePortCore.framework in Frameworks */, ); runOnlyForDeploymentPostprocessing = 0; };
 		300000000000000000000003 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (B50000000000000000000003 /* StylePortCore.framework in Frameworks */, B50000000000000000000004 /* XCTest.framework in Frameworks */, ); runOnlyForDeploymentPostprocessing = 0; };
 		300000000000000000000004 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (B50000000000000000000005 /* StylePortCore.framework in Frameworks */, ); runOnlyForDeploymentPostprocessing = 0; };
@@ -240,6 +243,7 @@
 				E00000000000000000000006 /* Localizable.xcstrings */,
 				E00000000000000000000003 /* InfoPlist.strings */,
 				E00000000000000000000001 /* Profiles */,
+				E00000000000000000000099 /* Models */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -294,6 +298,9 @@
 			buildRules = ();
 			dependencies = ();
 			name = StylePortCore;
+			packageProductDependencies = (
+				D90000000000000000000002 /* MediaPipeTasksVision */,
+			);
 			productName = StylePortCore;
 			productReference = F10000000000000000000001 /* StylePortCore.framework */;
 			productType = "com.apple.product-type.framework";
@@ -363,6 +370,9 @@
 			};
 			buildConfigurationList = 700000000000000000000001 /* Build configuration list for PBXProject "StylePort" */;
 			compatibilityVersion = "Xcode 14.0";
+			packageReferences = (
+				D90000000000000000000001 /* XCRemoteSwiftPackageReference "mediapipe" */,
+			);
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (en, Base, "zh-Hans", );
@@ -380,7 +390,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		200000000000000000000001 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (B40000000000000000000002 /* Profiles in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
+		200000000000000000000001 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (B40000000000000000000002 /* Profiles in Resources */, B40000000000000000000099 /* Models in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
 		200000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (B40000000000000000000003 /* Assets.xcassets in Resources */, B40000000000000000000005 /* Localizable.xcstrings in Resources */, B40000000000000000000004 /* InfoPlist.strings in Resources */, B40000000000000000000001 /* PrivacyInfo.xcprivacy in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
 		200000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		200000000000000000000004 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (B40000000000000000000006 /* Localizable.xcstrings in Resources */, B40000000000000000000007 /* InfoPlist.strings in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
@@ -699,6 +709,25 @@
 		700000000000000000000004 /* Build configuration list for PBXNativeTarget "StylePortCoreTests" */ = {isa = XCConfigurationList; buildConfigurations = (600000000000000000000007 /* Debug */, 600000000000000000000008 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		700000000000000000000005 /* Build configuration list for PBXNativeTarget "PalettifyShare" */ = {isa = XCConfigurationList; buildConfigurations = (600000000000000000000009 /* Debug */, 60000000000000000000000A /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D90000000000000000000001 /* XCRemoteSwiftPackageReference "mediapipe" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google-ai-edge/mediapipe";
+			requirement = {
+				kind = exactVersion;
+				version = 1.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D90000000000000000000002 /* MediaPipeTasksVision */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D90000000000000000000001 /* XCRemoteSwiftPackageReference "mediapipe" */;
+			productName = MediaPipeTasksVision;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 800000000000000000000001 /* Project object */;
 }

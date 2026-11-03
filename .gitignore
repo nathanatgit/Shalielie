@@ -86,3 +86,7 @@ web/about.zh.html
 
 # Find Faces models, fetched by tools/fetch_models.py
 /models/
+
+# Find Faces models bundled into the app, fetched by tools/fetch_models.py
+/swiftPort/Resources/Models/*.task
+/swiftPort/Resources/Models/*.tflite

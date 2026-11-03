@@ -25,14 +25,30 @@ enum PeopleDetection {
     static let analysisEdge = 1536
 
     /// Why nothing was estimated; shown in the Texture summary so a skipped estimate is not silent.
-    enum Failure: String, Error {
-        case unreadable = "could not read the picture"
-        case visionFailed = "Vision could not analyse the picture"
-        case noFace = "no face found"
-        case segmentation = "person segmentation failed"
-        case mattePixels = "could not prepare the mattes"
-        case skinEncoding = "this iOS would not write the skin matte"
-        case personEncoding = "this iOS would not write the person matte"
+    enum Failure: Error {
+        case unreadable
+        case visionFailed
+        case noFace
+        case segmentation
+        case mattePixels
+        case skinEncoding
+        case personEncoding
+        case modelsMissing
+        case engine(String)
+
+        var message: String {
+            switch self {
+            case .unreadable: return "could not read the picture"
+            case .visionFailed: return "Vision could not analyse the picture"
+            case .noFace: return "no face found"
+            case .segmentation: return "person segmentation failed"
+            case .mattePixels: return "could not prepare the mattes"
+            case .skinEncoding: return "this iOS would not write the skin matte"
+            case .personEncoding: return "this iOS would not write the person matte"
+            case .modelsMissing: return "the Find Faces models are not in the app"
+            case .engine(let detail): return "MediaPipe failed: \(detail)"
+            }
+        }
     }
 
     /// `faces`: the photo's own face regions, if it has any (then no faces are detected).
@@ -45,6 +61,13 @@ enum PeopleDetection {
     ) -> Result<Found, Failure> {
         guard [0, 90, 180, 270].contains(irot), width > 0, height > 0,
               let upright = uprightImage(data) else { return .failure(.unreadable) }
+        #if canImport(MediaPipeTasksVision) && canImport(UIKit)
+        // The same method as the command line's --find-faces, when its models are bundled.
+        if MediaPipeFaces.available {
+            return MediaPipeFaces.detect(upright: upright, irot: irot, width: width, height: height,
+                                         known: knownFaces)
+        }
+        #endif
         let handler = VNImageRequestHandler(cgImage: upright, options: [:])
         var faces = knownFaces
         if faces.isEmpty {

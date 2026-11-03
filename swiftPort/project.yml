@@ -12,6 +12,10 @@ settings:
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "0.7.3"
     CURRENT_PROJECT_VERSION: "7"
+packages:
+  MediaPipe:
+    url: https://github.com/google-ai-edge/mediapipe
+    exactVersion: 1.2.0
 targets:
   StylePortCore:
     type: framework
@@ -21,6 +25,13 @@ targets:
       - path: Resources/Profiles
         type: folder
         buildPhase: resources
+      # Find Faces' two Google models, fetched by tools/fetch_models.py before the build.
+      - path: Resources/Models
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: MediaPipe
+        product: MediaPipeTasksVision
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.nathanhanapps.styleport.core

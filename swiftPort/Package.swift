@@ -11,9 +11,16 @@ let package = Package(
     products: [
         .library(name: "StylePortCore", targets: ["StylePortCore"])
     ],
+    dependencies: [
+        // Find Faces' MediaPipe engine (iOS only; macOS `swift test` skips it).
+        .package(url: "https://github.com/google-ai-edge/mediapipe", exact: "1.2.0")
+    ],
     targets: [
         .target(
             name: "StylePortCore",
+            dependencies: [
+                .product(name: "MediaPipeTasksVision", package: "mediapipe", condition: .when(platforms: [.iOS]))
+            ],
             path: ".",
             exclude: [
                 "README.md",
@@ -30,7 +37,7 @@ let package = Package(
                 "Resources/zh-Hans.lproj"
             ],
             sources: ["Sources/StylePortCore"],
-            resources: [.copy("Resources/Profiles")]
+            resources: [.copy("Resources/Profiles"), .copy("Resources/Models")]
         ),
         .testTarget(
             name: "StylePortCoreTests",
