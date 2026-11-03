@@ -2981,7 +2981,8 @@ def graft_style_graph(target_data: bytes, td, styles_blob: bytes, mn54: bytes, m
               "linear_thumb_item": lt["lt"], "styles_item": st["styles"]}
     if texture:
         meta, tex_payloads, summary = add_texture_items(
-            meta, primary, soft_skin_people(target_data, td), film_grain_seed(target_data, td))
+            meta, primary, td.get("people") or soft_skin_people(target_data, td),
+            film_grain_seed(target_data, td))
         payloads.update(tex_payloads)
         report["texture_styles"] = summary
     else:
@@ -3359,6 +3360,19 @@ def patch_target(args, target: Path, decoded_png: Optional[Path] = None, importe
         td["decoded_png"] = decoded_png
         td["imported_from"] = imported_from
         print(f"EXPERIMENTAL --any-image: {imported_from} converted to an SDR HEIC, then ported")
+        if getattr(args, "find_faces", False):
+            import photographic_style_faces
+            primary_id = int(td["primary"])
+            people, why = photographic_style_faces.estimate_people(
+                sys.modules[__name__], Path(decoded_png), Path(decoded_png).parent,
+                irot_angle_for_item(target_data, td["props"], primary_id),
+                imir_axis_for_item(target_data, td["props"], primary_id),
+                getattr(args, "model_dir", None))
+            if people is None:
+                print(f"  Find Faces: skipped, {why}")
+            else:
+                td["people"] = people
+                print(f"  Find Faces: {people['faces']} face(s), skin and person mattes estimated")
         patch_with_photo_graph(args, target, output, target_data, td)
         return
     if td.get("sdr"):
@@ -4015,6 +4029,15 @@ def cmd_add_texture(args):
     write_add_texture(Path(args.input), Path(args.output))
 
 
+def cmd_models(args):
+    import photographic_style_faces as faces
+    folder = faces.model_dir(args.model_dir)
+    found = {name: (folder / name).is_file() for name in faces.MODEL_FILES}
+    print(json.dumps({"model_dir": str(folder), "models": found}, indent=2))
+    if not all(found.values()):
+        raise PortError("Find Faces models missing: run tools/fetch_models.py")
+
+
 def cmd_profiles(args):
     rows = []
     for name, info in BUILTIN_PROFILE_INFO.items():
@@ -4115,6 +4138,15 @@ def build_parser():
                         "screenshots, HEIC from other phones with pillow-heif installed). It is "
                         "converted to an iPhone-shaped SDR HEIC first, as PR #4 does; needs "
                         "Pillow and ffmpeg. Phone-tested with a JPEG and a screenshot")
+    a.add_argument("--find-faces", action="store_true",
+                   help="EXPERIMENTAL, with --any-image: find the faces and estimate the skin "
+                        "and person mattes Soft Skin reads, for a picture that has none. Uses "
+                        "MediaPipe (pip install mediapipe) and the two pre-fetched models "
+                        "(tools/fetch_models.py; packed into the release binaries). Untested "
+                        "in Photos")
+    a.add_argument("--model-dir", metavar="DIR",
+                   help="Folder with the pre-fetched Find Faces models (default: packed with "
+                        "the binary, or ./models)")
     a.set_defaults(func=cmd_patch)
 
     a = sub.add_parser("add-texture",
@@ -4126,6 +4158,10 @@ def build_parser():
 
     a = sub.add_parser("profiles", help="List embedded built-in profiles")
     a.set_defaults(func=cmd_profiles)
+
+    a = sub.add_parser("models", help="Show where the pre-fetched Find Faces models are")
+    a.add_argument("--model-dir", metavar="DIR", help="Look here first")
+    a.set_defaults(func=cmd_models)
 
     a = sub.add_parser("inspect", help="Inspect Photographic-Style-related HEIC item structure")
     a.add_argument("heic")

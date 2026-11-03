@@ -81,18 +81,23 @@ jobs:
             target: windows-x86_64
             executable: photographic-style-port.exe
             archive: zip
+            mediapipe: "0.10.32"
           - runner: ubuntu-22.04
             target: linux-x86_64
             executable: photographic-style-port
             archive: tar.gz
+            mediapipe: "0.10.32"
           - runner: macos-15-intel
             target: macos-x86_64
             executable: photographic-style-port
             archive: tar.gz
+            # The last MediaPipe wheel for Intel Macs.
+            mediapipe: "0.10.21"
           - runner: macos-15
             target: macos-arm64
             executable: photographic-style-port
             archive: tar.gz
+            mediapipe: "0.10.32"
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
@@ -100,17 +105,22 @@ jobs:
         with:
           python-version-file: .python-version
 
-      - name: Install packager
-        run: python -m pip install --disable-pip-version-check pyinstaller==6.21.0
+      - name: Install packager and the Find Faces runtime
+        run: >-
+          python -m pip install --disable-pip-version-check
+          pyinstaller==6.21.0 pillow==12.3.0 numpy "mediapipe==${{ matrix.mediapipe }}"
+
+      # The two Google models, pinned and hash-checked (tools/models.json), packed into the
+      # binary so Find Faces needs no download at run time.
+      - name: Fetch the Find Faces models
+        run: python tools/fetch_models.py models
 
       - name: Build one-file executable
-        run: >-
-          python -m PyInstaller
-          --clean
-          --noconfirm
-          --onefile
-          --name photographic-style-port
-          photographic_style_port.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          sep=":"; [ "$RUNNER_OS" = "Windows" ] && sep=";"
+          python -m PyInstaller             --clean             --noconfirm             --onefile             --name photographic-style-port             --add-data "models${sep}models"             --collect-all mediapipe             --hidden-import photographic_style_faces             --hidden-import photographic_style_vision             photographic_style_port.py
 
       # These commands exercise argparse, the embedded Python runtime, and both
       # embedded donor-profile ZIPs without needing a personal HEIC fixture.
@@ -123,6 +133,10 @@ jobs:
           actual="$("./dist/$EXECUTABLE" --version)"
           test "$actual" = "Photographic Style Port $EXPECTED_VERSION"
           "./dist/$EXECUTABLE" profiles > packaged-profiles.json
+          # Both Find Faces models are inside the binary and found without --model-dir.
+          "./dist/$EXECUTABLE" models | tee packaged-models.json
+          grep -q 'face_landmarker.task": true' packaged-models.json
+          grep -q 'selfie_multiclass_256x256.tflite": true' packaged-models.json
           python - <<'PY'
           import json
           from pathlib import Path

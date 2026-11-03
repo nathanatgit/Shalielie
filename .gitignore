@@ -83,3 +83,6 @@ tests/web/.cache/
 # Rendered at deploy by tools/render-about.mjs
 web/about.html
 web/about.zh.html
+
+# Find Faces models, fetched by tools/fetch_models.py
+/models/

@@ -198,6 +198,8 @@ Useful flags:
 | `--texture off`                  | Leave out the iOS 27 Texture/Grain items (v0.4.4 output)           |
 | `--sdr`                          | **Experimental:** also port an SDR photo (no HDR gain map), e.g. from an iPhone 11; phone-tested ✅; included in `--any-image` |
 | `--any-image`                    | **Experimental:** convert any picture (JPEG, PNG, WebP, screenshots) to an iPhone-style HEIC first, keeping its Exif (camera, dates, location), then port it; needs Pillow; phone-tested ✅ (Exif carry-over not yet) |
+| `--find-faces`                   | **Experimental, with `--any-image`:** find the faces and estimate the skin and person mattes Soft Skin reads, for a picture that has none (PR #4's MediaPipe detector, joy-0220-yoj). Needs `mediapipe` when run from source; the release binaries include it and the two Google models (pre-fetched by `tools/fetch_models.py`, pinned in `tools/models.json`). Untested in Photos 🔍 |
+| `--model-dir DIR`                | Where the pre-fetched models are (default: packed in the binary, or `./models`); `models` shows what was found |
 
 By default the only file written is the output HEIC. A run summary is printed to the terminal;
 pass `--report` or `--zip` to save it as JSON too.
