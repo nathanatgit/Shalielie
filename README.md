@@ -192,6 +192,7 @@ Useful flags:
 | `--linear-thumb reuse-thumbnail` | Skip the encoder entirely                                          |
 | `--texture off`                  | Leave out the iOS 27 Texture/Grain items (v0.4.4 output)           |
 | `--sdr`                          | **Experimental:** also port an SDR photo (no HDR gain map), untested on the phone |
+| `--any-image`                    | **Experimental:** convert any picture (JPEG, PNG, WebP, screenshots) to an iPhone-style HEIC first, then port it; needs Pillow, untested on the phone |
 
 By default the only file written is the output HEIC. A run summary is printed to the terminal;
 pass `--report` or `--zip` to save it as JSON too.

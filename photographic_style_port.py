@@ -2620,19 +2620,26 @@ def encode_target_linear_thumbnail(decoded: Path, work: Path, out_w: int, out_h:
 
 
 def encode_hevc_still(decoded: Path, work: Path, out_w: int, out_h: int,
-                      angle: int = 0, mirror=None, name: str = "still", ten_bit: bool = False):
+                      angle: int = 0, mirror=None, name: str = "still", ten_bit: bool = False,
+                      full_range_709: bool = False):
     """Encode one HEVC frame in the target's stored orientation; returns (hvcC, sample, NALs).
 
     ten_bit selects Main10 (what Apple ships for the linearthumbnail); otherwise 8-bit Main,
-    matching Apple's ordinary thumbnail.
+    matching Apple's ordinary thumbnail. full_range_709 encodes full-range BT.709 to match an
+    sRGB nclx colr with the full-range flag (--any-image); without it ffmpeg writes
+    limited-range BT.601.
     """
     ffmpeg = require_cmd("ffmpeg")
     mp4 = work / f"{name}.mp4"
-    vf = ",".join(raw_orientation_filters(angle, mirror)
-                  + [f"scale={out_w}:{out_h}:flags=lanczos"])
+    scale = f"scale={out_w}:{out_h}:flags=lanczos"
+    if full_range_709:
+        scale += ":out_color_matrix=bt709:out_range=full"
+    vf = ",".join(raw_orientation_filters(angle, mirror) + [scale])
+    color = (["-color_range", "pc", "-colorspace", "bt709", "-color_primaries", "bt709",
+              "-color_trc", "iec61966-2-1"] if full_range_709 else [])
     enc = subprocess.run([
         ffmpeg, "-y", "-loglevel", "error", "-i", str(decoded),
-        "-vf", vf, "-frames:v", "1",
+        "-vf", vf, "-frames:v", "1", *color,
         "-c:v", "libx265", "-pix_fmt", "yuv420p10le" if ten_bit else "yuv420p",
         "-profile:v", "main10" if ten_bit else "main", "-tag:v", "hvc1",
         "-x265-params", "info=0", "-movflags", "+faststart", str(mp4)
@@ -2796,6 +2803,17 @@ def style_delta_size(width: int, height: int):
     return None
 
 
+def generic_style_delta_size(width: int, height: int):
+    """StyleDeltaMap size for a primary of any size (--any-image): the native 2880x2160 map
+    (2160x2880 upright) scaled to the photo's aspect ratio, never larger than the photo, as
+    PR #4's import does. Native files of other sizes have not been seen, so this is a guess."""
+    landscape = width >= height
+    bw, bh = (2880, 2160) if landscape else (2160, 2880)
+    scale = min(bw / width, bh / height, 1.0)
+    even = lambda n: max(2, int(round(n * scale / 2)) * 2)
+    return even(width), even(height)
+
+
 def ftyp_with_style_brands(ftyp: bytes) -> bytes:
     """Add MiHA and heix right after MiHB, where native style files list them."""
     major, minor = ftyp[8:12], ftyp[12:16]
@@ -2909,7 +2927,7 @@ def graft_style_graph(target_data: bytes, td, styles_blob: bytes, mn54: bytes, m
     props = td["props"]
     primary = int(td["primary"])
     pw, ph = dimensions_for_item(props, primary)
-    size = style_delta_size(pw, ph)
+    size = td.get("delta_size") or style_delta_size(pw, ph)
     if size is None:
         raise PortError(f"No StyleDeltaMap size known for a {pw}x{ph} primary")
     dw, dh = size
@@ -2998,7 +3016,8 @@ def patch_with_photo_graph(args, target: Path, output: Path, target_data: bytes,
                     or args.light_maps == "target")
     with tempfile.TemporaryDirectory(prefix="photographic-style-port-") as tmp:
         work = Path(tmp)
-        decoded = decode_target_primary(target, work) if needs_decode else None
+        # An imported image (--any-image) is already decoded; no heif-convert needed.
+        decoded = td.get("decoded_png") or (decode_target_primary(target, work) if needs_decode else None)
         if args.linear_thumb == "generate":
             hvcc, sample, _nal = encode_target_linear_thumbnail(decoded, work, lt_w, lt_h, angle, mirror)
             linear_thumb = {"sample": sample, "hvcC": hvcc, "ispe": _ispe_box(lt_w, lt_h),
@@ -3028,6 +3047,7 @@ def patch_with_photo_graph(args, target: Path, output: Path, target_data: bytes,
     report = {"tool_version": VERSION, "target": target.name, "output": output.name,
               "output_sha256": sha256_bytes(result), "linear_thumb_mode": args.linear_thumb,
               "sdr": bool(td.get("sdr")),
+              "imported_from": td.get("imported_from"),
               "person_masks_valid_hint": 1.0 if has_mattes else None,
               **report, **stats_report, **maps_report}
     report_json = json.dumps(report, indent=2)
@@ -3046,8 +3066,203 @@ def patch_with_photo_graph(args, target: Path, output: Path, target_data: bytes,
     print(f"  SHA-256: {report['output_sha256']}")
 
 
+# --- --any-image: build an iPhone-shaped SDR HEIC from any picture (after PR #4) -------------
+
+ANY_IMAGE_MAX_TILES = 48           # a 12 MP photo's grid; larger pictures are scaled down
+ANY_IMAGE_THUMB_EDGE = 416         # Apple's thumbnail long edge
+SRGB_NCLX = _box("colr", b"nclx" + struct.pack(">HHH", 1, 13, 1) + b"\x80")
+PIXI_8BIT = _box("pixi", b"\x00\x00\x00\x00\x03\x08\x08\x08")
+
+
+def is_apple_shaped_heic(data: bytes) -> bool:
+    """A HEIC the porter takes as it is: a grid primary with Exif."""
+    try:
+        disc = discover_heic(data)
+    except Exception:
+        return False
+    return disc["exif_item"] is not None
+
+
+def prepare_any_image(source: Path, work: Path):
+    """(heic_path, decoded_png, source_name) for a picture that needs converting, or None when
+    it is already a HEIC the porter takes."""
+    if is_apple_shaped_heic(source.read_bytes()):
+        return None
+    heic, decoded = build_heic_from_image(source, work)
+    path = work / "imported.HEIC"
+    path.write_bytes(heic)
+    return path, decoded, source.name
+
+
+def _apple_exif(width: int, height: int, date: Optional[str]) -> bytes:
+    """A minimal big-endian Exif with an empty Apple MakerNote, which the port then gives the
+    0x54 Photographic Style record. Keeps the original capture date when there is one."""
+    maker = b"Apple iOS\x00" + b"\x00\x01" + b"MM" + b"\x00\x00" + b"\x00\x00\x00\x00"
+    entries = []   # (tag, type, count, value bytes), in tag order
+    if date:
+        entries.append((0x9003, 2, 20, date.encode("ascii", "ignore")[:19].ljust(19, b" ") + b"\x00"))
+    entries.append((0x927C, 7, len(maker), maker))
+    entries.append((0xA002, 4, 1, width.to_bytes(4, "big")))
+    entries.append((0xA003, 4, 1, height.to_bytes(4, "big")))
+    ifd0 = 8
+    exif_ifd = ifd0 + 2 + 12 + 4
+    data_start = exif_ifd + 2 + 12 * len(entries) + 4
+    tiff = bytearray(b"MM\x00*" + ifd0.to_bytes(4, "big"))
+    tiff += (1).to_bytes(2, "big") + (0x8769).to_bytes(2, "big") + (4).to_bytes(2, "big") \
+        + (1).to_bytes(4, "big") + exif_ifd.to_bytes(4, "big") + bytes(4)
+    table, area = bytearray(), bytearray()
+    for tag, typ, count, value in entries:
+        table += tag.to_bytes(2, "big") + typ.to_bytes(2, "big") + count.to_bytes(4, "big")
+        if len(value) <= 4:
+            table += value.ljust(4, b"\x00")
+        else:
+            table += (data_start + len(area)).to_bytes(4, "big")
+            area += value + (b"\x00" if len(value) & 1 else b"")
+    tiff += len(entries).to_bytes(2, "big") + table + bytes(4) + area
+    return b"\x00\x00\x00\x06Exif\x00\x00" + bytes(tiff)
+
+
+def _plain_infe(iid: int, item_type: str, hidden: bool) -> bytes:
+    return _box("infe", bytes([2, 0, 0, 1 if hidden else 0]) + iid.to_bytes(2, "big") + b"\x00\x00"
+                + item_type.encode("latin1") + b"\x00")
+
+
+def _full(typ: str, payload: bytes, version: int = 0) -> bytes:
+    return _box(typ, bytes([version, 0, 0, 0]) + payload)
+
+
+def assemble_heic(width: int, height: int, tiles: List[Tuple[bytes, bytes]],
+                  thumb: Tuple[bytes, bytes, int, int], exif: bytes) -> bytes:
+    """ftyp + meta + mdat for a grid of 512 px HEVC tiles, a thumbnail and Exif, laid out the
+    way the porter's parser and rebuild expect (iloc v1, 4-byte offsets, grid in idat)."""
+    cols, rows = -(-width // 512), -(-height // 512)
+    if len(tiles) != cols * rows:
+        raise PortError("Tile count does not match the grid")
+    primary = 1
+    tile_ids = list(range(2, 2 + len(tiles)))
+    thumb_id, exif_id = tile_ids[-1] + 1, tile_ids[-1] + 2
+
+    # Properties: the tiles share an hvcC when the encoder wrote the same one for each.
+    props = [SRGB_NCLX, PIXI_8BIT, _ispe_box(512, 512), _ispe_box(width, height),
+             thumb[0], _ispe_box(thumb[2], thumb[3])]
+    colr_i, pixi_i, tile_ispe_i, primary_ispe_i, thumb_hvcc_i, thumb_ispe_i = range(1, 7)
+    hvcc_index, tile_hvcc = {}, []
+    for hvcc, _sample in tiles:
+        if hvcc not in hvcc_index:
+            props.append(hvcc)
+            hvcc_index[hvcc] = len(props)
+        tile_hvcc.append(hvcc_index[hvcc])
+    if len(props) > 0x7F:
+        raise PortError("Too many distinct tile encodings")
+    assoc = [(primary, [(primary_ispe_i, False), (colr_i, False), (pixi_i, False)])]
+    assoc += [(iid, [(tile_hvcc[n], True), (tile_ispe_i, False), (colr_i, False), (pixi_i, False)])
+              for n, iid in enumerate(tile_ids)]
+    assoc.append((thumb_id, [(thumb_hvcc_i, True), (thumb_ispe_i, False), (colr_i, False), (pixi_i, False)]))
+    ipma = _full("ipma", len(assoc).to_bytes(4, "big") + b"".join(_ipma_entry(i, a) for i, a in assoc))
+    iprp = _box("iprp", _box("ipco", b"".join(props)) + ipma)
+
+    infes = [_plain_infe(primary, "grid", False)] + [_plain_infe(i, "hvc1", True) for i in tile_ids] \
+        + [_plain_infe(thumb_id, "hvc1", False), _plain_infe(exif_id, "Exif", True)]
+    iinf = _full("iinf", len(infes).to_bytes(2, "big") + b"".join(infes))
+    iref = _full("iref", _ref_box("dimg", primary, tile_ids) + _ref_box("thmb", thumb_id, [primary])
+                 + _ref_box("cdsc", exif_id, [primary]))
+    grid = bytes([0, 0, rows - 1, cols - 1]) + width.to_bytes(2, "big") + height.to_bytes(2, "big")
+    payloads = [(iid, sample) for iid, (_hvcc, sample) in zip(tile_ids, tiles)]
+    payloads += [(thumb_id, thumb[1]), (exif_id, exif)]
+
+    def meta_with(offsets):
+        entries = [(primary, 1, 0, len(grid))] + [(iid, 0, offsets[iid], len(blob)) for iid, blob in payloads]
+        iloc = _full("iloc", bytes([0x44, 0x00]) + len(entries).to_bytes(2, "big") + b"".join(
+            iid.to_bytes(2, "big") + cm.to_bytes(2, "big") + b"\x00\x00" + (1).to_bytes(2, "big")
+            + off.to_bytes(4, "big") + length.to_bytes(4, "big") for iid, cm, off, length in entries), 1)
+        hdlr = _full("hdlr", b"\x00" * 4 + b"pict" + b"\x00" * 12 + b"\x00")
+        pitm = _full("pitm", primary.to_bytes(2, "big"))
+        return _full("meta", hdlr + pitm + iloc + iinf + iref + iprp + _box("idat", grid))
+
+    ftyp = _box("ftyp", b"heic" + bytes(4) + b"mif1MiHEMiPrmiafMiHBheic")
+    meta = meta_with({iid: 0 for iid, _ in payloads})
+    cursor = len(ftyp) + len(meta) + 8
+    offsets = {}
+    for iid, blob in payloads:
+        offsets[iid] = cursor
+        cursor += len(blob)
+    meta = meta_with(offsets)
+    body = b"".join(blob for _, blob in payloads)
+    return ftyp + meta + (8 + len(body)).to_bytes(4, "big") + b"mdat" + body
+
+
+def build_heic_from_image(source: Path, work: Path):
+    """Decode a picture with Pillow (EXIF orientation applied, colour converted to sRGB,
+    transparency flattened onto black), scale it to at most a 12 MP grid, encode 512 px HEVC
+    tiles and a thumbnail with ffmpeg, and add a minimal Apple Exif. Returns (heic, png)."""
+    try:
+        from PIL import Image, ImageCms, ImageOps
+    except ImportError as error:
+        raise PortError("--any-image needs Pillow: pip install pillow") from error
+    try:
+        import pillow_heif   # optional: HEIC/HEIF from other phones and apps
+        pillow_heif.register_heif_opener()
+    except ImportError:
+        pass
+    try:
+        opened = Image.open(source)
+        exif = opened.getexif()
+        date = exif.get_ifd(0x8769).get(0x9003) or exif.get(0x0132)
+        icc = opened.info.get("icc_profile")
+        image = ImageOps.exif_transpose(opened)
+        alpha = image.convert("RGBA").getchannel("A") if (
+            image.mode in ("RGBA", "LA", "PA") or "transparency" in image.info) else None
+        rgb = image.convert("RGB")
+        if icc:
+            try:
+                rgb = ImageCms.profileToProfile(rgb, ImageCms.ImageCmsProfile(io.BytesIO(icc)),
+                                                ImageCms.createProfile("sRGB"), outputMode="RGB")
+            except Exception:
+                pass   # an unreadable profile: keep the pixels as they are
+        if alpha is not None:
+            flat = Image.new("RGB", rgb.size)
+            flat.paste(rgb, mask=alpha)
+            rgb = flat
+    except Exception as error:
+        raise PortError(f"Could not read {source.name} as an image: {error}") from error
+
+    width, height = rgb.size
+    if -(-width // 512) * -(-height // 512) > ANY_IMAGE_MAX_TILES:
+        scale = max(min(cols * 512 / width, (ANY_IMAGE_MAX_TILES // cols) * 512 / height, 1.0)
+                    for cols in range(1, ANY_IMAGE_MAX_TILES + 1))
+        width, height = max(2, int(width * scale)), max(2, int(height * scale))
+        rgb = rgb.resize((width, height), Image.Resampling.LANCZOS)
+    decoded = work / "imported.png"
+    rgb.save(decoded)
+
+    cols, rows = -(-width // 512), -(-height // 512)
+    tiles = []
+    for n in range(cols * rows):
+        x, y = (n % cols) * 512, (n // cols) * 512
+        tile = Image.new("RGB", (512, 512))
+        tile.paste(rgb.crop((x, y, min(x + 512, width), min(y + 512, height))), (0, 0))
+        path = work / f"tile-{n}.png"
+        tile.save(path)
+        hvcc, sample, _ = encode_hevc_still(path, work, 512, 512, name=f"tile-{n}", full_range_709=True)
+        tiles.append((hvcc, sample))
+    scale = ANY_IMAGE_THUMB_EDGE / max(width, height)
+    tw, th = (max(2, int(round(n * scale / 2)) * 2) for n in (width, height))
+    hvcc, sample, _ = encode_hevc_still(decoded, work, tw, th, name="thumbnail", full_range_709=True)
+    heic = assemble_heic(width, height, tiles, (hvcc, sample, tw, th),
+                         _apple_exif(width, height, str(date) if date else None))
+    return heic, decoded
+
+
 def cmd_patch(args):
-    target = Path(args.target)
+    if getattr(args, "any_image", False):
+        with tempfile.TemporaryDirectory(prefix="photographic-style-import-") as tmp:
+            prepared = prepare_any_image(Path(args.target), Path(tmp))
+            if prepared is not None:
+                return patch_target(args, *prepared)
+    return patch_target(args, Path(args.target))
+
+
+def patch_target(args, target: Path, decoded_png: Optional[Path] = None, imported_from=None):
     output = Path(args.output)
     target_data = target.read_bytes()
     # v0.5.0: a photo that already has native Photographic Style data (iPhone 16 and later)
@@ -3062,8 +3277,19 @@ def cmd_patch(args):
         print("Native Photographic Style detected: adding Texture/Grain only (no port)")
         write_add_texture(target, output, args.report, args.zip)
         return
-    td = discover_target(target_data, allow_sdr=getattr(args, "sdr", False))
+    td = discover_target(target_data, allow_sdr=getattr(args, "sdr", False) or decoded_png is not None)
     graph = getattr(args, "graph", "auto")
+    if decoded_png is not None:
+        # A converted image: its own graph, a StyleDeltaMap fitted to its size, and the
+        # decoded pixels it was built from.
+        if graph == "donor":
+            raise PortError("--any-image needs --graph photo or auto, not donor")
+        td["delta_size"] = generic_style_delta_size(*dimensions_for_item(td["props"], int(td["primary"])))
+        td["decoded_png"] = decoded_png
+        td["imported_from"] = imported_from
+        print(f"EXPERIMENTAL --any-image: {imported_from} converted to an SDR HEIC, then ported")
+        patch_with_photo_graph(args, target, output, target_data, td)
+        return
     if td.get("sdr"):
         # The donor graph moves the photo's HDR tiles into the donor's; an SDR photo has none.
         if graph == "donor":
@@ -3812,6 +4038,11 @@ def build_parser():
                         "(older iPhones, re-saved or edited photos). The style data is attached "
                         "to the primary image only; whether Photos then offers and renders the "
                         "styles is untested")
+    a.add_argument("--any-image", action="store_true",
+                   help="EXPERIMENTAL: accept any image Pillow can read (JPEG, PNG, WebP, "
+                        "screenshots, HEIC from other phones with pillow-heif installed). It is "
+                        "converted to an iPhone-shaped SDR HEIC first, as PR #4 does; needs "
+                        "Pillow and ffmpeg. Untested on the phone")
     a.set_defaults(func=cmd_patch)
 
     a = sub.add_parser("add-texture",
@@ -4424,7 +4655,8 @@ def drop_mode(paths: List[str]) -> int:
         args = argparse.Namespace(
             target=str(src), output=str(out), profile=None, report=False, zip=False, texture="on",
             linear_thumb="generate" if full else "reuse-thumbnail",
-            scene_stats="target" if full else "donor", light_maps="flat", graph="auto", sdr=False)
+            scene_stats="target" if full else "donor", light_maps="flat", graph="auto", sdr=False,
+            any_image=False)
         log = io.StringIO()
         try:
             with contextlib.redirect_stdout(log):

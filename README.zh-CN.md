@@ -170,6 +170,7 @@ uv run photographic_style_port.py patch INPUT.HEIC OUTPUT.HEIC
 | `--linear-thumb reuse-thumbnail` | 完全跳过编码器                                    |
 | `--texture off`                  | 不添加 iOS 27 质感/颗粒项（即 v0.4.4 的输出）     |
 | `--sdr`                          | **实验性：** 也处理 SDR 照片（没有 HDR 增益图），尚未在手机上验证 |
+| `--any-image`                    | **实验性：** 先把任意图片（JPEG、PNG、WebP、截图）转换成 iPhone 式 HEIC 再移植；需要 Pillow，尚未在手机上验证 |
 
 默认只写出输出的 HEIC 文件，运行摘要会打印在终端中；如果还想保存为 JSON，请加 `--report` 或 `--zip`。
 
