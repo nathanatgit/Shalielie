@@ -46,8 +46,9 @@ tile 布局即可）拍摄的 HEIC 照片补上 iPhone 16/17 照片所携带的�
 **盘它**（英文名 Palettify）是基于同一移植逻辑的原生 iPhone 和 iPad 应用。它可以直接处理图库中的照片，
 包括实况照片；既可以存为新照片，也可以替换原图，被替换的原图会保存在“备份”中，随时可以恢复（替换后也可以立即撤销）。
 它会标记已添加风格的照片，可以只显示尚未处理的照片，并可在查看照片时按住按钮与原图对比。整批处理可在后台继续，完成时会通知你。
-它还在“快捷指令”中提供“添加摄影风格”操作，并在“照片”的共享菜单中提供“盘它”。两个实验性设置对应命令行的
-`--sdr` 和 `--any-image`：处理 SDR 照片，以及先把任意图片（JPEG、PNG、截图）转换成 HEIC。源码位于 [`swiftPort/`](swiftPort/)。
+它还在“快捷指令”中提供“添加摄影风格”操作，并在“照片”的共享菜单中提供“盘它”。实验性的“任意图片”设置对应命令行的
+`--any-image`：直接处理 SDR 照片，并先把其他图片（JPEG、PNG、截图）转换成 HEIC。与“照片”一样，图库最旧的照片在最上方，
+打开时停在最下方的最新照片。源码位于 [`swiftPort/`](swiftPort/)。
 
 **[下载 iOS 应用](https://github.com/nathanatgit/Shalielie/releases/latest)**：每个版本都附有
 `Palettify-unsigned.ipa`，与命令行可执行文件放在一起。应用未上架 App Store，需要用 Sideloadly 或 AltStore 等侧载工具安装，
@@ -170,7 +171,7 @@ uv run photographic_style_port.py patch INPUT.HEIC OUTPUT.HEIC
 | `--scene-stats donor`            | 颜色看起来不对时，改用 donor 的色调锚点           |
 | `--linear-thumb reuse-thumbnail` | 完全跳过编码器                                    |
 | `--texture off`                  | 不添加 iOS 27 质感/颗粒项（即 v0.4.4 的输出）     |
-| `--sdr`                          | **实验性：** 也处理 SDR 照片（没有 HDR 增益图），例如 iPhone 11 拍摄的照片；已在手机上验证 ✅ |
+| `--sdr`                          | **实验性：** 也处理 SDR 照片（没有 HDR 增益图），例如 iPhone 11 拍摄的照片；已在手机上验证 ✅；`--any-image` 已包含此功能 |
 | `--any-image`                    | **实验性：** 先把任意图片（JPEG、PNG、WebP、截图）转换成 iPhone 式 HEIC 再移植；需要 Pillow；已在手机上验证 ✅ |
 
 默认只写出输出的 HEIC 文件，运行摘要会打印在终端中；如果还想保存为 JSON，请加 `--report` 或 `--zip`。

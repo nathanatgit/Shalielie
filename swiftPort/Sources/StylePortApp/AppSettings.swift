@@ -9,6 +9,7 @@ enum AppSettings {
     static let librarySortKey = "librarySort"
     static let libraryAscendingKey = "libraryAscending"
     static let gridTileSizeKey = "libraryGridTileSize"
+    /// Retired: its setting moved into Any Image (see registerDefaults).
     static let sdrKey = "experimentalSDR"
     static let anyImageKey = "experimentalAnyImage"
     static let styleFilterKey = "libraryStyleFilter"
@@ -19,13 +20,19 @@ enum AppSettings {
     static let repositoryURL = URL(string: "https://github.com/nathanatgit/Shalielie")!
 
     static func registerDefaults() {
-        UserDefaults.standard.register(defaults: [
+        // SDR Photos was folded into Any Image: keep it on for anyone who had it on.
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: sdrKey) != nil {
+            if defaults.bool(forKey: sdrKey) { defaults.set(true, forKey: anyImageKey) }
+            defaults.removeObject(forKey: sdrKey)
+        }
+        defaults.register(defaults: [
             replaceOriginalsKey: false,
             analyzePhotoKey: true,
             textureKey: true,
             librarySortKey: LibrarySort.captured.rawValue,
-            libraryAscendingKey: false,
-            sdrKey: false,
+            // Oldest at the top, newest at the bottom, as in Photos.
+            libraryAscendingKey: true,
             anyImageKey: false,
             notifyWhenDoneKey: true,
             backupRetentionKey: 0
@@ -37,9 +44,10 @@ enum AppSettings {
     static var texture: Bool { UserDefaults.standard.bool(forKey: textureKey) }
     static var notifyWhenDone: Bool { UserDefaults.standard.bool(forKey: notifyWhenDoneKey) }
     static var backupRetentionDays: Int { UserDefaults.standard.integer(forKey: backupRetentionKey) }
-    /// Experimental: port SDR photos too (no HDR gain map).
-    static var sdr: Bool { UserDefaults.standard.bool(forKey: sdrKey) }
-    /// Experimental: convert any picture to an iPhone-shaped HEIC, then style it.
+    /// Experimental: port SDR photos too (no HDR gain map). Part of Any Image.
+    static var sdr: Bool { anyImage }
+    /// Experimental: style SDR photos as they are, and convert any other picture to an
+    /// iPhone-shaped HEIC, then style it.
     static var anyImage: Bool { UserDefaults.standard.bool(forKey: anyImageKey) }
 
     static var styleFilter: StyleFilter {

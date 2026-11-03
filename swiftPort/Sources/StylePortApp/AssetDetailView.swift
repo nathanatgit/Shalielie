@@ -525,17 +525,15 @@ private struct PhotoPager: View {
     @Binding var position: String?
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: 0) {
-                ForEach(assets, id: \.localIdentifier) { item in
-                    PhotoPage(asset: item, playsLive: item.localIdentifier == liveID, size: size)
-                        .id(item.localIdentifier)
-                }
+        // A paged TabView is backed by a collection view: opening photo 5,000 of a library
+        // lays out that page only, where a lazy stack had to measure everything before it.
+        TabView(selection: Binding(get: { position ?? liveID }, set: { position = $0 })) {
+            ForEach(assets, id: \.localIdentifier) { item in
+                PhotoPage(asset: item, playsLive: item.localIdentifier == liveID, size: size)
+                    .tag(item.localIdentifier)
             }
-            .scrollTargetLayout()
         }
-        .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $position)
+        .tabViewStyle(.page(indexDisplayMode: .never))
     }
 }
 
@@ -567,11 +565,18 @@ private struct Filmstrip: View {
     let motion: Animation?
     let select: (String) -> Void
 
+    /// The thumbnails around the photo shown; the whole library would have to be measured
+    /// before the strip could scroll to it.
+    private var nearby: ArraySlice<PHAsset> {
+        let index = assets.firstIndex { $0.localIdentifier == selectedID } ?? 0
+        return assets[max(0, index - 120)..<min(assets.count, index + 121)]
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 4) {
-                    ForEach(assets, id: \.localIdentifier) { item in
+                    ForEach(nearby, id: \.localIdentifier) { item in
                         let selected = item.localIdentifier == selectedID
                         Button { select(item.localIdentifier) } label: {
                             AssetImage(asset: item)

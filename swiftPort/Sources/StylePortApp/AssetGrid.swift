@@ -277,8 +277,8 @@ struct AssetGridView<Empty: View>: View {
     @AppStorage(AppSettings.gridTileSizeKey) private var tileSize = 100.0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @GestureState private var isPinching = false
-    @State private var pinchStartSize: Double?
-    @State private var zoomSize: Double?
+    // Not observed here: a pinch frame redraws only `PinchScaled`, never the whole grid.
+    @State private var zoom = PinchZoom()
     @State private var layoutRevision = 0
     @State private var scrollAnchor = ScrollAnchorBox()
     @State private var tileTapsBlocked = false
@@ -289,28 +289,24 @@ struct AssetGridView<Empty: View>: View {
 
     // The column layout stays committed until fingers lift. Only the entire viewport scales.
     private var displayedTileSize: Double { boundedTileSize(tileSize) }
-    private var liveZoomScale: CGFloat {
-        guard let zoomSize, let pinchStartSize else { return 1 }
-        return CGFloat(zoomSize / pinchStartSize)
-    }
 
     private func columnCount(for width: CGFloat) -> Int {
         max(1, Int((max(0, width) + 2) / (displayedTileSize + 2)))
     }
 
     private func finishZoom() {
-        if let zoomSize {
+        if let zoomSize = zoom.size {
             // Replace the frozen, scaled layout once, using only a short crossfade.
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.16)) {
                 tileSize = zoomSize
-                self.zoomSize = nil
+                zoom.size = nil
                 // The rebuilt grid starts where the old one was; at no other time is the
                 // remembered position handed back.
                 scrollAnchor.restoring = true
                 layoutRevision += 1
             }
         }
-        pinchStartSize = nil
+        zoom.startSize = nil
         guard tileTapsBlocked else { return }
         // A finger lifting after the pinch must not become a photo/selection tap.
         tapUnlockTask?.cancel()
@@ -326,9 +322,9 @@ struct AssetGridView<Empty: View>: View {
             .updating($isPinching) { _, active, _ in active = true }
             .onChanged { value in
                 tapUnlockTask?.cancel()
-                tileTapsBlocked = true
-                if pinchStartSize == nil { pinchStartSize = tileSize }
-                zoomSize = boundedTileSize((pinchStartSize ?? tileSize) * value)
+                if !tileTapsBlocked { tileTapsBlocked = true }
+                if zoom.startSize == nil { zoom.startSize = tileSize }
+                zoom.size = boundedTileSize((zoom.startSize ?? tileSize) * value)
             }
             .onEnded { _ in finishZoom() }
     }
@@ -338,15 +334,11 @@ struct AssetGridView<Empty: View>: View {
         // navigation bar's scroll view, and the large title stops collapsing as you swipe up.
         let count = columnCount(for: gridWidth)
         let width = max(0, gridWidth - CGFloat(count - 1) * 2) / CGFloat(count)
-        gallery(columns: count, compact: width < 80, tile: width)
-            .scaleEffect(liveZoomScale, anchor: .center)
+        PinchScaled(zoom: zoom, content: gallery(columns: count, compact: width < 80, tile: width)
             // Never animate grid positions, thumbnail sizes or finger movement.
-            .transaction { $0.animation = nil }
+            .transaction { $0.animation = nil })
             .id(layoutRevision)
             .transition(.opacity.animation(reduceMotion ? nil : .easeInOut(duration: 0.16)))
-            // Clip only while a pinch scales the grid. Clipped all the time, the photos stop
-            // at the bars instead of running under the title and tab bar as in Photos.
-            .clipShape(Rectangle().inset(by: zoomSize == nil ? -10_000 : 0))
             .simultaneousGesture(gridZoom)
             .background {
                 GeometryReader { geometry in
@@ -461,6 +453,8 @@ struct AssetGridView<Empty: View>: View {
         }
         .scrollPosition(id: Binding(get: { scrollAnchor.restoring ? scrollAnchor.id : nil },
                                     set: { scrollAnchor.id = $0 }), anchor: .top)
+        // As in Photos: oldest first, so the grid opens at the bottom on the newest photos.
+        .defaultScrollAnchor(model.ascending ? .bottom : .top)
         .task(id: layoutRevision) {
             // Long enough for the new grid to read the position, then stop handing it back.
             do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
@@ -676,6 +670,33 @@ private struct TileJobStatus: View {
     }
 }
 
+/// The size a pinch is heading for, held outside the grid's state.
+final class PinchZoom: ObservableObject {
+    @Published var size: Double?
+    /// The committed tile size when the pinch began; not published.
+    var startSize: Double?
+
+    var scale: CGFloat {
+        guard let size, let startSize else { return 1 }
+        return CGFloat(size / startSize)
+    }
+}
+
+/// Scales the already-built grid while a pinch runs. Only this view watches the pinch, so
+/// each frame changes one transform instead of re-diffing every photo in the library.
+private struct PinchScaled<Content: View>: View {
+    @ObservedObject var zoom: PinchZoom
+    let content: Content
+
+    var body: some View {
+        content
+            .scaleEffect(zoom.scale, anchor: .center)
+            // Clip only while a pinch scales the grid. Clipped all the time, the photos stop
+            // at the bars instead of running under the title and tab bar as in Photos.
+            .clipShape(Rectangle().inset(by: zoom.size == nil ? -10_000 : 0))
+    }
+}
+
 /// Remembers the scroll position without invalidating the grid on every scroll step.
 /// The position is offered back only while a pinch rebuilds the grid: offered at every
 /// redraw, a selection tap made the grid snap the top row into place, one row up.
@@ -875,7 +896,7 @@ private struct StyledBadge: View {
 
 struct SortMenu: View {
     @AppStorage(AppSettings.librarySortKey) private var sort = LibrarySort.captured
-    @AppStorage(AppSettings.libraryAscendingKey) private var ascending = false
+    @AppStorage(AppSettings.libraryAscendingKey) private var ascending = true
     @AppStorage(AppSettings.styleFilterKey) private var styleFilter = StyleFilter.all
 
     var body: some View {

@@ -63,9 +63,10 @@ of the originals, which it keeps in a Backup Bin so you can restore them (or und
 right away). It marks the photos it has styled, can show only the ones still to do, and lets you
 hold a button in the viewer to compare with the original. Batches keep going in the background
 and notify you when done. It also adds an "Add Photographic Style" action to Shortcuts and a
-**Palettify** entry to the Share sheet in Photos. Two experimental settings match the CLI's
-`--sdr` and `--any-image`: style SDR photos, and convert any picture (JPEG, PNG, screenshots) to
-a HEIC first. Its source is in [`swiftPort/`](swiftPort/).
+**Palettify** entry to the Share sheet in Photos. The experimental **Any Image** setting matches
+the CLI's `--any-image`: it styles SDR photos as they are and converts any other picture (JPEG,
+PNG, screenshots) to a HEIC first. Like Photos, the library shows the oldest photos at the top
+and opens on the newest at the bottom. Its source is in [`swiftPort/`](swiftPort/).
 
 **[Download the iOS app](https://github.com/nathanatgit/Shalielie/releases/latest)** —
 `Palettify-unsigned.ipa` is attached to each release, next to the command-line binaries. It is not on the App Store:
@@ -193,7 +194,7 @@ Useful flags:
 | `--scene-stats donor`            | Fall back to donor tone anchors if colours look wrong              |
 | `--linear-thumb reuse-thumbnail` | Skip the encoder entirely                                          |
 | `--texture off`                  | Leave out the iOS 27 Texture/Grain items (v0.4.4 output)           |
-| `--sdr`                          | **Experimental:** also port an SDR photo (no HDR gain map), e.g. from an iPhone 11; phone-tested ✅ |
+| `--sdr`                          | **Experimental:** also port an SDR photo (no HDR gain map), e.g. from an iPhone 11; phone-tested ✅; included in `--any-image` |
 | `--any-image`                    | **Experimental:** convert any picture (JPEG, PNG, WebP, screenshots) to an iPhone-style HEIC first, then port it; needs Pillow; phone-tested ✅ |
 
 By default the only file written is the output HEIC. A run summary is printed to the terminal;

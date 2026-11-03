@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 struct LibraryTab: View {
     @Environment(\.portQueue) private var queue
     @AppStorage(AppSettings.librarySortKey) private var sort = LibrarySort.captured
-    @AppStorage(AppSettings.libraryAscendingKey) private var ascending = false
+    @AppStorage(AppSettings.libraryAscendingKey) private var ascending = true
     @AppStorage(AppSettings.styleFilterKey) private var styleFilter = StyleFilter.all
     @AppStorage(AppSettings.anyImageKey) private var anyImage = false
     @StateObject private var model = AssetListModel(

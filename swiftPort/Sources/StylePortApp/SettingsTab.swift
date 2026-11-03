@@ -7,7 +7,6 @@ struct SettingsTab: View {
     @AppStorage(AppSettings.replaceOriginalsKey) private var replaceOriginals = false
     @AppStorage(AppSettings.analyzePhotoKey) private var analyzePhoto = true
     @AppStorage(AppSettings.textureKey) private var texture = true
-    @AppStorage(AppSettings.sdrKey) private var sdr = false
     @AppStorage(AppSettings.anyImageKey) private var anyImage = false
     @AppStorage(AppSettings.notifyWhenDoneKey) private var notifyWhenDone = true
     @AppStorage(AppSettings.backupRetentionKey) private var retentionDays = 0
@@ -114,16 +113,13 @@ struct SettingsTab: View {
                 }
 
                 Section {
-                    Toggle(isOn: $sdr) {
-                        Label("SDR Photos", systemImage: "flask")
-                    }
                     Toggle(isOn: $anyImage) {
                         Label("Any Image", systemImage: "photo.stack")
                     }
                 } header: {
                     Text("Experimental")
                 } footer: {
-                    Text("SDR Photos: also style photos without an HDR gain map, such as photos from older iPhones or re-saved by other apps; the style is attached to the main image only. Any Image: convert JPEG, PNG, screenshots and other pictures to an iPhone-style HEIC first. Both work in Photos in tests so far, but are still experimental. The Backup Bin keeps the original file.")
+                    Text("Also style photos without an HDR gain map, such as photos from older iPhones, and convert JPEG, PNG, screenshots and other pictures to an iPhone-style HEIC first. Works in Photos in tests so far, but still experimental. The Backup Bin keeps the original file.")
                 }
 
                 Section {

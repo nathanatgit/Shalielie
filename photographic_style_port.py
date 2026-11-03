@@ -3277,7 +3277,9 @@ def patch_target(args, target: Path, decoded_png: Optional[Path] = None, importe
         print("Native Photographic Style detected: adding Texture/Grain only (no port)")
         write_add_texture(target, output, args.report, args.zip)
         return
-    td = discover_target(target_data, allow_sdr=getattr(args, "sdr", False) or decoded_png is not None)
+    # --any-image covers SDR photos too: they are ported as they are, not converted.
+    td = discover_target(target_data, allow_sdr=getattr(args, "sdr", False)
+                         or getattr(args, "any_image", False) or decoded_png is not None)
     graph = getattr(args, "graph", "auto")
     if decoded_png is not None:
         # A converted image: its own graph, a StyleDeltaMap fitted to its size, and the
@@ -4037,9 +4039,10 @@ def build_parser():
                    help="EXPERIMENTAL: also port an SDR photo, one without an HDR gain map "
                         "(older iPhones, re-saved or edited photos). The style data is attached "
                         "to the primary image only. Phone-tested on iPhone 11 photos: Photos "
-                        "offers the styles and keeps them")
+                        "offers the styles and keeps them. Included in --any-image")
     a.add_argument("--any-image", action="store_true",
-                   help="EXPERIMENTAL: accept any image Pillow can read (JPEG, PNG, WebP, "
+                   help="EXPERIMENTAL: accept any image: SDR photos as they are (as --sdr), and "
+                        "anything else Pillow can read (JPEG, PNG, WebP, "
                         "screenshots, HEIC from other phones with pillow-heif installed). It is "
                         "converted to an iPhone-shaped SDR HEIC first, as PR #4 does; needs "
                         "Pillow and ffmpeg. Phone-tested with a JPEG and a screenshot")

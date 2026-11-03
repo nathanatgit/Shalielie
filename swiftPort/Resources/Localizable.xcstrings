@@ -4643,23 +4643,6 @@
         }
       }
     },
-    "SDR Photos": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SDR Photos"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "SDR 照片"
-          }
-        }
-      }
-    },
     "Experimental": {
       "extractionState": "manual",
       "localizations": {
@@ -5255,19 +5238,19 @@
         }
       }
     },
-    "SDR Photos: also style photos without an HDR gain map, such as photos from older iPhones or re-saved by other apps; the style is attached to the main image only. Any Image: convert JPEG, PNG, screenshots and other pictures to an iPhone-style HEIC first. Both work in Photos in tests so far, but are still experimental. The Backup Bin keeps the original file.": {
+    "Also style photos without an HDR gain map, such as photos from older iPhones, and convert JPEG, PNG, screenshots and other pictures to an iPhone-style HEIC first. Works in Photos in tests so far, but still experimental. The Backup Bin keeps the original file.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "SDR Photos: also style photos without an HDR gain map, such as photos from older iPhones or re-saved by other apps; the style is attached to the main image only. Any Image: convert JPEG, PNG, screenshots and other pictures to an iPhone-style HEIC first. Both work in Photos in tests so far, but are still experimental. The Backup Bin keeps the original file."
+            "value": "Also style photos without an HDR gain map, such as photos from older iPhones, and convert JPEG, PNG, screenshots and other pictures to an iPhone-style HEIC first. Works in Photos in tests so far, but still experimental. The Backup Bin keeps the original file."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "SDR 照片：也处理没有 HDR 增益图的照片，例如旧款 iPhone 拍摄或被其他 App 重新保存过的照片；风格只附加到主图上。任意图片：先把 JPEG、PNG、截图等图片转换成 iPhone 式 HEIC。目前的测试中两者都能在“照片”中使用，但仍属实验性功能。备份会保留原始文件。"
+            "value": "也处理没有 HDR 增益图的照片（例如旧款 iPhone 拍摄的照片），并先把 JPEG、PNG、截图等图片转换成 iPhone 式 HEIC。目前的测试中可在“照片”中使用，但仍属实验性功能。备份会保留原始文件。"
           }
         }
       }
