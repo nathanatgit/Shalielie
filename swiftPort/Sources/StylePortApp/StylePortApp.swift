@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct StylePortApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var queue = PortQueue()
     @StateObject private var backups = BackupStore()
 
@@ -17,6 +18,9 @@ struct StylePortApp: App {
                 .environmentObject(backups)
                 .task { queue.backups = backups }
                 .onReceive(backups.$entries) { StyleRecords.shared.sync(with: $0) }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { backups.purgeExpired() }
         }
     }
 }
@@ -76,18 +80,42 @@ struct RootView: View {
         .modernTabBar()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let status = queue.statusLine {
-                Button {
-                    showingActivity = true
-                    queue.dismissStatus()
-                } label: {
-                    ActivityCapsule(status: status, isRunning: queue.isRunning)
+                HStack(spacing: 8) {
+                    Button {
+                        showingActivity = true
+                        queue.dismissStatus()
+                    } label: {
+                        ActivityCapsule(status: status, isRunning: queue.isRunning)
+                    }
+                    .buttonStyle(.plain)
+                    if !queue.undoable.isEmpty {
+                        Button {
+                            queue.undoReplace()
+                        } label: {
+                            Label("Undo", systemImage: "arrow.uturn.backward")
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .floatingGlass()
+                        }
+                        .buttonStyle(.plain)
+                        .transition(.scale.combined(with: .opacity))
+                    }
                 }
-                .buttonStyle(.plain)
                 .padding(.bottom, 56)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.spring(duration: 0.3), value: queue.statusLine)
+        .animation(.spring(duration: 0.3), value: queue.undoable.isEmpty)
+        .alert("Couldn't Undo", isPresented: Binding(
+            get: { queue.undoError != nil },
+            set: { if !$0 { queue.undoError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(queue.undoError ?? "")
+        }
         .sheet(isPresented: $showingActivity) {
             ActivitySheet()
         }

@@ -9,6 +9,7 @@ struct SettingsTab: View {
     @AppStorage(AppSettings.textureKey) private var texture = true
     @AppStorage(AppSettings.sdrKey) private var sdr = false
     @AppStorage(AppSettings.notifyWhenDoneKey) private var notifyWhenDone = true
+    @AppStorage(AppSettings.backupRetentionKey) private var retentionDays = 0
     @State private var access = PhotoLibraryService.status
     @Environment(\.scenePhase) private var scenePhase
 
@@ -63,7 +64,7 @@ struct SettingsTab: View {
                     Text("Analyzing measures the photo's own tones for the palette instead of using the reference photo's. Texture & Grain adds the iOS 27 controls, and Soft Skin when the photo has the face data for it.")
                 }
 
-                Section("Photos & Backups") {
+                Section {
                     LabeledContent {
                         Text(accessTitle)
                     } label: {
@@ -86,6 +87,20 @@ struct SettingsTab: View {
                         Text(backupSummary)
                     } label: {
                         Label("Backup Bin", systemImage: "archivebox")
+                    }
+                    Picker(selection: $retentionDays) {
+                        Text("Until I Delete Them").tag(0)
+                        Text("30 Days").tag(30)
+                        Text("90 Days").tag(90)
+                        Text("1 Year").tag(365)
+                    } label: {
+                        Label("Keep Originals", systemImage: "clock.arrow.circlepath")
+                    }
+                } header: {
+                    Text("Photos & Backups")
+                } footer: {
+                    if retentionDays > 0 {
+                        Text("Originals older than this are deleted from the Backup Bin when you open Palettify. They can't be restored afterwards.")
                     }
                 }
 

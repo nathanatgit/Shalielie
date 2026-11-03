@@ -12,6 +12,8 @@ enum AppSettings {
     static let sdrKey = "experimentalSDR"
     static let styleFilterKey = "libraryStyleFilter"
     static let notifyWhenDoneKey = "notifyWhenDone"
+    /// Days the Backup Bin keeps an original; 0 keeps it until deleted by hand.
+    static let backupRetentionKey = "backupRetentionDays"
 
     static let repositoryURL = URL(string: "https://github.com/nathanatgit/Shalielie")!
 
@@ -23,7 +25,8 @@ enum AppSettings {
             librarySortKey: LibrarySort.captured.rawValue,
             libraryAscendingKey: false,
             sdrKey: false,
-            notifyWhenDoneKey: true
+            notifyWhenDoneKey: true,
+            backupRetentionKey: 0
         ])
     }
 
@@ -31,6 +34,7 @@ enum AppSettings {
     static var analyzePhoto: Bool { UserDefaults.standard.bool(forKey: analyzePhotoKey) }
     static var texture: Bool { UserDefaults.standard.bool(forKey: textureKey) }
     static var notifyWhenDone: Bool { UserDefaults.standard.bool(forKey: notifyWhenDoneKey) }
+    static var backupRetentionDays: Int { UserDefaults.standard.integer(forKey: backupRetentionKey) }
     /// Experimental: port SDR photos too (no HDR gain map).
     static var sdr: Bool { UserDefaults.standard.bool(forKey: sdrKey) }
 

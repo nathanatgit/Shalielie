@@ -270,19 +270,17 @@ struct BackupBinTab: View {
         withAnimation { selecting = false; selection.removeAll() }
     }
 
-    /// One at a time, keeping the styled versions: deleting those would ask once per photo.
+    /// All in one change, keeping the styled versions.
     private func restore(_ entries: [BackupEntry]) {
         working = true
         Task {
             defer { working = false }
-            for entry in entries {
-                do {
-                    _ = try await PhotoLibraryService().restore(entry, from: store, deleteReplacement: false)
-                    store.delete(entry)
-                } catch {
-                    errorMessage = error.localizedDescription
-                    return
-                }
+            do {
+                _ = try await PhotoLibraryService().restore(entries, from: store, deleteReplacements: false)
+                for entry in entries { store.delete(entry) }
+            } catch {
+                errorMessage = error.localizedDescription
+                return
             }
             withAnimation { selecting = false; selection.removeAll() }
         }

@@ -112,6 +112,18 @@ final class BackupStore: ObservableObject {
         reload()
     }
 
+    /// Delete originals older than the retention setting ("Keep Originals"). Never touches
+    /// one younger than that, so a batch in progress is safe.
+    func purgeExpired(now: Date = Date()) {
+        let days = AppSettings.backupRetentionDays
+        guard days > 0 else { return }
+        let cutoff = now.addingTimeInterval(-Double(days) * 86_400)
+        let expired = entries.filter { $0.replacedAt < cutoff }
+        guard !expired.isEmpty else { return }
+        for entry in expired { try? FileManager.default.removeItem(at: folder(of: entry.id)) }
+        reload()
+    }
+
     func reload() {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

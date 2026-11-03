@@ -53,6 +53,10 @@ final class PortQueue: ObservableObject {
     /// Whether the floating status capsule shows. It hides 2 seconds after a batch that
     /// went through, and stays after a failure until the Activity sheet is opened.
     @Published private(set) var showsStatus = false
+    /// The originals the last replace batch put in the Backup Bin, while Undo is offered.
+    @Published private(set) var undoable: [BackupEntry] = []
+    /// Why Undo failed, for an alert.
+    @Published var undoError: String?
     weak var backups: BackupStore?
 
     private let library = PhotoLibraryService()
@@ -87,6 +91,24 @@ final class PortQueue: ObservableObject {
 
     func job(forAsset identifier: String) -> PortJob? {
         jobs.last { $0.assetIdentifier == identifier }
+    }
+
+    /// Put back the originals of the last replace batch and delete their styled versions, in
+    /// one change: iOS asks once.
+    func undoReplace() {
+        let entries = undoable
+        guard !entries.isEmpty, let backups else { return }
+        undoable = []
+        showsStatus = false
+        Task {
+            do {
+                _ = try await library.restore(entries, from: backups, deleteReplacements: true)
+                for entry in entries { backups.delete(entry) }
+                jobs.removeAll(where: \.isFinished)
+            } catch {
+                undoError = error.localizedDescription
+            }
+        }
     }
 
     func dismissStatus() {
@@ -138,6 +160,7 @@ final class PortQueue: ObservableObject {
     }
 
     private func enqueue(_ newJobs: [PortJob], _ batch: Batch) {
+        undoable = []
         if !isRunning { jobs.removeAll(where: \.isFinished) }
         jobs.append(contentsOf: newJobs)
         pending.append(batch)
@@ -157,8 +180,12 @@ final class PortQueue: ObservableObject {
         let failed = jobs.filter(\.isFailed).count
         background.finish(succeeded: jobs.count - failed, failed: failed)
         guard failed == 0 else { return }
-        try? await Task.sleep(for: .seconds(2))
-        if !isRunning { showsStatus = false }
+        // Long enough to reach Undo after a replace.
+        try? await Task.sleep(for: .seconds(undoable.isEmpty ? 2 : 8))
+        if !isRunning {
+            showsStatus = false
+            undoable = []
+        }
     }
 
     private func run(_ batch: Batch) async {
@@ -292,6 +319,11 @@ final class PortQueue: ObservableObject {
                 (asset: $0.asset, output: $0.output, metadata: $0.backup.metadata)
             })
             backups.commit(added, replacements: replacements)
+            undoable = zip(added, replacements).map { entry, replacement in
+                var entry = entry
+                entry.replacementIdentifier = replacement
+                return entry
+            }
             StyleRecords.shared.record(zip(replacing, replacements).map { item, identifier in
                 (identifier: identifier, source: StyleRecords.Source.backup(item.backup.entry.id))
             })

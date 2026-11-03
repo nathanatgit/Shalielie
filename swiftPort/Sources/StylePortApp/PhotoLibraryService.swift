@@ -241,42 +241,56 @@ struct PhotoLibraryService: Sendable {
     /// replacement. Returns the restored asset's local identifier.
     @MainActor
     func restore(_ entry: BackupEntry, from store: BackupStore, deleteReplacement: Bool) async throws -> String? {
+        try await restore([entry], from: store, deleteReplacements: deleteReplacement).first
+    }
+
+    /// Put several originals back in one change, so iOS asks only once to delete their styled
+    /// replacements. Returns the restored assets' local identifiers, in order.
+    @MainActor
+    func restore(_ entries: [BackupEntry], from store: BackupStore, deleteReplacements: Bool) async throws -> [String] {
         try await requireReadWriteAccess()
-        let albums = Self.albums(withIdentifiers: entry.metadata.albumIdentifiers)
-        var replacement: PHAsset?
-        if deleteReplacement, let id = entry.replacementIdentifier {
-            replacement = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject
+        let albums = Self.albums(withIdentifiers: Array(Set(entries.flatMap { $0.metadata.albumIdentifiers })))
+        var replacements: [PHAsset] = []
+        if deleteReplacements {
+            let ids = entries.compactMap(\.replacementIdentifier)
+            let fetched = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+            fetched.enumerateObjects { asset, _, _ in replacements.append(asset) }
         }
-        let photoURL = store.photoURL(of: entry)
-        let video = store.videoURL(of: entry).map {
-            PairedVideo(
-                url: $0,
-                filename: entry.videoFilename ?? $0.lastPathComponent,
-                typeIdentifier: entry.videoTypeIdentifier ?? UTType.quickTimeMovie.identifier
-            )
+        let originals = entries.map { entry in
+            (entry: entry,
+             photoURL: store.photoURL(of: entry),
+             video: store.videoURL(of: entry).map {
+                 PairedVideo(
+                     url: $0,
+                     filename: entry.videoFilename ?? $0.lastPathComponent,
+                     typeIdentifier: entry.videoTypeIdentifier ?? UTType.quickTimeMovie.identifier
+                 )
+             })
         }
         let created = Collector<String>()
         do {
             try await PHPhotoLibrary.shared().performChanges {
-                let request = PHAssetCreationRequest.forAsset()
-                Self.addResources(
-                    to: request,
-                    photoURL: photoURL,
-                    photoFilename: entry.photoFilename,
-                    video: video
-                )
-                Self.apply(entry.metadata, to: request, albums: albums)
-                if let id = request.placeholderForCreatedAsset?.localIdentifier {
-                    created.values.append(id)
+                for original in originals {
+                    let request = PHAssetCreationRequest.forAsset()
+                    Self.addResources(
+                        to: request,
+                        photoURL: original.photoURL,
+                        photoFilename: original.entry.photoFilename,
+                        video: original.video
+                    )
+                    Self.apply(original.entry.metadata, to: request, albums: albums)
+                    if let id = request.placeholderForCreatedAsset?.localIdentifier {
+                        created.values.append(id)
+                    }
                 }
-                if let replacement {
-                    PHAssetChangeRequest.deleteAssets([replacement] as NSArray)
+                if !replacements.isEmpty {
+                    PHAssetChangeRequest.deleteAssets(replacements as NSArray)
                 }
             }
         } catch {
             throw LibraryError.saveFailed(error.localizedDescription)
         }
-        return created.values.first
+        return created.values
     }
 
     // MARK: Shortcuts
