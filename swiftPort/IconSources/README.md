@@ -18,6 +18,12 @@ in swiftPort, or set PALETTIFY_SHARP_PATH to an existing sharp module directory)
 Dot radii remain editable in `../tools/generate_app_icon.py`.
 SVG dot elements are named by row and column for manual editing. No rounded mask is baked in.
 
+The generator also writes the iOS 18+ Home Screen variants, used by `AppIcon` through its
+appearance entries: **dark** (`icon-1024-dark.png`: the same aurora at about 30% brightness, dots
+kept bright) and **tinted** (`icon-1024-tinted.png`: grayscale dots on black, coloured by iOS).
+`AboutIcon` gets the dark version too. `python tools/generate_app_icon.py --variants-only`
+redraws just these from the rendered background PNG, without Node.js.
+
 The source package is not wired into the app target; the app uses the matching flattened PNG.
 Manual Composer changes therefore require exporting/updating the flattened icon, or wiring the
 saved `.icon` into Xcode. This package has not been opened or validated in Icon Composer on this

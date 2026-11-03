@@ -154,14 +154,23 @@ final class PortQueue: ObservableObject {
             analyzePhoto: AppSettings.analyzePhoto,
             texture: AppSettings.texture
         )
-        var ported: [(jobID: UUID, asset: PHAsset?, original: OriginalPhoto, output: PortOutput)] = []
+        // Only the outputs (files on disk) and, in replace mode, each original's Backup Bin entry
+        // are kept until the batch is saved; never an original's bytes. A batch of 48 MP photos
+        // held in memory runs to gigabytes and iOS ends the app.
+        var ported: [Ported] = []
 
         switch batch.source {
         case .assets(let assets):
             for (jobID, asset) in zip(batch.jobIDs, assets) {
+                var originalVideo: URL?
+                defer {
+                    // The video's temporary copy; the output and the Backup Bin have their own.
+                    if let originalVideo { try? FileManager.default.removeItem(at: originalVideo.deletingLastPathComponent()) }
+                }
                 do {
                     update(jobID) { $0.phase = .reading }
                     let original = try await library.loadOriginal(asset)
+                    originalVideo = original.video?.url
                     update(jobID) {
                         $0.phase = .porting
                         $0.isLivePhoto = original.video != nil
@@ -170,7 +179,15 @@ final class PortQueue: ObservableObject {
                         }
                     }
                     let output = try await port(original, replace: batch.replace, options: options)
-                    ported.append((jobID: jobID, asset: Optional(asset), original: original, output: output))
+                    var backup: Backup?
+                    if batch.replace {
+                        // Back up first: an original is only deleted once its copy is in the bin.
+                        guard let backups else { throw LibraryError.saveFailed(L("The backup bin isn't available.")) }
+                        let metadata = PhotoLibraryService.metadata(of: asset)
+                        backup = Backup(entry: try await backups.add(original: original, metadata: metadata),
+                                        metadata: metadata)
+                    }
+                    ported.append(Ported(jobID: jobID, asset: asset, output: output, backup: backup))
                     update(jobID) {
                         $0.report = output.report
                         if original.video != nil && output.video == nil {
@@ -208,7 +225,7 @@ final class PortQueue: ObservableObject {
                             $0.warnings.append(L("Saved as a still photo: the video couldn't be styled (\(output.videoError ?? L("unknown error")))."))
                         }
                     }
-                    ported.append((jobID: jobID, asset: nil, original: original, output: output))
+                    ported.append(Ported(jobID: jobID, asset: nil, output: output, backup: nil))
                     update(jobID) {
                         $0.report = output.report
                         $0.outputURL = output.photoURL
@@ -223,11 +240,7 @@ final class PortQueue: ObservableObject {
         for item in ported { update(item.jobID) { $0.phase = .saving } }
         do {
             if batch.replace {
-                try await replace(ported.compactMap { item in
-                    item.asset.map {
-                        (jobID: item.jobID, asset: $0, original: item.original, output: item.output)
-                    }
-                })
+                try await replace(ported)
             } else {
                 _ = try await library.saveNew(ported.map { $0.output })
             }
@@ -235,28 +248,34 @@ final class PortQueue: ObservableObject {
         } catch {
             for item in ported { update(item.jobID) { $0.phase = .failed(error.localizedDescription) } }
         }
+        // Photos has copied the results. A file import keeps its output to share from Activity.
+        for item in ported where item.asset != nil {
+            try? FileManager.default.removeItem(at: item.output.photoURL.deletingLastPathComponent())
+        }
     }
 
-    private func replace(
-        _ items: [(jobID: UUID, asset: PHAsset, original: OriginalPhoto, output: PortOutput)]
-    ) async throws {
+    private struct Backup {
+        let entry: BackupEntry
+        let metadata: AssetMetadata
+    }
+
+    private struct Ported {
+        let jobID: UUID
+        let asset: PHAsset?
+        let output: PortOutput
+        let backup: Backup?
+    }
+
+    /// Swap each library photo for its styled version; the originals are already in the bin.
+    private func replace(_ items: [Ported]) async throws {
         guard let backups else { throw LibraryError.saveFailed(L("The backup bin isn't available.")) }
-        // Back up first: an original is only deleted once its copy is safely in the bin.
-        var added: [BackupEntry] = []
-        var metadata: [AssetMetadata] = []
-        do {
-            for item in items {
-                let meta = PhotoLibraryService.metadata(of: item.asset)
-                metadata.append(meta)
-                added.append(try await backups.add(original: item.original, metadata: meta))
-            }
-        } catch {
-            backups.discard(added)
-            throw error
+        let replacing = items.compactMap { item in
+            item.asset.flatMap { asset in item.backup.map { (asset: asset, output: item.output, backup: $0) } }
         }
+        let added = replacing.map(\.backup.entry)
         do {
-            let replacements = try await library.replace(zip(items, metadata).map {
-                (asset: $0.0.asset, output: $0.0.output, metadata: $0.1)
+            let replacements = try await library.replace(replacing.map {
+                (asset: $0.asset, output: $0.output, metadata: $0.backup.metadata)
             })
             backups.commit(added, replacements: replacements)
         } catch {

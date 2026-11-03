@@ -397,7 +397,9 @@ struct AssetGridView<Empty: View>: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if selecting { selectionBar }
+            if selecting {
+                selectionBar.transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .navigationDestination(item: $previewRoute) { route in
             AssetDetailView(identifier: route.identifier, assets: model.assets) { zoomID = $0 }
@@ -610,6 +612,8 @@ struct AssetTile: View {
                 .font(.title3)
                 .symbolRenderingMode(.palette)
                 .foregroundStyle(.white, isSelected ? Color.accentColor : .black.opacity(0.2))
+                // A symbol effect, not a transition: the grid switches transaction animations off.
+                .symbolEffect(.bounce, value: isSelected)
                 .shadow(radius: 2)
                 .padding(5)
         } else {
@@ -733,6 +737,14 @@ enum ThumbnailLoader {
         cache.totalCostLimit = 96 * 1024 * 1024
         return cache
     }()
+    /// Under memory pressure, drop cached thumbnails and PhotoKit's prefetched ones rather than
+    /// let iOS end the app; visible tiles simply load again.
+    private static let memoryWarning: NSObjectProtocol = NotificationCenter.default.addObserver(
+        forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main
+    ) { _ in
+        images.removeAllObjects()
+        manager.stopCachingImagesForAllAssets()
+    }
 
     private static func key(for asset: PHAsset, contentMode: ContentMode) -> NSString {
         "\(asset.localIdentifier)-\(asset.modificationDate?.timeIntervalSinceReferenceDate ?? 0)-\(contentMode == .fill ? "fill" : "fit")" as NSString
@@ -752,6 +764,7 @@ enum ThumbnailLoader {
     /// Warm the cache for photos the person is about to swipe to.
     @MainActor
     static func prefetch(_ assets: [PHAsset], size: CGSize, contentMode: ContentMode) {
+        _ = memoryWarning
         guard !assets.isEmpty, size.width > 0, size.height > 0 else { return }
         let options = PHImageRequestOptions()
         options.deliveryMode = .opportunistic

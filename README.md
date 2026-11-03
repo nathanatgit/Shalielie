@@ -4,7 +4,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-Current version: v0.7.1
+Current version: v0.7.3
 
 This is an experimental tool that takes a HEIC from an iPhone **older than the iPhone 16**
 (iPhone 15, 14, 13 … — any model whose photos match a supported tile layout) and adds the
@@ -309,6 +309,7 @@ thumbnail differently. Only the no-encoder mode is reproducible byte for byte, a
 | v0.6.3      | 48 MP photos (8064×6048) on the photo's own item graph                       | 48 MP photos from older iPhones port, with and without an encoder ✅ |
 | v0.7.0      | Live Photos: a dropped HEIC + MOV pair; the video gets the iOS 27 style tracks and timed metadata | Photos' editor opens iPhone 15 Pro Live Photos with style and motion (iOS 27.0.1) ✅ |
 | v0.7.1      | The iOS app Palettify (盘它) joins the main branch; the browser build is renamed to match | Porting unchanged from v0.7.0; app builds in CI ☑️ |
+| v0.7.3      | iOS app: dark and tinted Home Screen icons; batches no longer hold originals in memory; animation polish | Porting unchanged from v0.7.0; app builds in CI ☑️ |
 
 **Reverse-engineering tests of key assumptions**
 

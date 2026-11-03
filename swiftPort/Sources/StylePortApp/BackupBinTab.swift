@@ -91,7 +91,9 @@ struct BackupBinTab: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if selecting { selectionBar }
+                if selecting {
+                    selectionBar.transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
             .onReceive(store.$entries) { entries in
                 selection.formIntersection(Set(entries.map(\.id)))

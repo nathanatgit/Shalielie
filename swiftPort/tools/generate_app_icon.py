@@ -1,6 +1,11 @@
-"""Generate the flattened icon and editable Icon Composer layers. Requires Pillow, Node.js and sharp."""
+"""Generate the flattened icons (light, dark, tinted) and editable Icon Composer layers.
+
+Requires Pillow, Node.js and sharp; without sharp the last rendered background PNG is reused.
+`--variants-only` regenerates just the dark and tinted variants.
+"""
 from pathlib import Path
 import json
+import sys
 from PIL import Image, ImageDraw, ImageFilter
 
 SIZE = 1024
@@ -18,8 +23,13 @@ def background():
     import subprocess
     source = ROOT / "IconSources" / "Palettify-aurora-background-editable.svg"
     rendered = source.with_suffix(".png")
-    subprocess.run(["node", str(ROOT / "tools" / "render_icon_background.cjs"),
-                    str(source), str(rendered)], check=True)
+    try:
+        subprocess.run(["node", str(ROOT / "tools" / "render_icon_background.cjs"),
+                        str(source), str(rendered)], check=True)
+    except (OSError, subprocess.CalledProcessError):
+        if not rendered.exists():
+            raise
+        print(f"Could not render {source.name}; reusing {rendered.name}")
     with Image.open(rendered) as image:
         return image.convert("RGB")
 
@@ -58,7 +68,50 @@ def layers():
     return [layer.resize((SIZE,SIZE), Image.Resampling.LANCZOS) for layer in (glow, ordinary, accent)]
 
 
+def flatten(base, layers):
+    composite = base.convert("RGBA")
+    for layer in layers:
+        composite = Image.alpha_composite(composite, layer)
+    return composite.convert("RGB")
+
+
+# iOS 18+ dark and tinted Home Screen icons. Dark: the same aurora at night, the dots kept bright.
+# Tinted: grayscale on black, which iOS colours with the person's tint.
+DARK_BACKGROUND = 0.30   # how much of the aurora's brightness survives at night
+DARK_DOTS = 0.94         # dots a touch below pure white, so they don't glare on a dark screen
+
+
+def dark_variant(base, glow, ordinary, accent):
+    night = Image.blend(Image.new("RGB", base.size, (6, 10, 14)), base, DARK_BACKGROUND)
+    def dim(layer):
+        r, g, b, a = layer.split()
+        return Image.merge("RGBA", (r, g, b, a.point(lambda v: round(v * DARK_DOTS))))
+    return flatten(night, (glow, dim(ordinary), accent))
+
+
+def tinted_variant(glow, ordinary, accent):
+    return flatten(Image.new("RGB", (SIZE, SIZE), "black"), (glow, ordinary, accent)).convert("L")
+
+
+def write_variants(base, glow, ordinary, accent):
+    dark = dark_variant(base, glow, ordinary, accent)
+    tinted = tinted_variant(glow, ordinary, accent)
+    outputs = {
+        ASSETS / "AppIcon.appiconset/icon-1024-dark.png": dark,
+        ASSETS / "AppIcon.appiconset/icon-1024-tinted.png": tinted,
+        ASSETS / "AboutIcon.imageset/about-icon-dark.png": dark,
+    }
+    for path, image in outputs.items():
+        image.save(path, optimize=True)
+        print(path)
+
+
 def main():
+    if "--variants-only" in sys.argv:
+        rendered = ROOT / "IconSources" / "Palettify-aurora-background-editable.png"
+        with Image.open(rendered) as image:
+            write_variants(image.convert("RGB"), *layers())
+        return
     source_assets = SOURCE / "Assets"
     source_assets.mkdir(parents=True, exist_ok=True)
     base = background()
@@ -67,12 +120,11 @@ def main():
     glow.save(source_assets / "02-accent-white-glow.png", optimize=True)
     (source_assets / "03-small-dots.svg").write_text(svg(False), encoding="utf-8")
     (source_assets / "04-accent-dot.svg").write_text(svg(True), encoding="utf-8")
-    composite = base.convert("RGBA")
-    for layer in (glow, ordinary, accent):
-        composite = Image.alpha_composite(composite, layer)
+    composite = flatten(base, (glow, ordinary, accent))
     for path in (ASSETS / "AppIcon.appiconset/icon-1024.png", ASSETS / "AboutIcon.imageset/about-icon.png"):
-        composite.convert("RGB").save(path, optimize=True)
+        composite.save(path, optimize=True)
         print(path)
+    write_variants(base, glow, ordinary, accent)
     groups = []
     for name, filename in [("Aurora background", "01-aurora-background.png"), ("Accent glow", "02-accent-white-glow.png"), ("Small dots", "03-small-dots.svg"), ("Accent dot", "04-accent-dot.svg")]:
         groups.append({"name": name, "specular": False, "shadow": {"kind": "neutral", "opacity": 0}, "layers": [{"name": name, "image-name": filename, "glass": False, "position": {"scale": 1, "translation-in-points": [0,0]}}]})

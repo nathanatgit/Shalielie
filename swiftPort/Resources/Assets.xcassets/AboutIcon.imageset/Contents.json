@@ -1,6 +1,10 @@
 {
   "images" : [
-    { "filename" : "about-icon.png", "idiom" : "universal" }
+    { "filename" : "about-icon.png", "idiom" : "universal" },
+    {
+      "appearances" : [ { "appearance" : "luminosity", "value" : "dark" } ],
+      "filename" : "about-icon-dark.png", "idiom" : "universal"
+    }
   ],
   "info" : {
     "author" : "xcode",
