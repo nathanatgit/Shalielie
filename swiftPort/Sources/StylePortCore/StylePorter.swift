@@ -11,11 +11,15 @@ public struct StylePortOptions: Sendable {
     /// only when the video also has the Texture/Grain track (`texturestyle-info`); without
     /// it Photos aborts on Edit.
     public var livePhoto: Bool
+    /// Experimental: also port an SDR photo, one without an HDR gain map. Its style items are
+    /// attached to the primary image only (the CLI's `--sdr`); untested in Photos.
+    public var sdr: Bool
 
-    public init(analyzePhoto: Bool = true, texture: Bool = true, livePhoto: Bool = false) {
+    public init(analyzePhoto: Bool = true, texture: Bool = true, livePhoto: Bool = false, sdr: Bool = false) {
         self.analyzePhoto = analyzePhoto
         self.texture = texture
         self.livePhoto = livePhoto
+        self.sdr = sdr
     }
 }
 
@@ -43,6 +47,8 @@ public struct StylePortReport: Sendable {
     public var tmapPayload: String?
     public var styleDeltaMap: [Int]
     public var texture: String
+    /// Ported experimentally as an SDR photo (no HDR gain map).
+    public var sdr: Bool
 
     init(version: String, mode: Mode) {
         self.version = version
@@ -59,6 +65,7 @@ public struct StylePortReport: Sendable {
         tmapPayload = nil
         styleDeltaMap = []
         texture = "off"
+        sdr = false
     }
 
     /// Whether Texture/Grain (iOS 27) was added.
@@ -71,7 +78,7 @@ public struct StylePortResult: Sendable {
 }
 
 public struct StylePorter: Sendable {
-    public static let version = "0.7.1-swift"
+    public static let version = "0.7.3-swift"
     /// Styles key `0` of native iOS 27 Live Photos (phone-tested 2026-10-10); the donors carry 14.
     public static let livePhotoStylesSchema: Int64 = 16
 
@@ -85,14 +92,26 @@ public struct StylePorter: Sendable {
         case unsupported
     }
 
-    public static func eligibility(of data: Data) -> Eligibility {
+    public static func eligibility(of data: Data, allowSDR: Bool = false) -> Eligibility {
         guard let discovery = try? HEIF.discover(data.stylePortBytes) else { return .unsupported }
         if discovery.stylesItem != nil {
             return Texture.hasTexture(discovery.infos) ? .alreadyStyled : .addTexture
         }
-        guard discovery.hdrGrid != nil, !discovery.hdrTiles.isEmpty,
-              discovery.thumbnail != nil, discovery.exifItem != nil else { return .unsupported }
+        guard discovery.thumbnail != nil, discovery.exifItem != nil else { return .unsupported }
+        if isSDR(discovery) {
+            return allowSDR && hasStyleDeltaSize(discovery) ? .port : .unsupported
+        }
         return .port
+    }
+
+    /// No HDR gain map: older iPhones, and photos re-saved or edited elsewhere.
+    static func isSDR(_ discovery: HEIF.Discovery) -> Bool {
+        discovery.hdrGrid == nil || discovery.hdrTiles.isEmpty
+    }
+
+    static func hasStyleDeltaSize(_ discovery: HEIF.Discovery) -> Bool {
+        let size = HEIF.dimensions(discovery.properties, itemID: discovery.primary)
+        return Graft.styleDeltaSize(width: size.0, height: size.1) != nil
     }
 
     public func patch(
@@ -111,12 +130,20 @@ public struct StylePorter: Sendable {
             return StylePortResult(data: added.0.stylePortData, report: report)
         }
 
-        guard target.hdrGrid != nil, !target.hdrTiles.isEmpty,
-              target.thumbnail != nil, target.exifItem != nil else {
+        guard target.thumbnail != nil, target.exifItem != nil else {
             throw StylePortError.unsupportedPhoto
         }
-        let primarySize = HEIF.dimensions(target.properties, itemID: target.primary)
-        let graftable = Graft.styleDeltaSize(width: primarySize.0, height: primarySize.1) != nil
+        let graftable = Self.hasStyleDeltaSize(target)
+        if Self.isSDR(target) {
+            // Only the photo's own graph takes an SDR photo: the donor graph needs HDR tiles.
+            guard options.sdr, graftable else { throw StylePortError.unsupportedPhoto }
+            let profile = try DonorProfileLoader.load(named: "48-12")
+            let result = try patchOnPhotoGraph(targetBytes, target: target, profile: profile, options: options)
+            var report = result.report
+            report.sdr = true
+            report.warnings.append("SDR photo: no HDR gain map, styles attached to the primary only (experimental)")
+            return StylePortResult(data: result.data, report: report)
+        }
         let profile: DonorProfile
         do {
             profile = try DonorProfileLoader.profile(

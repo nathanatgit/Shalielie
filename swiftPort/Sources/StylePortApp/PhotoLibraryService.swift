@@ -153,7 +153,7 @@ struct PhotoLibraryService: Sendable {
     func eligibility(of asset: PHAsset) async -> StylePorter.Eligibility? {
         guard let photo = Self.photoResource(of: asset),
               let data = try? await Self.data(for: photo, allowNetwork: false) else { return nil }
-        return StylePorter.eligibility(of: data)
+        return StylePorter.eligibility(of: data, allowSDR: AppSettings.sdr)
     }
 
     static func metadata(of asset: PHAsset) -> AssetMetadata {

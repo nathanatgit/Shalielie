@@ -36,10 +36,7 @@ struct AddPhotographicStyleIntent: AppIntent {
     func perform() async throws -> some IntentResult & ReturnsValue<[IntentFile]> {
         let porter = StylePorter()
         let library = PhotoLibraryService()
-        let options = StylePortOptions(
-            analyzePhoto: AppSettings.analyzePhoto,
-            texture: AppSettings.texture
-        )
+        let options = AppSettings.portOptions
         var results: [IntentFile] = []
         var outputs: [PortOutput] = []
         for photo in photos {

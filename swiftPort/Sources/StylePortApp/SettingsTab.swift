@@ -7,6 +7,7 @@ struct SettingsTab: View {
     @AppStorage(AppSettings.replaceOriginalsKey) private var replaceOriginals = false
     @AppStorage(AppSettings.analyzePhotoKey) private var analyzePhoto = true
     @AppStorage(AppSettings.textureKey) private var texture = true
+    @AppStorage(AppSettings.sdrKey) private var sdr = false
     @State private var access = PhotoLibraryService.status
     @Environment(\.scenePhase) private var scenePhase
 
@@ -85,6 +86,16 @@ struct SettingsTab: View {
                     } label: {
                         Label("Backup Bin", systemImage: "archivebox")
                     }
+                }
+
+                Section {
+                    Toggle(isOn: $sdr) {
+                        Label("SDR Photos", systemImage: "flask")
+                    }
+                } header: {
+                    Text("Experimental")
+                } footer: {
+                    Text("Also style photos without an HDR gain map, such as photos from older iPhones or re-saved by other apps. The style is attached to the main image only. Untested: Photos may not offer the styles, or may render them differently.")
                 }
 
                 Section {

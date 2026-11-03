@@ -150,10 +150,7 @@ final class PortQueue: ObservableObject {
     }
 
     private func run(_ batch: Batch) async {
-        let options = StylePortOptions(
-            analyzePhoto: AppSettings.analyzePhoto,
-            texture: AppSettings.texture
-        )
+        let options = AppSettings.portOptions
         // Only the outputs (files on disk) and, in replace mode, each original's Backup Bin entry
         // are kept until the batch is saved; never an original's bytes. A batch of 48 MP photos
         // held in memory runs to gigabytes and iOS ends the app.
@@ -208,7 +205,7 @@ final class PortQueue: ObservableObject {
                     update(jobID) { $0.phase = .porting }
                     let (original, eligibility) = try await Task.detached(priority: .userInitiated) {
                         let original = try Self.readFiles(item)
-                        return (original, StylePorter.eligibility(of: original.data))
+                        return (original, StylePorter.eligibility(of: original.data, allowSDR: AppSettings.sdr))
                     }.value
                     let output: PortOutput
                     if original.video != nil, [.alreadyStyled, .addTexture].contains(eligibility) {

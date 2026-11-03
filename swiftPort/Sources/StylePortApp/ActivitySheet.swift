@@ -89,6 +89,7 @@ struct ActivitySheet: View {
             }
             if report.mode != .addTexture && report.addedTexture { parts.append(L("with Texture & Grain")) }
             if job.isLivePhoto { parts.append(L("Live Photo kept")) }
+            if report.sdr { parts.append(L("SDR, experimental")) }
             return parts.joined(separator: " · ")
         }
     }
