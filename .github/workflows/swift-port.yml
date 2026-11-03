@@ -35,12 +35,12 @@ jobs:
         run: python3 ../tools/fetch_models.py Resources/Models
       - name: Run Swift package tests
         run: swift test
+      # MediaPipe's static libraries have no x86_64 simulator slice, hence ARCHS=arm64.
       - name: Build iOS and iPadOS simulator app
         run: >-
           xcodebuild -project StylePort.xcodeproj -scheme StylePort
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/StylePort-iOS-Simulator"
-          # MediaPipe's static libraries have no x86_64 simulator slice.
           ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
       - name: Build iOS and iPadOS device app
         run: >-
