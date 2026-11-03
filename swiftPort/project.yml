@@ -15,7 +15,7 @@ settings:
 packages:
   MediaPipe:
     url: https://github.com/google-ai-edge/mediapipe
-    exactVersion: 1.2.0
+    revision: f329091f2f20a9143209897d7081e629421b9c9a
 targets:
   StylePortCore:
     type: framework

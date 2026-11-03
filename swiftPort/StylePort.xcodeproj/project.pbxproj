@@ -715,8 +715,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/google-ai-edge/mediapipe";
 			requirement = {
-				kind = exactVersion;
-				version = 1.2.0;
+				kind = revision;
+				revision = f329091f2f20a9143209897d7081e629421b9c9a;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

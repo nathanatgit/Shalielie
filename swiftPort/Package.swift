@@ -13,7 +13,7 @@ let package = Package(
     ],
     dependencies: [
         // Find Faces' MediaPipe engine (iOS only; macOS `swift test` skips it).
-        .package(url: "https://github.com/google-ai-edge/mediapipe", exact: "1.2.0")
+        .package(url: "https://github.com/google-ai-edge/mediapipe", revision: "f329091f2f20a9143209897d7081e629421b9c9a")
     ],
     targets: [
         .target(
