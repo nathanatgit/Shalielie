@@ -460,7 +460,8 @@ final class BackgroundRun {
         done = 0
         Notifier.requestPermissionIfNeeded()
         legacy = UIApplication.shared.beginBackgroundTask(withName: "Styling photos") { [weak self] in
-            self?.endLegacy()
+            // Called on the main thread when the time runs out.
+            MainActor.assumeIsolated { self?.endLegacy() }
         }
         if #available(iOS 26.0, *) { submitContinued() }
     }

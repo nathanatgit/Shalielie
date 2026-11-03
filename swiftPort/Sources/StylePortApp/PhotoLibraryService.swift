@@ -250,12 +250,13 @@ struct PhotoLibraryService: Sendable {
     func restore(_ entries: [BackupEntry], from store: BackupStore, deleteReplacements: Bool) async throws -> [String] {
         try await requireReadWriteAccess()
         let albums = Self.albums(withIdentifiers: Array(Set(entries.flatMap { $0.metadata.albumIdentifiers })))
-        var replacements: [PHAsset] = []
+        var found: [PHAsset] = []
         if deleteReplacements {
             let ids = entries.compactMap(\.replacementIdentifier)
             let fetched = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
-            fetched.enumerateObjects { asset, _, _ in replacements.append(asset) }
+            fetched.enumerateObjects { asset, _, _ in found.append(asset) }
         }
+        let replacements = found
         let originals = entries.map { entry in
             (entry: entry,
              photoURL: store.photoURL(of: entry),
