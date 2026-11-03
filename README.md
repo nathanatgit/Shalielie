@@ -59,8 +59,11 @@ for batches or for the encoder-based linear thumbnail.
 
 **Palettify** (盘它 in Chinese) is a native iPhone and iPad app built on the same porter. It
 styles photos straight from your library, Live Photos included, either as new photos or in place
-of the originals, which it keeps in a Backup Bin so you can restore them. It also adds an "Add
-Photographic Style" action to Shortcuts. Its source is in [`swiftPort/`](swiftPort/).
+of the originals, which it keeps in a Backup Bin so you can restore them (or undo a replace
+right away). It marks the photos it has styled, can show only the ones still to do, and lets you
+hold a button in the viewer to compare with the original. Batches keep going in the background
+and notify you when done. It also adds an "Add Photographic Style" action to Shortcuts and a
+**Palettify** entry to the Share sheet in Photos. Its source is in [`swiftPort/`](swiftPort/).
 
 **[Download the iOS app](https://github.com/nathanatgit/Shalielie/releases/latest)** —
 `Palettify-unsigned.ipa` is attached to each release, next to the command-line binaries. It is not on the App Store:
@@ -82,6 +85,9 @@ Download the IPA linked above, then choose one of these methods:
   connect and trust your iPhone, drag the IPA into Sideloadly, select your device,
   enter your Apple ID, and start the installation. Its website includes setup help
   and an FAQ.
+
+The app includes a Share extension, which some installers count as an extra app ID; with a free
+Apple ID (a few app IDs per week) you may need to let the installer remove extensions.
 
 Follow your installer's prompts for Developer Mode and developer trust if required.
 With a free Apple ID, directly sideloaded apps normally need refreshing every **7 days**.
@@ -310,7 +316,7 @@ thumbnail differently. Only the no-encoder mode is reproducible byte for byte, a
 | v0.6.3      | 48 MP photos (8064×6048) on the photo's own item graph                       | 48 MP photos from older iPhones port, with and without an encoder ✅ |
 | v0.7.0      | Live Photos: a dropped HEIC + MOV pair; the video gets the iOS 27 style tracks and timed metadata | Photos' editor opens iPhone 15 Pro Live Photos with style and motion (iOS 27.0.1) ✅ |
 | v0.7.1      | The iOS app Palettify (盘它) joins the main branch; the browser build is renamed to match | Porting unchanged from v0.7.0; app builds in CI ☑️ |
-| v0.7.3      | iOS app: dark and tinted Home Screen icons; batches no longer hold originals in memory; animation polish | Porting unchanged from v0.7.0; app builds in CI ☑️ |
+| v0.7.3      | iOS app: dark/tinted icons, Share sheet, styled-photo marks and filter, compare, Undo, background batches, Backup Bin auto-clean, memory-bounded batches; experimental SDR (`--sdr`) | Porting unchanged for HDR photos; SDR untested on the phone 🔍; app builds in CI ☑️ |
 
 **Reverse-engineering tests of key assumptions**
 

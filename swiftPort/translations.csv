@@ -275,3 +275,36 @@
 275,Errors,The selected asset's original photo is not HEIC.,所选照片的原图不是 HEIC。
 276,Backup Bin,Today,今天
 277,Added later,unknown error,未知错误
+278,Settings page,SDR Photos,SDR 照片
+279,Settings page,Experimental,实验性功能
+280,Settings page,"Also style photos without an HDR gain map, such as photos from older iPhones or re-saved by other apps. The style is attached to the main image only. Untested: Photos may not offer the styles, or may render them differently.",也处理没有 HDR 增益图的照片，例如旧款 iPhone 拍摄或被其他 App 重新保存过的照片。风格只附加到主图上。尚未验证：“照片”可能不会提供风格，或渲染效果不同。
+281,Activity and status,"SDR, experimental",SDR，实验性
+282,Library,All Photos,所有照片
+283,Library,Not Styled Yet,尚未添加风格
+284,Library,Styled,已添加风格
+285,Library,Show,显示
+286,Photo viewer,Hold to Compare,按住以对比
+287,Photo viewer,Original,原图
+288,Photo viewer,Original Unavailable,原图不可用
+289,Photo viewer,"It was deleted, or restored from the Backup Bin.",原图已被删除，或已从备份中恢复。
+290,Activity and status,Styling Photos,正在添加风格
+291,Activity and status,%lld of %lld,%lld / %lld
+292,Activity and status,Styling Done,风格添加完成
+293,Activity and status,"%lld styled, %lld failed",%lld 张已添加风格，%lld 张失败
+294,Activity and status,1 photo styled,1 张照片已添加风格
+295,Activity and status,%lld photos styled,%lld 张照片已添加风格
+296,Settings page,Notify When Done,完成时通知
+297,Settings page,Background,后台
+298,Settings page,"Styling keeps going for a while after you leave Palettify, and a notification says when a batch finishes. On iOS 26 a batch can run to the end, with its progress on the Lock Screen.",离开⌈盘它⌋后，处理还会继续一段时间，整批完成时会发送通知。在 iOS 26 上，整批可以在后台处理完，进度显示在锁定屏幕上。
+299,Activity and status,Undo,撤销
+300,Activity and status,Couldn't Undo,无法撤销
+301,Settings page,Keep Originals,保留原图
+302,Settings page,Until I Delete Them,直到我删除
+303,Settings page,30 Days,30 天
+304,Settings page,90 Days,90 天
+305,Settings page,1 Year,1 年
+306,Settings page,Originals older than this are deleted from the Backup Bin when you open Palettify. They can't be restored afterwards.,超过此期限的原图会在打开⌈盘它⌋时从备份中删除，之后无法恢复。
+307,Share extension,The photo couldn't be read.,无法读取照片。
+308,Share extension,1 photo saved to Photos,已将 1 张照片存入“照片”
+309,Share extension,%lld photos saved to Photos,已将 %lld 张照片存入“照片”
+310,Share extension,Saved as new photos; the originals are unchanged. Live Photos are saved as stills.,已存为新照片，原图保持不变。实况照片会存为静态照片。
