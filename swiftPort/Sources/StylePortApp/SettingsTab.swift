@@ -8,6 +8,7 @@ struct SettingsTab: View {
     @AppStorage(AppSettings.analyzePhotoKey) private var analyzePhoto = true
     @AppStorage(AppSettings.textureKey) private var texture = true
     @AppStorage(AppSettings.sdrKey) private var sdr = false
+    @AppStorage(AppSettings.notifyWhenDoneKey) private var notifyWhenDone = true
     @State private var access = PhotoLibraryService.status
     @Environment(\.scenePhase) private var scenePhase
 
@@ -86,6 +87,14 @@ struct SettingsTab: View {
                     } label: {
                         Label("Backup Bin", systemImage: "archivebox")
                     }
+                }
+
+                Section {
+                    Toggle("Notify When Done", isOn: $notifyWhenDone)
+                } header: {
+                    Text("Background")
+                } footer: {
+                    Text("Styling keeps going for a while after you leave Palettify, and a notification says when a batch finishes. On iOS 26 a batch can run to the end, with its progress on the Lock Screen.")
                 }
 
                 Section {

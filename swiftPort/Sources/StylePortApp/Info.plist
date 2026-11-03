@@ -5,5 +5,11 @@
 	<!-- Merged into the generated Info.plist: keys Xcode has no INFOPLIST_KEY_ setting for. -->
 	<key>UIFileSharingEnabled</key>
 	<true/>
+	<!-- iOS 26 continued-processing tasks: a batch keeps running, with system progress, after
+	     the person leaves the app. One identifier per batch, under this pattern. -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER).port.*</string>
+	</array>
 </dict>
 </plist>

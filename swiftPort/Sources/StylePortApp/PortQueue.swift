@@ -1,7 +1,10 @@
+import BackgroundTasks
 import Foundation
 import Photos
 import StylePortCore
+import UIKit
 import UniformTypeIdentifiers
+import UserNotifications
 
 struct PortJob: Identifiable {
     enum Phase {
@@ -40,7 +43,12 @@ struct PortJob: Identifiable {
 /// photos or, in replace mode, in place of the originals (after backing them up).
 @MainActor
 final class PortQueue: ObservableObject {
-    @Published private(set) var jobs: [PortJob] = []
+    @Published private(set) var jobs: [PortJob] = [] {
+        didSet {
+            guard isRunning else { return }
+            background.update(done: jobs.filter(\.isFinished).count, total: jobs.count)
+        }
+    }
     @Published private(set) var isRunning = false
     /// Whether the floating status capsule shows. It hides 2 seconds after a batch that
     /// went through, and stays after a failure until the Activity sheet is opened.
@@ -50,6 +58,7 @@ final class PortQueue: ObservableObject {
     private let library = PhotoLibraryService()
     private let porter = StylePorter()
     private var pending: [Batch] = []
+    private let background = BackgroundRun()
 
     private struct Batch {
         enum Source {
@@ -135,6 +144,7 @@ final class PortQueue: ObservableObject {
         showsStatus = true
         guard !isRunning else { return }
         isRunning = true
+        background.begin(total: jobs.count)
         Task { await drain() }
     }
 
@@ -144,7 +154,9 @@ final class PortQueue: ObservableObject {
             await run(batch)
         }
         isRunning = false
-        guard !jobs.contains(where: \.isFailed) else { return }
+        let failed = jobs.filter(\.isFailed).count
+        background.finish(succeeded: jobs.count - failed, failed: failed)
+        guard failed == 0 else { return }
         try? await Task.sleep(for: .seconds(2))
         if !isRunning { showsStatus = false }
     }
@@ -395,5 +407,124 @@ struct OutputNames {
             let videoExtension = ($0.filename as NSString).pathExtension
             return base + suffix + "." + (videoExtension.isEmpty ? "MOV" : videoExtension)
         }
+    }
+}
+
+/// Keeps a batch running after the person leaves the app and says when it is done.
+///
+/// On iOS 26 a continued-processing task lets the batch finish in the background, with the
+/// system's own progress on the Lock Screen and in the Dynamic Island. It needs the app's
+/// bundle identifier to be the one it was built with; a sideloading tool that renames it
+/// leaves the short background time every iOS version gives, about 30 seconds.
+@MainActor
+final class BackgroundRun {
+    private var task: AnyObject?
+    private var legacy: UIBackgroundTaskIdentifier = .invalid
+    private var done = 0
+    private var total = 0
+
+    func begin(total: Int) {
+        self.total = total
+        done = 0
+        Notifier.requestPermissionIfNeeded()
+        legacy = UIApplication.shared.beginBackgroundTask(withName: "Styling photos") { [weak self] in
+            self?.endLegacy()
+        }
+        if #available(iOS 26.0, *) { submitContinued() }
+    }
+
+    func update(done: Int, total: Int) {
+        self.done = done
+        self.total = total
+        if #available(iOS 26.0, *), let task = task as? BGContinuedProcessingTask {
+            task.progress.totalUnitCount = Int64(total)
+            task.progress.completedUnitCount = Int64(done)
+            task.updateTitle(L("Styling Photos"), subtitle: L("\(done) of \(total)"))
+        }
+    }
+
+    func finish(succeeded: Int, failed: Int) {
+        if #available(iOS 26.0, *), let task = task as? BGContinuedProcessingTask {
+            task.setTaskCompleted(success: failed == 0)
+        }
+        task = nil
+        if UIApplication.shared.applicationState != .active {
+            Notifier.batchFinished(succeeded: succeeded, failed: failed)
+        }
+        endLegacy()
+    }
+
+    private func endLegacy() {
+        guard legacy != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(legacy)
+        legacy = .invalid
+    }
+
+    /// The permitted pattern from Info.plist, when it still names this app: a renamed bundle
+    /// would not match it, and registering an identifier the system doesn't allow ends the app.
+    private static var taskPrefix: String? {
+        guard let bundle = Bundle.main.bundleIdentifier,
+              let patterns = Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String],
+              patterns.contains(bundle + ".port.*") else { return nil }
+        return bundle + ".port."
+    }
+
+    @available(iOS 26.0, *)
+    private func submitContinued() {
+        guard let prefix = Self.taskPrefix else { return }
+        let identifier = prefix + UUID().uuidString
+        let registered = BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: .main) { [weak self] task in
+            guard let task = task as? BGContinuedProcessingTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            MainActor.assumeIsolated {
+                guard let self else {
+                    task.setTaskCompleted(success: false)
+                    return
+                }
+                self.task = task
+                task.expirationHandler = { [weak self] in
+                    Task { @MainActor in self?.task = nil }
+                    task.setTaskCompleted(success: false)
+                }
+                self.update(done: self.done, total: self.total)
+            }
+        }
+        guard registered else { return }
+        let request = BGContinuedProcessingTaskRequest(
+            identifier: identifier,
+            title: L("Styling Photos"),
+            subtitle: L("\(done) of \(total)")
+        )
+        // Start now or not at all: the person just asked for it.
+        request.strategy = .fail
+        try? BGTaskScheduler.shared.submit(request)
+    }
+}
+
+/// The "done" notification for a batch that finished while the app was in the background.
+enum Notifier {
+    static func requestPermissionIfNeeded() {
+        guard AppSettings.notifyWhenDone else { return }
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            guard settings.authorizationStatus == .notDetermined else { return }
+            center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        }
+    }
+
+    static func batchFinished(succeeded: Int, failed: Int) {
+        guard AppSettings.notifyWhenDone else { return }
+        let content = UNMutableNotificationContent()
+        content.title = L("Styling Done")
+        if failed > 0 {
+            content.body = L("\(succeeded) styled, \(failed) failed")
+        } else {
+            content.body = succeeded == 1 ? L("1 photo styled") : L("\(succeeded) photos styled")
+        }
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "batch-finished", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
     }
 }
