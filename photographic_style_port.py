@@ -4159,7 +4159,7 @@ def build_parser():
     a = sub.add_parser("profiles", help="List embedded built-in profiles")
     a.set_defaults(func=cmd_profiles)
 
-    a = sub.add_parser("models", help="Show where the pre-fetched Find Faces models are")
+    a = sub.add_parser("face-models", help="Show where the pre-fetched Find Faces models are")
     a.add_argument("--model-dir", metavar="DIR", help="Look here first")
     a.set_defaults(func=cmd_models)
 

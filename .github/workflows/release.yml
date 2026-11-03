@@ -134,7 +134,7 @@ jobs:
           test "$actual" = "Photographic Style Port $EXPECTED_VERSION"
           "./dist/$EXECUTABLE" profiles > packaged-profiles.json
           # Both Find Faces models are inside the binary and found without --model-dir.
-          "./dist/$EXECUTABLE" models | tee packaged-models.json
+          "./dist/$EXECUTABLE" face-models | tee packaged-models.json
           grep -q 'face_landmarker.task": true' packaged-models.json
           grep -q 'selfie_multiclass_256x256.tflite": true' packaged-models.json
           python - <<'PY'
