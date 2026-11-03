@@ -1,0 +1,96 @@
+# ---------------------------------------------------------------------------
+# Python / uv
+# ---------------------------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------------------------------------------------------------------------
+# Patch output
+#
+# Every `patch` run writes OUT.HEIC + OUT.HEIC.report.json, and OUT.zip with
+# --zip. None of it is source.
+# ---------------------------------------------------------------------------
+*_out/
+*_test/
+*.HEIC.report.json
+*_SmartStyle.HEIC
+*_SmartStyle.zip
+*_PhotographicStyle.HEIC
+*_PhotographicStyle.zip
+*_reuseThumb.HEIC
+*_reuseThumb.zip
+
+# ---------------------------------------------------------------------------
+# Sample photos
+#
+# The HEICs this was developed against are personal originals, tens of MB each.
+# They are deliberately not distributed; supply your own.
+# ---------------------------------------------------------------------------
+Smartstyle/
+noSmartStyle/
+noSmartStyle-people/
+*.HEIC
+*.heic
+*.HEIF
+*.heif
+# Local raster originals; website assets live under web/.
+/*.jpg
+/*.jpeg
+/*.png
+/*.webp
+/*.JPG
+/*.JPEG
+/*.PNG
+/*.WEBP
+
+# ---------------------------------------------------------------------------
+# Not published yet
+#
+# Delete the line that applies when you are ready to publish that piece.
+# ---------------------------------------------------------------------------
+# Superseded by photographic_style_port.py.
+smartstyle_port_v0_1.py
+VERSION_v0_1.txt
+
+# Per-version notes and findings, folded into README.md.
+README_PhotographicStyle_Port_v0_*.md
+PhotographicStyle_HEIC_Porting_Experimental_Facts.md
+
+# Legacy release artifacts; donor profiles are embedded in the script now.
+SmartStyle_Port_v0_1_bundle.zip
+IMG_0307_SmartStyle_donor_profile_v0_1.zip
+
+# ---------------------------------------------------------------------------
+# Generated
+#
+# The artifact bundle is rebuilt from web/ by artifact/build.py; the browser
+# test fixtures are patched personal photos and stay local.
+# ---------------------------------------------------------------------------
+artifact/build/
+tests/web/ref/
+tests/private-fixtures/
+tests/web/fixtures/
+
+# ---------------------------------------------------------------------------
+# Editor / OS
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+.claude/settings.local.json
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+
+# Cached libheif bundle for tests/web/libheif-api.mjs (1.8 MB, refetched on demand).
+tests/web/.cache/
+tests/.cache/
+
+# Local HTTPS certificates and private keys.
+.local-https/

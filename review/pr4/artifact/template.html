@@ -1,0 +1,298 @@
+<title>Photographic Style Port</title>
+<style>
+  :root {
+    --ground: #fbfcfe;
+    --panel: #eef1f6;
+    --panel-2: #e5eaf2;
+    --ink: #14171c;
+    --muted: #616b7a;
+    --line: #dbe1ea;
+    --accent: #2f5fd0;
+    --accent-soft: #dfe7fb;
+    --ok: #0f6b4d;
+    --ok-soft: #d8efe5;
+    --warn: #8a5d00;
+    --warn-soft: #f6ebd2;
+    --err: #a51f18;
+    --err-soft: #f8dedb;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0f1216;
+      --panel: #181c22;
+      --panel-2: #1f242c;
+      --ink: #e7eaf0;
+      --muted: #8f99a8;
+      --line: #272d36;
+      --accent: #7ba0f5;
+      --accent-soft: #1c2740;
+      --ok: #45c592;
+      --ok-soft: #142b23;
+      --warn: #d3a54a;
+      --warn-soft: #2c2415;
+      --err: #ff9a92;
+      --err-soft: #331b1a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0f1216;
+    --panel: #181c22;
+    --panel-2: #1f242c;
+    --ink: #e7eaf0;
+    --muted: #8f99a8;
+    --line: #272d36;
+    --accent: #7ba0f5;
+    --accent-soft: #1c2740;
+    --ok: #45c592;
+    --ok-soft: #142b23;
+    --warn: #d3a54a;
+    --warn-soft: #2c2415;
+    --err: #ff9a92;
+    --err-soft: #331b1a;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 44rem; margin: 0 auto; padding: 3rem 1.25rem 4.5rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 .7rem;
+  }
+  h1 {
+    font-size: clamp(1.65rem, 4.5vw, 2.1rem);
+    line-height: 1.15;
+    letter-spacing: -.025em;
+    font-weight: 660;
+    margin: 0 0 .6rem;
+    text-wrap: balance;
+  }
+  .lede { color: var(--muted); margin: 0; max-width: 34rem; }
+
+  .stage { margin-top: 2.25rem; display: flex; flex-direction: column; gap: 1rem; }
+
+  #drop {
+    border: 1.5px dashed var(--line);
+    border-radius: 14px;
+    background: var(--panel);
+    padding: 2.6rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  #drop:hover, #drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  #drop:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  #drop .big { display: block; font-weight: 620; font-size: 1.02rem; margin-bottom: .2rem; }
+  #drop .small { color: var(--muted); font-size: .875rem; }
+  input[type="file"] { display: none; }
+
+  #resultsWrap { display: flex; flex-direction: column; gap: .6rem; }
+  h2 {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin: .5rem 0 0;
+  }
+  #results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .55rem; }
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .5rem .9rem;
+    align-items: center;
+    padding: .8rem .95rem;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--panel);
+  }
+  .rname {
+    font-family: var(--mono);
+    font-size: .85rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .rchips { grid-column: 1; display: flex; flex-wrap: wrap; gap: .35rem; }
+  .ract { grid-row: 1 / span 2; }
+  .chip {
+    font-size: .74rem;
+    font-weight: 600;
+    padding: .16rem .5rem;
+    border-radius: 999px;
+    background: var(--panel-2);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .chip.ok { background: var(--ok-soft); color: var(--ok); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chip.err {
+    background: var(--err-soft); color: var(--err);
+    white-space: normal; overflow-wrap: anywhere;
+  }
+  .save {
+    font: inherit;
+    font-size: .85rem;
+    font-weight: 620;
+    padding: .45rem .85rem;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: var(--accent);
+    color: var(--ground);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .save:hover { filter: brightness(1.08); }
+  .save:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .save:disabled { cursor: default; opacity: .75; }
+  .save.done { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
+  .save.alt { background: transparent; color: var(--accent); border-color: var(--line); }
+  .save.alt:hover { border-color: var(--accent); filter: none; }
+  .actions { display: flex; flex-direction: column; gap: .35rem; align-items: stretch; }
+  .nosave { font-size: .8rem; color: var(--muted); }
+
+  .callout {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    background: var(--panel);
+    border-radius: 0 10px 10px 0;
+    padding: .8rem 1rem;
+    font-size: .875rem;
+    color: var(--muted);
+  }
+  .callout b { color: var(--ink); font-weight: 640; }
+  code {
+    font-family: var(--mono);
+    font-size: .88em;
+    background: var(--panel-2);
+    border-radius: 4px;
+    padding: .08em .35em;
+  }
+
+  .notes {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: .875rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.35rem;
+  }
+  .notes section { display: flex; flex-direction: column; gap: .3rem; }
+  .notes h3 {
+    font-size: .82rem;
+    font-weight: 660;
+    color: var(--ink);
+    margin: 0;
+    letter-spacing: -.005em;
+  }
+  .notes p { margin: 0; }
+  .foot {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--muted);
+    letter-spacing: .04em;
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">iPhone 15 and older → iPhone 16 styles</p>
+  <h1>Photographic Style Port</h1>
+  <p class="lede">
+    Adds the iPhone&nbsp;16-generation Photographic Styles editing state to a HEIC from an
+    older iPhone. Your photo never leaves this page.
+  </p>
+
+  <div class="stage">
+    <div id="drop" role="button" tabindex="0" aria-label="Choose HEIC photos">
+      <span class="big">Drop HEIC photos here</span>
+      <span class="small">on iPhone, choose <b>Browse</b> — not Photo Library</span>
+    </div>
+    <input type="file" id="file" multiple>
+
+    <div class="callout" id="iosHelp" hidden>
+      <b>iPhone: pick through Files, not Photo Library.</b>
+      Choosing a photo from the Photo Library makes iOS convert it to JPEG before this page
+      ever sees it, and a JPEG has none of the data the port needs. Get the original across
+      once: in Photos tap <b>Share → Save to Files</b>, then come back here, tap the box above
+      and choose <b>Browse</b>. Files picked that way arrive untouched.
+    </div>
+
+    <div class="callout" id="shareNote" hidden>
+      <b>Finished photos go straight to your library.</b> Tap <b>Save to Photos</b> on a
+      finished row, then pick <b>Save Image</b> in the share sheet — no renaming, no detour
+      through Files.
+    </div>
+
+    <div class="callout" id="saveNote" hidden>
+      <b>Saved files arrive as <code>.txt</code>.</b> This preview can only hand over a short
+      list of file types, and HEIC is not one of them — the bytes are correct, so rename
+      <code>…_PhotographicStyle.txt</code> to <code>.heic</code> and it opens normally.
+    </div>
+
+    <div id="resultsWrap" hidden>
+      <h2>Results</h2>
+      <ul id="results"></ul>
+    </div>
+  </div>
+
+  <div class="notes">
+    <section>
+      <h3>What it needs</h3>
+      <p>
+        A HEIC straight off an iPhone, with its embedded thumbnail and HDR gain map intact,
+        in a supported tile layout (<span id="layouts">…</span>). Photos that have been
+        edited or re-exported by other software usually will not work — and on iPhone that
+        includes anything picked from the Photo Library, which iOS converts to JPEG on the
+        way in. Use <b>Browse</b> and pick from Files.
+      </p>
+    </section>
+    <section>
+      <h3>What it keeps</h3>
+      <p>
+        Your image data is copied across byte for byte — primary tiles, HDR gain map and
+        thumbnail — so the visible photograph is untouched. Your Exif is preserved and only
+        the single Apple MakerNote entry that gates the feature is added. Semantic mattes and
+        the depth map come along too, so Portrait keeps working.
+      </p>
+    </section>
+    <section>
+      <h3>Why Safari does better here</h3>
+      <p>
+        Measuring your photo's own tone and light needs a HEIC decoder. Safari has one built
+        in; other browsers do not, and this preview cannot load an external one. Without it
+        the port still works, but falls back to neutral values instead of measurements — the
+        row will say which one you got.
+      </p>
+    </section>
+    <section>
+      <h3>Honest limits</h3>
+      <p>
+        Reverse-engineering software, not an Apple-supported converter. It reproduces an
+        editable Photographic Styles state; it does not reproduce Apple's capture-time
+        rendering. Keep your originals.
+      </p>
+    </section>
+    <p class="foot">Version <span id="version"></span></p>
+  </div>
+</div>
+
+<script type="module">
+/*__BUNDLE__*/
+</script>

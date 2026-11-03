@@ -1,0 +1,14 @@
+{
+  "48-12": {
+    "file": "48-12.zip",
+    "primary_tiles": 48,
+    "hdr_tiles": 12,
+    "bytes": 27158
+  },
+  "45-15": {
+    "file": "45-15.zip",
+    "primary_tiles": 45,
+    "hdr_tiles": 15,
+    "bytes": 42116
+  }
+}
