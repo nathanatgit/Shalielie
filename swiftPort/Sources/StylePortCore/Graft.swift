@@ -262,15 +262,16 @@ enum Graft {
         for tile in tileIDs { payloads[tile] = AppleBytes.neutralDeltaSample }
         var textureSummary = "off"
         if texture {
+            var skippedReason: String?
             let added = try Texture.addItems(
                 to: meta,
                 primary: primary,
-                people: Texture.softSkinPeople(data, discovery, detect: detectPeople),
+                people: Texture.softSkinPeople(data, discovery, detect: detectPeople) { skippedReason = $0 },
                 grainSeed: Texture.filmGrainSeed(data, discovery)
             )
             meta = added.0
             payloads.merge(added.1) { _, new in new }
-            textureSummary = added.2
+            textureSummary = added.2 + Texture.skippedNote(skippedReason)
         }
         let fileType = try topBox(data, type: "ftyp")
         let ftyp = try ftypWithStyleBrands(byteSlice(data, 0, fileType.size))

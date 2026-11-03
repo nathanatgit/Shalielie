@@ -92,6 +92,8 @@ struct ActivitySheet: View {
             if report.converted { parts.append(L("Converted to HEIC, experimental")) }
             else if report.sdr { parts.append(L("SDR, experimental")) }
             if report.estimatedPeople { parts.append(L("Soft Skin estimated, experimental")) }
+            // A diagnostic, not a feature: English only, so no new strings to translate.
+            if let why = report.findFacesSkipped { parts.append("Find Faces skipped: \(why)") }
             return parts.joined(separator: " · ")
         }
     }

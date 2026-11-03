@@ -24,6 +24,17 @@ enum PeopleDetection {
     /// Vision works on a downscaled, upright copy of the photo.
     static let analysisEdge = 1536
 
+    /// Why nothing was estimated; shown in the Texture summary so a skipped estimate is not silent.
+    enum Failure: String {
+        case unreadable = "could not read the picture"
+        case visionFailed = "Vision could not analyse the picture"
+        case noFace = "no face found"
+        case segmentation = "person segmentation failed"
+        case mattePixels = "could not prepare the mattes"
+        case skinEncoding = "this iOS would not write the skin matte"
+        case personEncoding = "this iOS would not write the person matte"
+    }
+
     /// `faces`: the photo's own face regions, if it has any (then no faces are detected).
     static func detect(
         _ data: Bytes,
@@ -31,43 +42,47 @@ enum PeopleDetection {
         width: Int,
         height: Int,
         faces knownFaces: [Texture.Face]
-    ) -> Found? {
+    ) -> Result<Found, Failure> {
         guard [0, 90, 180, 270].contains(irot), width > 0, height > 0,
-              let upright = uprightImage(data) else { return nil }
+              let upright = uprightImage(data) else { return .failure(.unreadable) }
         let handler = VNImageRequestHandler(cgImage: upright, options: [:])
         var faces = knownFaces
         if faces.isEmpty {
             let request = VNDetectFaceRectanglesRequest()
             request.revision = VNDetectFaceRectanglesRequestRevision3
-            guard (try? handler.perform([request])) != nil else { return nil }
+            guard (try? handler.perform([request])) != nil else { return .failure(.visionFailed) }
             faces = (request.results ?? [])
                 .filter { $0.confidence >= 0.5 && min($0.boundingBox.width, $0.boundingBox.height) >= 0.03 }
                 .sorted { $0.boundingBox.width * $0.boundingBox.height > $1.boundingBox.width * $1.boundingBox.height }
                 .prefix(Texture.softSkinInstanceKeys.count)
                 .map { storedFace(box: $0.boundingBox, yaw: $0.yaw?.doubleValue, roll: $0.roll?.doubleValue, irot: irot) }
         }
-        guard !faces.isEmpty else { return nil }
+        guard !faces.isEmpty else { return .failure(.noFace) }
 
         let segmentation = VNGeneratePersonSegmentationRequest()
         segmentation.qualityLevel = .accurate
         segmentation.outputPixelFormat = kCVPixelFormatType_OneComponent8
         guard (try? handler.perform([segmentation])) != nil,
-              let mask = segmentation.results?.first?.pixelBuffer else { return nil }
+              let mask = segmentation.results?.first?.pixelBuffer else { return .failure(.segmentation) }
 
         let (matteWidth, matteHeight) = matteSize(width: width, height: height)
         let turned = irot % 180 != 0
         let (uprightWidth, uprightHeight) = turned ? (matteHeight, matteWidth) : (matteWidth, matteHeight)
         guard let uprightPerson = grayPixels(of: mask, width: uprightWidth, height: uprightHeight),
               let uprightColour = pixels(of: upright, width: uprightWidth, height: uprightHeight, channels: 4)
-        else { return nil }
+        else { return .failure(.mattePixels) }
         let person = toStored(uprightPerson, channels: 1, uprightWidth: uprightWidth,
                               uprightHeight: uprightHeight, irot: irot)
         let colour = toStored(uprightColour, channels: 4, uprightWidth: uprightWidth,
                               uprightHeight: uprightHeight, irot: irot)
         let skin = skinMatte(colour: colour, person: person, width: matteWidth, height: matteHeight, faces: faces)
-        guard let skinSource = encodeMatte(skin, width: matteWidth, height: matteHeight),
-              let personSource = encodeMatte(person, width: matteWidth, height: matteHeight) else { return nil }
-        return Found(faces: faces, skin: skinSource, person: personSource)
+        guard let skinSource = encodeMatte(skin, width: matteWidth, height: matteHeight) else {
+            return .failure(.skinEncoding)
+        }
+        guard let personSource = encodeMatte(person, width: matteWidth, height: matteHeight) else {
+            return .failure(.personEncoding)
+        }
+        return .success(Found(faces: faces, skin: skinSource, person: personSource))
     }
 
     // MARK: Geometry (stored orientation is the photo's pixels before irot)

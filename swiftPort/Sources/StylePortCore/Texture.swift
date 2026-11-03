@@ -35,6 +35,11 @@ enum Texture {
         .map { "tag:apple.com,2026:photo:aux:\($0)" }
     /// Marks a Texture summary whose Soft Skin data was estimated (PeopleDetection).
     static let estimatedPeopleNote = " (estimated on the device)"
+    /// Marks a Texture summary whose Find Faces estimate produced nothing, and why.
+    static let skippedPeopleMarker = " (Find Faces skipped: "
+    static func skippedNote(_ reason: String?) -> String {
+        reason.map { skippedPeopleMarker + $0 + ")" } ?? ""
+    }
     static let softSkinPersonURI = "tag:apple.com,2026:photo:aux:semanticpersonmatte"
     static let softSkinInstanceKeys = ["FSINCInstanceMask9"]
         + (0..<9).map { "FSINCInstanceMask\($0)" }
@@ -275,7 +280,13 @@ enum Texture {
     /// Everything Soft Skin needs, taken from the photo, or nil when the photo lacks any of
     /// it (face regions, semanticskinmatte, portraiteffectsmatte). nil keeps the v0.5 output.
     /// `detect` (experimental, iOS): estimate on the device whatever the photo lacks.
-    static func softSkinPeople(_ data: Bytes, _ discovery: HEIF.Discovery, detect: Bool = false) throws -> People? {
+    /// `skipped` is told why the experimental estimate produced nothing, so it is not silent.
+    static func softSkinPeople(
+        _ data: Bytes,
+        _ discovery: HEIF.Discovery,
+        detect: Bool = false,
+        skipped: ((String) -> Void)? = nil
+    ) throws -> People? {
         var faces = xmpFaceRegions(data, discovery)
         guard faces.count <= softSkinInstanceKeys.count, !faces.isEmpty || detect,
               let skinURI = HEIF.matteURIs["semanticskinmatte"],
@@ -317,13 +328,20 @@ enum Texture {
         var person = sources[personURI]
         var detected = false
         #if canImport(Vision)
-        if detect, faces.isEmpty || skin == nil || person == nil,
-           try HEIF.mirrorAxis(data, table: discovery.properties, itemID: discovery.primary) == nil,
-           let estimate = PeopleDetection.detect(data, irot: irot, width: width, height: height, faces: faces) {
-            detected = true
-            if faces.isEmpty { faces = estimate.faces }
-            skin = skin ?? estimate.skin
-            person = person ?? estimate.person
+        if detect, faces.isEmpty || skin == nil || person == nil {
+            if try HEIF.mirrorAxis(data, table: discovery.properties, itemID: discovery.primary) != nil {
+                skipped?("the picture is mirrored")
+            } else {
+                switch PeopleDetection.detect(data, irot: irot, width: width, height: height, faces: faces) {
+                case .success(let estimate):
+                    detected = true
+                    if faces.isEmpty { faces = estimate.faces }
+                    skin = skin ?? estimate.skin
+                    person = person ?? estimate.person
+                case .failure(let failure):
+                    skipped?(failure.rawValue)
+                }
+            }
         }
         #endif
         guard !faces.isEmpty, let skinMatte = skin, let personMatte = person else { return nil }

@@ -85,6 +85,12 @@ public struct StylePortReport: Sendable {
     /// Experimental: Soft Skin got faces or mattes estimated on the device.
     public var estimatedPeople: Bool { texture.hasSuffix(Texture.estimatedPeopleNote) }
 
+    /// Experimental: why Find Faces estimated nothing, when it was on and produced nothing.
+    public var findFacesSkipped: String? {
+        guard let start = texture.range(of: Texture.skippedPeopleMarker), texture.hasSuffix(")") else { return nil }
+        return String(texture[start.upperBound...].dropLast())
+    }
+
     /// Whether Texture/Grain (iOS 27) was added.
     public var addedTexture: Bool { texture != "off" }
 }
@@ -518,15 +524,18 @@ extension StylePorter {
             if Texture.hasTexture(infos) {
                 report.texture = "from profile"
             } else {
+                var skippedReason: String?
                 let added = try Texture.addItems(
                     to: metadata,
                     primary: manifest.donorPrimaryItem,
-                    people: Texture.softSkinPeople(targetBytes, target, detect: options.detectPeople),
+                    people: Texture.softSkinPeople(targetBytes, target, detect: options.detectPeople) {
+                        skippedReason = $0
+                    },
                     grainSeed: Texture.filmGrainSeed(targetBytes, target)
                 )
                 metadata = added.0
                 payloads.merge(added.1) { _, new in new }
-                report.texture = added.2
+                report.texture = added.2 + Texture.skippedNote(skippedReason)
             }
         }
 
