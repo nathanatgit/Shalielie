@@ -40,7 +40,8 @@ jobs:
           xcodebuild -project StylePort.xcodeproj -scheme StylePort
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath "$RUNNER_TEMP/StylePort-iOS-Simulator"
-          CODE_SIGNING_ALLOWED=NO build
+          # MediaPipe's static libraries have no x86_64 simulator slice.
+          ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
       - name: Build iOS and iPadOS device app
         run: >-
           xcodebuild -project StylePort.xcodeproj -scheme StylePort
