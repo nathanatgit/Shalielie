@@ -68,7 +68,10 @@ struct AddPhotographicStyleIntent: AppIntent {
             results.append(IntentFile(data: result.data, filename: names.photo, type: .heic))
         }
         if saveToPhotos {
-            _ = try await library.saveNew(outputs)
+            let created = try await library.saveNew(outputs)
+            await MainActor.run {
+                StyleRecords.shared.record(created.map { (identifier: $0, source: StyleRecords.Source.noOriginal) })
+            }
         }
         return .result(value: results)
     }

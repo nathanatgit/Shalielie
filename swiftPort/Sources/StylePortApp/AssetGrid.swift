@@ -98,6 +98,8 @@ final class AssetListModel: NSObject, ObservableObject, PHPhotoLibraryChangeObse
         let sort = sort
         let ascending = ascending
         let query = searchQuery
+        let styleFilter = AppSettings.styleFilter
+        let styled = StyleRecords.shared.styledIDs
         reloadTask = Task.detached(priority: .userInitiated) {
             let options = PHFetchOptions()
             options.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
@@ -112,7 +114,15 @@ final class AssetListModel: NSObject, ObservableObject, PHPhotoLibraryChangeObse
             case .collection(let collection): result = PHAsset.fetchAssets(in: collection, options: options)
             }
             var list = result.count == 0 ? [] : result.objects(at: IndexSet(integersIn: 0..<result.count))
-            let names = sort == .filename || !query.isEmpty ? FilenameCache.names(for: list) : [:]
+            let names = sort == .filename || !query.isEmpty || styleFilter != .all
+                ? FilenameCache.names(for: list) : [:]
+            if styleFilter != .all {
+                let wanted = styleFilter == .styled
+                list = list.filter {
+                    StyleFilter.isStyled(identifier: $0.localIdentifier, filename: names[$0.localIdentifier],
+                                         known: styled) == wanted
+                }
+            }
             guard !Task.isCancelled else { return }
             if sort == .filename {
                 list.sort {
@@ -576,7 +586,9 @@ struct AssetTile: View {
                 }
             }
             .overlay(alignment: .bottomLeading) {
-                if !compact, !isHEIC {
+                if !compact, isHEIC {
+                    StyledBadge(identifier: asset.localIdentifier)
+                } else if !compact, !isHEIC {
                     Text("Not HEIC")
                         .font(.caption2.weight(.semibold))
                         .padding(.horizontal, 5)
@@ -842,12 +854,33 @@ enum LimitedLibrary {
 }
 
 /// The Sort menu shared by the library and album grids.
+/// A small mark on photos this app styled.
+private struct StyledBadge: View {
+    let identifier: String
+    @ObservedObject private var records = StyleRecords.shared
+
+    var body: some View {
+        if records.isStyled(identifier) {
+            Image(systemName: "camera.filters")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.5), radius: 2)
+                .padding(6)
+                .accessibilityLabel("Styled")
+        }
+    }
+}
+
 struct SortMenu: View {
     @AppStorage(AppSettings.librarySortKey) private var sort = LibrarySort.captured
     @AppStorage(AppSettings.libraryAscendingKey) private var ascending = false
+    @AppStorage(AppSettings.styleFilterKey) private var styleFilter = StyleFilter.all
 
     var body: some View {
         Menu {
+            Picker("Show", selection: $styleFilter) {
+                ForEach(StyleFilter.allCases) { Text($0.title).tag($0) }
+            }
             Picker("Sort By", selection: $sort) {
                 ForEach(LibrarySort.allCases) { Text($0.title).tag($0) }
             }

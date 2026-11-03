@@ -10,6 +10,7 @@ enum AppSettings {
     static let libraryAscendingKey = "libraryAscending"
     static let gridTileSizeKey = "libraryGridTileSize"
     static let sdrKey = "experimentalSDR"
+    static let styleFilterKey = "libraryStyleFilter"
 
     static let repositoryURL = URL(string: "https://github.com/nathanatgit/Shalielie")!
 
@@ -29,6 +30,10 @@ enum AppSettings {
     static var texture: Bool { UserDefaults.standard.bool(forKey: textureKey) }
     /// Experimental: port SDR photos too (no HDR gain map).
     static var sdr: Bool { UserDefaults.standard.bool(forKey: sdrKey) }
+
+    static var styleFilter: StyleFilter {
+        StyleFilter(rawValue: UserDefaults.standard.string(forKey: styleFilterKey) ?? "") ?? .all
+    }
 
     /// The porter options from the current settings.
     static var portOptions: StylePortOptions {
@@ -60,5 +65,26 @@ enum LibrarySort: String, CaseIterable, Identifiable {
         case .captured: return L("Date Captured")
         case .saved: return L("Date Saved")
         }
+    }
+}
+
+/// Which photos a grid shows: all, only the ones still to style, or only styled ones.
+enum StyleFilter: String, CaseIterable, Identifiable {
+    case all, unstyled, styled
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .all: return L("All Photos")
+        case .unstyled: return L("Not Styled Yet")
+        case .styled: return L("Styled")
+        }
+    }
+
+    /// Styled by this app: recorded, or named with the suffix a save-as-new port adds.
+    static func isStyled(identifier: String, filename: String?, known: Set<String>) -> Bool {
+        if known.contains(identifier) { return true }
+        guard let name = filename.map({ ($0 as NSString).deletingPathExtension }) else { return false }
+        return name.hasSuffix("_PhotographicStyle") || name.hasSuffix("_TextureGrain")
     }
 }

@@ -21,6 +21,8 @@ struct AssetDetailView: View {
     @State private var commitTask: Task<Void, Never>?
     /// How far the photo has been pulled down to close the viewer.
     @State private var dismissOffset: CGFloat = 0
+    /// Held down on Compare: the original shows in place of the styled photo.
+    @State private var comparing = false
     @State private var asset: PHAsset?
     @State private var loaded = false
     @State private var eligibility: StylePorter.Eligibility?
@@ -53,6 +55,11 @@ struct AssetDetailView: View {
         var id: String { rawValue }
     }
     private var job: PortJob? { queue.job(forAsset: selectedIdentifier) }
+    /// Where the original of this styled photo is, when this app styled it.
+    private var originalSource: StyleRecords.Source? {
+        guard let source = StyleRecords.shared.source(of: selectedIdentifier), source != .noOriginal else { return nil }
+        return source
+    }
     private static var systemZoom: Bool {
         if #available(iOS 18.0, *) { return true }
         return false
@@ -204,7 +211,10 @@ struct AssetDetailView: View {
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
                 pager(current: asset, size: geometry.size)
-                if showingControls, asset.mediaSubtypes.contains(.photoLive) {
+                if comparing, let originalSource {
+                    OriginalPreview(source: originalSource)
+                }
+                if showingControls, !comparing, asset.mediaSubtypes.contains(.photoLive) {
                     Label("Live", systemImage: "livephoto")
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 10).padding(.vertical, 6)
@@ -288,6 +298,15 @@ struct AssetDetailView: View {
                         Button("Adjust Date & Time…") { editor = .date }
                         Button("Adjust Location…") { editor = .location }
                     } label: { controlIcon("slider.horizontal.3") }.accessibilityLabel("Adjust Info")
+                    if originalSource != nil {
+                        // Press and hold to see the original, as Photos does with its edits.
+                        controlIcon(comparing ? "square.split.2x1.fill" : "square.split.2x1")
+                            .gesture(DragGesture(minimumDistance: 0)
+                                .onChanged { _ in if !comparing { comparing = true } }
+                                .onEnded { _ in comparing = false })
+                            .accessibilityLabel("Hold to Compare")
+                            .accessibilityAddTraits(.isButton)
+                    }
                 }
                 .padding(.horizontal, 8).floatingGlass()
                 Spacer(minLength: 0)
@@ -572,6 +591,50 @@ private struct Filmstrip: View {
             .onAppear { proxy.scrollTo(selectedID, anchor: .center) }
             .onChange(of: selectedID) { _, id in withAnimation(motion) { proxy.scrollTo(id, anchor: .center) } }
         }
+    }
+}
+
+/// The original of a styled photo, shown while Compare is held.
+private struct OriginalPreview: View {
+    let source: StyleRecords.Source
+    @EnvironmentObject private var backups: BackupStore
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color(uiColor: .systemBackground)
+            original
+            Text("Original")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .floatingGlass()
+                .padding(12)
+        }
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private var original: some View {
+        switch source {
+        case .asset(let identifier):
+            if let asset = PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil).firstObject {
+                AssetImage(asset: asset, contentMode: .fit)
+            } else {
+                unavailable
+            }
+        case .backup(let id):
+            if let entry = backups.entries.first(where: { $0.id == id }) {
+                BackupThumbnail(url: backups.photoURL(of: entry), size: 1600, fit: true)
+            } else {
+                unavailable
+            }
+        case .noOriginal:
+            unavailable
+        }
+    }
+
+    private var unavailable: some View {
+        ContentUnavailableView("Original Unavailable", systemImage: "photo",
+                               description: Text("It was deleted, or restored from the Backup Bin."))
     }
 }
 

@@ -153,3 +153,70 @@ final class BackupStore: ObservableObject {
         )
     }
 }
+
+/// Which library photos this app styled, and where each one's original is: the photo it was
+/// saved next to, or its Backup Bin entry. Read for the "styled" badge, the Styled/Unstyled
+/// filter and Compare. Photos styled before this record existed are still recognised by
+/// their Backup Bin entry or by the "_PhotographicStyle"/"_TextureGrain" filename suffix.
+@MainActor
+final class StyleRecords: ObservableObject {
+    static let shared = StyleRecords()
+
+    enum Source: Codable, Hashable {
+        /// Saved as a new photo next to this library photo.
+        case asset(String)
+        /// Replaced its original, which is this Backup Bin entry.
+        case backup(UUID)
+        /// Imported from Files or styled by the Shortcuts action: no original in the library.
+        case noOriginal
+    }
+
+    @Published private(set) var sources: [String: Source] = [:]
+    /// Styled photos the record doesn't know: replacements found in the Backup Bin.
+    @Published private(set) var replacements: [String: UUID] = [:]
+
+    private let url: URL
+
+    private init() {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        url = support.appendingPathComponent("StyleRecords.json")
+        if let data = try? Data(contentsOf: url),
+           let decoded = try? JSONDecoder().decode([String: Source].self, from: data) {
+            sources = decoded
+        }
+    }
+
+    /// Every styled photo known, for filtering off the main thread.
+    var styledIDs: Set<String> { Set(sources.keys).union(replacements.keys) }
+
+    func isStyled(_ identifier: String) -> Bool {
+        sources[identifier] != nil || replacements[identifier] != nil
+    }
+
+    func source(of identifier: String) -> Source? {
+        if let source = sources[identifier] { return source }
+        return replacements[identifier].map { .backup($0) }
+    }
+
+    func record(_ styled: [(identifier: String, source: Source)]) {
+        guard !styled.isEmpty else { return }
+        for item in styled { sources[item.identifier] = item.source }
+        save()
+    }
+
+    /// The Backup Bin knows which photo replaced each original, including ones made before
+    /// this record existed.
+    func sync(with entries: [BackupEntry]) {
+        var found: [String: UUID] = [:]
+        for entry in entries {
+            if let id = entry.replacementIdentifier { found[id] = entry.id }
+        }
+        if found != replacements { replacements = found }
+    }
+
+    private func save() {
+        guard let data = try? JSONEncoder().encode(sources) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+}

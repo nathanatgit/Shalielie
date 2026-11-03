@@ -16,6 +16,7 @@ struct StylePortApp: App {
                 .environment(\.portQueue, queue)
                 .environmentObject(backups)
                 .task { queue.backups = backups }
+                .onReceive(backups.$entries) { StyleRecords.shared.sync(with: $0) }
         }
     }
 }

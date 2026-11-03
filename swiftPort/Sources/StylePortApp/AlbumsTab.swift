@@ -314,6 +314,7 @@ private struct AlbumScreen: View {
     @StateObject private var model: AssetListModel
     @AppStorage(AppSettings.librarySortKey) private var sort = LibrarySort.captured
     @AppStorage(AppSettings.libraryAscendingKey) private var ascending = false
+    @AppStorage(AppSettings.styleFilterKey) private var styleFilter = StyleFilter.all
 
     init(album: AlbumItem) {
         self.album = album
@@ -341,5 +342,6 @@ private struct AlbumScreen: View {
         .onAppear { model.load() }
         .onChange(of: sort) { _, sort in model.setSort(sort, ascending: ascending) }
         .onChange(of: ascending) { _, ascending in model.setSort(sort, ascending: ascending) }
+        .onChange(of: styleFilter) { _, _ in model.reload() }
     }
 }

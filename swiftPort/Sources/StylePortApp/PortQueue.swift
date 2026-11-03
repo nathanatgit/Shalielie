@@ -239,7 +239,12 @@ final class PortQueue: ObservableObject {
             if batch.replace {
                 try await replace(ported)
             } else {
-                _ = try await library.saveNew(ported.map { $0.output })
+                let created = try await library.saveNew(ported.map { $0.output })
+                StyleRecords.shared.record(zip(ported, created).map { item, identifier in
+                    let source: StyleRecords.Source
+                    if let asset = item.asset { source = .asset(asset.localIdentifier) } else { source = .noOriginal }
+                    return (identifier: identifier, source: source)
+                })
             }
             for item in ported { update(item.jobID) { $0.phase = .done } }
         } catch {
@@ -275,6 +280,9 @@ final class PortQueue: ObservableObject {
                 (asset: $0.asset, output: $0.output, metadata: $0.backup.metadata)
             })
             backups.commit(added, replacements: replacements)
+            StyleRecords.shared.record(zip(replacing, replacements).map { item, identifier in
+                (identifier: identifier, source: StyleRecords.Source.backup(item.backup.entry.id))
+            })
         } catch {
             backups.discard(added)
             throw error

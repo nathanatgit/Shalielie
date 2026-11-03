@@ -8,6 +8,7 @@ struct LibraryTab: View {
     @Environment(\.portQueue) private var queue
     @AppStorage(AppSettings.librarySortKey) private var sort = LibrarySort.captured
     @AppStorage(AppSettings.libraryAscendingKey) private var ascending = false
+    @AppStorage(AppSettings.styleFilterKey) private var styleFilter = StyleFilter.all
     @StateObject private var model = AssetListModel(
         scope: .library,
         sort: LibrarySort(rawValue: UserDefaults.standard.string(forKey: AppSettings.librarySortKey) ?? "")
@@ -70,6 +71,7 @@ struct LibraryTab: View {
         }
         .onChange(of: sort) { _, sort in model.setSort(sort, ascending: ascending) }
         .onChange(of: ascending) { _, ascending in model.setSort(sort, ascending: ascending) }
+        .onChange(of: styleFilter) { _, _ in model.reload() }
     }
 
     @ViewBuilder
