@@ -179,7 +179,7 @@ struct PhotoLibraryService: Sendable {
         ] as CFDictionary) else {
             throw LibraryError.saveFailed(L("The photo couldn't be read."))
         }
-        return try RasterImport.heic(from: image, captureDate: captureDate)
+        return try RasterImport.heic(from: image, captureDate: captureDate, source: data)
     }
 
     /// What the port would do with this photo, read from the original only when it is on the

@@ -145,4 +145,58 @@ final class StylePortCoreTests: XCTestCase {
             }
         }
     }
+
+    /// Any Image keeps the source's own Exif (camera, dates, location) in either byte order, makes
+    /// it upright at the new size, and gives it an Apple MakerNote the style record can go into.
+    func testConversionCarriesSourceExif() throws {
+        for little in [true, false] {
+            func put(_ value: Int, _ count: Int) -> [UInt8] {
+                let big = (0..<count).map { UInt8((value >> (8 * (count - 1 - $0))) & 0xFF) }
+                return little ? big.reversed() : big
+            }
+            let make = Array("Canon\0".utf8)
+            let date = Array("2024:05:01 10:20:30\0".utf8)
+            let ifd0 = 8
+            let makeAt = ifd0 + 2 + 3 * 12 + 4
+            let exifAt = makeAt + make.count
+            let dateAt = exifAt + 2 + 12 + 4
+            var tiff = Array((little ? "II" : "MM").utf8) + put(42, 2) + put(ifd0, 4) + put(3, 2)
+            tiff += put(0x010F, 2) + put(2, 2) + put(make.count, 4) + put(makeAt, 4)
+            tiff += put(0x0112, 2) + put(3, 2) + put(1, 4) + put(6, 2) + [0, 0]
+            tiff += put(0x8769, 2) + put(4, 2) + put(1, 4) + put(exifAt, 4) + put(0, 4) + make
+            tiff += put(1, 2) + put(0x9003, 2) + put(2, 2) + put(date.count, 4) + put(dateAt, 4) + put(0, 4)
+            tiff += date
+
+            let carried = try XCTUnwrap(RasterImport.carryExif(tiff: tiff, width: 1024, height: 768))
+            XCTAssertEqual(Array(carried.prefix(10)), [0, 0, 0, 6] + Array("Exif".utf8) + [0, 0])
+            let out = Array(carried.dropFirst(10))
+            func get(_ offset: Int, _ count: Int) -> Int {
+                let bytes = Array(out[offset..<(offset + count)])
+                return (little ? bytes.reversed() : bytes).reduce(0) { $0 << 8 | Int($1) }
+            }
+            func entries(_ offset: Int) -> [Int: Int] {
+                Dictionary(uniqueKeysWithValues: (0..<get(offset, 2)).map {
+                    (get(offset + 2 + 12 * $0, 2), offset + 2 + 12 * $0)
+                })
+            }
+            let root = entries(get(4, 4))
+            XCTAssertEqual(get(try XCTUnwrap(root[0x0112]) + 8, 2), 1)
+            let makeOffset = get(try XCTUnwrap(root[0x010F]) + 8, 4)
+            XCTAssertEqual(Array(out[makeOffset..<(makeOffset + 5)]), Array("Canon".utf8))
+            let exif = entries(get(try XCTUnwrap(root[0x8769]) + 8, 4))
+            XCTAssertEqual(get(try XCTUnwrap(exif[0xA002]) + 8, 4), 1024)
+            XCTAssertEqual(get(try XCTUnwrap(exif[0xA003]) + 8, 4), 768)
+            let dateOffset = get(try XCTUnwrap(exif[0x9003]) + 8, 4)
+            XCTAssertEqual(Array(out[dateOffset..<(dateOffset + date.count)]), date)
+
+            XCTAssertNil(try AppleExif.makerNoteTag(in: carried, tag: 0x54))
+            let styled = try AppleExif.injectMakerNoteTag(into: carried, payload: [1, 2, 3, 4, 5, 6])
+            XCTAssertEqual(try AppleExif.makerNoteTag(in: styled, tag: 0x54), [1, 2, 3, 4, 5, 6])
+
+            let jpeg: [UInt8] = [0xFF, 0xD8, 0xFF, 0xE1] + bigEndianBytes(2 + 6 + tiff.count, count: 2)
+                + Array("Exif".utf8) + [0, 0] + tiff + [0xFF, 0xDA, 0, 2, 0xFF, 0xD9]
+            XCTAssertEqual(RasterImport.sourceTIFF(in: jpeg), tiff)
+        }
+        XCTAssertNil(RasterImport.carryExif(tiff: Array("not a tiff".utf8), width: 8, height: 8))
+    }
 }

@@ -12,8 +12,9 @@ public enum RasterImport {
     static let maxTiles = 48
     static let thumbnailEdge = 416
 
-    /// The HEIC for an upright picture (orientation already applied).
-    public static func heic(from image: CGImage, captureDate: Date?) throws -> Data {
+    /// The HEIC for an upright picture (orientation already applied). `source` is the original
+    /// file, whose Exif (location, camera, lens, dates) is carried over when it can be read.
+    public static func heic(from image: CGImage, captureDate: Date?, source: Data? = nil) throws -> Data {
         let (width, height) = scaledSize(width: image.width, height: image.height)
         guard let canvas = drawSRGB(image, width: width, height: height) else {
             throw StylePortError.invalidData("Could not draw the picture.")
@@ -36,7 +37,9 @@ public enum RasterImport {
             throw StylePortError.invalidData("Could not draw the thumbnail.")
         }
         let thumbnail = try encode(small)
-        let exif = appleExif(width: width, height: height, date: captureDate)
+        let exif = source.flatMap { sourceTIFF(in: $0.stylePortBytes) }
+            .flatMap { carryExif(tiff: $0, width: width, height: height) }
+            ?? appleExif(width: width, height: height, date: captureDate)
         return assemble(width: width, height: height, tiles: tiles, thumbnail: thumbnail,
                         thumbnailSize: (thumbWidth, thumbHeight), exif: exif).stylePortData
     }
@@ -128,10 +131,142 @@ public enum RasterImport {
         )
     }
 
+    static let emptyAppleMakerNote: Bytes = Bytes("Apple iOS".utf8) + [0, 0, 1] + Bytes("MM".utf8) + [0, 0, 0, 0, 0, 0]
+
+    /// The TIFF block of a JPEG (APP1 Exif), PNG (eXIf), WebP (EXIF) or HEIF (Exif item) file.
+    static func sourceTIFF(in data: Bytes) -> Bytes? {
+        if data.starts(with: [0xFF, 0xD8]) {
+            var cursor = 2
+            while cursor + 4 <= data.count, data[cursor] == 0xFF {
+                let marker = data[cursor + 1]
+                if marker == 0xDA || marker == 0xD9 { break }   // image data: no more metadata
+                let length = Int(data[cursor + 2]) << 8 | Int(data[cursor + 3])
+                let start = cursor + 4
+                guard length >= 2, start + length - 2 <= data.count else { break }
+                if marker == 0xE1, length >= 8, Array(data[start..<start + 6]) == Bytes("Exif".utf8) + [0, 0] {
+                    return Array(data[(start + 6)..<(start + length - 2)])
+                }
+                cursor = start + length - 2
+            }
+            return nil
+        }
+        if data.starts(with: [0x89, 0x50, 0x4E, 0x47]) {
+            var cursor = 8
+            while cursor + 12 <= data.count {
+                let length = (try? readUInt(data, cursor, 4)) ?? 0
+                let type = String(bytes: data[(cursor + 4)..<(cursor + 8)], encoding: .ascii)
+                guard cursor + 12 + length <= data.count else { break }
+                if type == "eXIf" { return Array(data[(cursor + 8)..<(cursor + 8 + length)]) }
+                cursor += 12 + length
+            }
+            return nil
+        }
+        if data.count >= 12, data.starts(with: Bytes("RIFF".utf8)), Array(data[8..<12]) == Bytes("WEBP".utf8) {
+            var cursor = 12
+            while cursor + 8 <= data.count {
+                let size = (0..<4).reduce(0) { $0 | Int(data[cursor + 4 + $1]) << (8 * $1) }
+                guard cursor + 8 + size <= data.count else { break }
+                if Array(data[cursor..<(cursor + 4)]) == Bytes("EXIF".utf8) {
+                    var tiff = Array(data[(cursor + 8)..<(cursor + 8 + size)])
+                    if tiff.starts(with: Bytes("Exif".utf8) + [0, 0]) { tiff.removeFirst(6) }
+                    return tiff
+                }
+                cursor += 8 + size + (size & 1)
+            }
+            return nil
+        }
+        // HEIF: the Exif item is a 4-byte offset to the TIFF header, then the TIFF.
+        guard let meta = try? topBox(data, type: "meta"),
+              let infos = try? HEIF.parseItemInfo(data, meta: meta),
+              let item = infos.first(where: { $0.value.type == "Exif" })?.key,
+              let locations = try? HEIF.parseLocations(data, meta: meta),
+              let payload = try? HEIF.extractItem(data, locations: locations, itemID: item),
+              payload.count > 8, let skip = try? readUInt(payload, 0, 4), 4 + skip < payload.count else { return nil }
+        var tiff = Array(payload[(4 + skip)...])
+        if tiff.starts(with: Bytes("Exif".utf8) + [0, 0]) { tiff.removeFirst(6) }
+        return tiff
+    }
+
+    /// The source's own Exif for the converted HEIC, as the CLI does: everything stays byte for
+    /// byte where it is, and a rewritten IFD0 and ExifIFD are appended (upright orientation,
+    /// the new pixel size, an empty Apple MakerNote when there is none). nil when unreadable.
+    static func carryExif(tiff: Bytes, width: Int, height: Int) -> Bytes? {
+        guard tiff.count >= 8 else { return nil }
+        let little: Bool
+        switch (tiff[0], tiff[1]) {
+        case (0x49, 0x49): little = true
+        case (0x4D, 0x4D): little = false
+        default: return nil
+        }
+        func read(_ bytes: Bytes, _ offset: Int, _ count: Int) -> Int {
+            var value = 0
+            for index in 0..<count {
+                let byte = Int(bytes[offset + (little ? count - 1 - index : index)])
+                value = value << 8 | byte
+            }
+            return value
+        }
+        func write(_ value: Int, _ count: Int) -> Bytes {
+            let big = bigEndianBytes(value, count: count)
+            return little ? big.reversed() : big
+        }
+        guard read(tiff, 2, 2) == 42 else { return nil }
+        func readIFD(_ offset: Int) -> [Int: Bytes]? {
+            guard offset >= 8, offset + 2 <= tiff.count else { return nil }
+            let count = read(tiff, offset, 2)
+            guard offset + 2 + 12 * count + 4 <= tiff.count else { return nil }
+            var entries: [Int: Bytes] = [:]
+            for index in 0..<count {
+                let start = offset + 2 + 12 * index
+                entries[read(tiff, start, 2)] = Array(tiff[start..<(start + 12)])
+            }
+            return entries
+        }
+        guard var ifd0 = readIFD(read(tiff, 4, 4)) else { return nil }
+        var exif: [Int: Bytes] = [:]
+        if let pointer = ifd0[0x8769] {
+            guard let found = readIFD(read(pointer, 8, 4)) else { return nil }
+            exif = found
+        }
+        var out = tiff
+        func append(_ blob: Bytes) -> Int {
+            if out.count % 2 == 1 { out.append(0) }
+            let offset = out.count
+            out += blob
+            return offset
+        }
+        func entry(_ tag: Int, _ type: Int, _ count: Int, _ value: Bytes) -> Bytes {
+            write(tag, 2) + write(type, 2) + write(count, 4) + value
+        }
+        var apple = false
+        if let maker = exif[0x927C] {
+            let count = read(maker, 4, 4)
+            let offset = read(maker, 8, 4)
+            apple = count > 20 && offset + 9 <= tiff.count
+                && Array(tiff[offset..<(offset + 9)]) == Bytes("Apple iOS".utf8)
+        }
+        if !apple {
+            exif[0x927C] = entry(0x927C, 7, emptyAppleMakerNote.count, write(append(emptyAppleMakerNote), 4))
+        }
+        exif[0xA002] = entry(0xA002, 4, 1, write(width, 4))
+        exif[0xA003] = entry(0xA003, 4, 1, write(height, 4))
+        ifd0[0x0112] = entry(0x0112, 3, 1, write(1, 2) + [0, 0])   // the pixels are upright now
+        for (tag, value) in [(0x0100, width), (0x0101, height)] where ifd0[tag] != nil {
+            ifd0[tag] = entry(tag, 4, 1, write(value, 4))
+        }
+        func ifdBytes(_ entries: [Int: Bytes]) -> Bytes {
+            write(entries.count, 2) + concatenated(entries.keys.sorted().map { entries[$0]! }) + [0, 0, 0, 0]
+        }
+        ifd0[0x8769] = entry(0x8769, 4, 1, write(append(ifdBytes(exif)), 4))
+        let ifd0Offset = append(ifdBytes(ifd0))
+        out.replaceSubrange(4..<8, with: write(ifd0Offset, 4))
+        return [0, 0, 0, 6] + Bytes("Exif".utf8) + [0, 0] + out
+    }
+
     /// A minimal big-endian Exif with an empty Apple MakerNote, which the port gives the 0x54
     /// Photographic Style record. Keeps the capture date when there is one.
     static func appleExif(width: Int, height: Int, date: Date?) -> Bytes {
-        let maker: Bytes = Bytes("Apple iOS".utf8) + [0, 0, 1] + Bytes("MM".utf8) + [0, 0, 0, 0, 0, 0]
+        let maker = emptyAppleMakerNote
         var entries: [(tag: Int, type: Int, count: Int, value: Bytes)] = []
         if let date {
             let formatter = DateFormatter()
