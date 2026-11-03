@@ -15,6 +15,7 @@ struct AssetDetailView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var queue: PortQueue
     @AppStorage(AppSettings.replaceOriginalsKey) private var replaceOriginals = false
+    @AppStorage(AppSettings.anyImageKey) private var anyImage = false
     @State private var selectedIdentifier: String
     @State private var pagerID: String?
     @State private var heicTick = 0
@@ -69,7 +70,7 @@ struct AssetDetailView: View {
     private var blocked: Bool {
         guard let asset else { return true }
         _ = heicTick
-        return !(HEICCache.peek(asset) ?? true) || eligibility == .alreadyStyled || eligibility == .unsupported
+        return !anyImage && !(HEICCache.peek(asset) ?? true) || eligibility == .alreadyStyled || eligibility == .unsupported
     }
 
     var body: some View {
@@ -484,7 +485,9 @@ struct AssetDetailView: View {
         return L("\(mp.formatted(.number.precision(.fractionLength(0)))) MP · \(asset.pixelWidth) × \(asset.pixelHeight)") + size
     }
     private func styleStatus(_ asset: PHAsset) -> String {
-        if !(HEICCache.peek(asset) ?? true) { return L("Not available: not a HEIC") }
+        if !(HEICCache.peek(asset) ?? true) {
+            return anyImage ? L("Converted to HEIC first (experimental)") : L("Not available: not a HEIC")
+        }
         switch eligibility {
         case .port: return L("Can be added")
         case .addTexture: return L("Has a style; Texture & Grain can be added")

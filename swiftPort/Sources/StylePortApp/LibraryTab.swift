@@ -9,6 +9,7 @@ struct LibraryTab: View {
     @AppStorage(AppSettings.librarySortKey) private var sort = LibrarySort.captured
     @AppStorage(AppSettings.libraryAscendingKey) private var ascending = false
     @AppStorage(AppSettings.styleFilterKey) private var styleFilter = StyleFilter.all
+    @AppStorage(AppSettings.anyImageKey) private var anyImage = false
     @StateObject private var model = AssetListModel(
         scope: .library,
         sort: LibrarySort(rawValue: UserDefaults.standard.string(forKey: AppSettings.librarySortKey) ?? "")
@@ -41,7 +42,7 @@ struct LibraryTab: View {
                             Button {
                                 importingFiles = true
                             } label: {
-                                Label("Import HEIC (and MOV) Files…", systemImage: "folder")
+                                Label(anyImage ? L("Import Images…") : L("Import HEIC (and MOV) Files…"), systemImage: "folder")
                             }
                         } label: {
                             Label("Add", systemImage: "plus")
@@ -50,7 +51,7 @@ struct LibraryTab: View {
                 }
                 .fileImporter(
                     isPresented: $importingFiles,
-                    allowedContentTypes: [.heic, .heif, .quickTimeMovie],
+                    allowedContentTypes: anyImage ? [.image, .quickTimeMovie] : [.heic, .heif, .quickTimeMovie],
                     allowsMultipleSelection: true
                 ) { result in
                     if case .success(let urls) = result { queue?.port(files: urls) }

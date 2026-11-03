@@ -10,6 +10,7 @@ enum AppSettings {
     static let libraryAscendingKey = "libraryAscending"
     static let gridTileSizeKey = "libraryGridTileSize"
     static let sdrKey = "experimentalSDR"
+    static let anyImageKey = "experimentalAnyImage"
     static let styleFilterKey = "libraryStyleFilter"
     static let notifyWhenDoneKey = "notifyWhenDone"
     /// Days the Backup Bin keeps an original; 0 keeps it until deleted by hand.
@@ -25,6 +26,7 @@ enum AppSettings {
             librarySortKey: LibrarySort.captured.rawValue,
             libraryAscendingKey: false,
             sdrKey: false,
+            anyImageKey: false,
             notifyWhenDoneKey: true,
             backupRetentionKey: 0
         ])
@@ -37,6 +39,8 @@ enum AppSettings {
     static var backupRetentionDays: Int { UserDefaults.standard.integer(forKey: backupRetentionKey) }
     /// Experimental: port SDR photos too (no HDR gain map).
     static var sdr: Bool { UserDefaults.standard.bool(forKey: sdrKey) }
+    /// Experimental: convert any picture to an iPhone-shaped HEIC, then style it.
+    static var anyImage: Bool { UserDefaults.standard.bool(forKey: anyImageKey) }
 
     static var styleFilter: StyleFilter {
         StyleFilter(rawValue: UserDefaults.standard.string(forKey: styleFilterKey) ?? "") ?? .all

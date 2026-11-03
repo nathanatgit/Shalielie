@@ -63,7 +63,9 @@ of the originals, which it keeps in a Backup Bin so you can restore them (or und
 right away). It marks the photos it has styled, can show only the ones still to do, and lets you
 hold a button in the viewer to compare with the original. Batches keep going in the background
 and notify you when done. It also adds an "Add Photographic Style" action to Shortcuts and a
-**Palettify** entry to the Share sheet in Photos. Its source is in [`swiftPort/`](swiftPort/).
+**Palettify** entry to the Share sheet in Photos. Two experimental settings match the CLI's
+`--sdr` and `--any-image`: style SDR photos, and convert any picture (JPEG, PNG, screenshots) to
+a HEIC first. Its source is in [`swiftPort/`](swiftPort/).
 
 **[Download the iOS app](https://github.com/nathanatgit/Shalielie/releases/latest)** —
 `Palettify-unsigned.ipa` is attached to each release, next to the command-line binaries. It is not on the App Store:
@@ -317,7 +319,7 @@ thumbnail differently. Only the no-encoder mode is reproducible byte for byte, a
 | v0.6.3      | 48 MP photos (8064×6048) on the photo's own item graph                       | 48 MP photos from older iPhones port, with and without an encoder ✅ |
 | v0.7.0      | Live Photos: a dropped HEIC + MOV pair; the video gets the iOS 27 style tracks and timed metadata | Photos' editor opens iPhone 15 Pro Live Photos with style and motion (iOS 27.0.1) ✅ |
 | v0.7.1      | The iOS app Palettify (盘它) joins the main branch; the browser build is renamed to match | Porting unchanged from v0.7.0; app builds in CI ☑️ |
-| v0.7.3      | iOS app: dark/tinted icons, Share sheet, styled-photo marks and filter, compare, Undo, background batches, Backup Bin auto-clean, memory-bounded batches; experimental SDR (`--sdr`) | Porting unchanged for HDR photos; SDR untested on the phone 🔍; app builds in CI ☑️ |
+| v0.7.3      | iOS app: dark/tinted icons, Share sheet, styled-photo marks and filter, compare, Undo, background batches, Backup Bin auto-clean, memory-bounded batches; experimental SDR (`--sdr`) and any-image input (`--any-image`, after PR #4) | Porting unchanged for HDR photos; SDR untested on the phone 🔍; app builds in CI ☑️ |
 
 **Reverse-engineering tests of key assumptions**
 

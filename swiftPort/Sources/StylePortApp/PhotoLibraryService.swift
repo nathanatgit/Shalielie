@@ -19,6 +19,12 @@ struct OriginalPhoto: Sendable {
     let video: PairedVideo?
     /// The photo was edited in Photos; the port starts from the unedited original.
     let hasEdits: Bool
+    /// Experimental "Any Image": the picture converted to an iPhone-shaped HEIC, which is what
+    /// gets styled. `data` stays the original file, for the Backup Bin.
+    var converted: Data? = nil
+
+    /// What the porter styles.
+    var portData: Data { converted ?? data }
 }
 
 /// A finished port, written to a temporary file and ready to be saved. `report` is nil for
@@ -130,10 +136,12 @@ struct PhotoLibraryService: Sendable {
             throw LibraryError.assetUnavailable
         }
         let data = try await Self.data(for: photo)
-        guard Self.isHEIF(data) else { throw LibraryError.notHEIC }
+        let converted = try Self.convertedForPort(data, captureDate: asset.creationDate)
+        guard converted != nil || Self.isHEIF(data) else { throw LibraryError.notHEIC }
         let paired = resources.first { $0.type == .pairedVideo }
         var video: PairedVideo?
-        if let paired {
+        // A converted picture is styled as a still.
+        if let paired, converted == nil {
             video = PairedVideo(
                 url: try await Self.temporaryCopy(of: paired),
                 filename: paired.originalFilename,
@@ -144,8 +152,34 @@ struct PhotoLibraryService: Sendable {
             data: data,
             filename: photo.originalFilename,
             video: video,
-            hasEdits: resources.contains { $0.type == .adjustmentData || $0.type == .fullSizePhoto }
+            hasEdits: resources.contains { $0.type == .adjustmentData || $0.type == .fullSizePhoto },
+            converted: converted
         )
+    }
+
+    /// Experimental "Any Image": a picture the porter can't take as it is (JPEG, PNG, a
+    /// screenshot, a HEIC from another phone) converted to an iPhone-shaped HEIC. nil when the
+    /// setting is off or the photo is already a HEIC the porter takes.
+    static func convertedForPort(_ data: Data, captureDate: Date?) throws -> Data? {
+        guard AppSettings.anyImage else { return nil }
+        if isHEIF(data), StylePorter.eligibility(of: data, allowSDR: AppSettings.sdr) != .unsupported {
+            return nil
+        }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else {
+            throw LibraryError.saveFailed(L("The photo couldn't be read."))
+        }
+        let width = properties[kCGImagePropertyPixelWidth] as? Int ?? 0
+        let height = properties[kCGImagePropertyPixelHeight] as? Int ?? 0
+        // Full size, with its orientation applied.
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(width, height, 1)
+        ] as CFDictionary) else {
+            throw LibraryError.saveFailed(L("The photo couldn't be read."))
+        }
+        return try RasterImport.heic(from: image, captureDate: captureDate)
     }
 
     /// What the port would do with this photo, read from the original only when it is on the
@@ -153,7 +187,13 @@ struct PhotoLibraryService: Sendable {
     func eligibility(of asset: PHAsset) async -> StylePorter.Eligibility? {
         guard let photo = Self.photoResource(of: asset),
               let data = try? await Self.data(for: photo, allowNetwork: false) else { return nil }
-        return StylePorter.eligibility(of: data, allowSDR: AppSettings.sdr)
+        let eligibility = StylePorter.eligibility(of: data, allowSDR: AppSettings.sdr)
+        // Any Image converts what the porter can't take as it is.
+        if eligibility == .unsupported, AppSettings.anyImage,
+           CGImageSourceCreateWithData(data as CFData, nil) != nil {
+            return .port
+        }
+        return eligibility
     }
 
     static func metadata(of asset: PHAsset) -> AssetMetadata {
@@ -361,7 +401,9 @@ private extension PhotoLibraryService {
     ) {
         let photoOptions = PHAssetResourceCreationOptions()
         photoOptions.originalFilename = photoFilename
-        photoOptions.uniformTypeIdentifier = UTType.heic.identifier
+        // A restored original keeps its own format (a JPEG or PNG for Any Image).
+        photoOptions.uniformTypeIdentifier = UTType(filenameExtension: (photoFilename as NSString).pathExtension)?
+            .identifier ?? UTType.heic.identifier
         photoOptions.shouldMoveFile = false
         request.addResource(with: .photo, fileURL: photoURL, options: photoOptions)
         guard let video else { return }

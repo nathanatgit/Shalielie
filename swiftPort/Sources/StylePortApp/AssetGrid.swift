@@ -263,6 +263,7 @@ struct AssetGridView<Empty: View>: View {
     @Environment(\.portQueue) private var queue
     @Environment(\.displayScale) private var displayScale
     @AppStorage(AppSettings.replaceOriginalsKey) private var replaceOriginals = false
+    @AppStorage(AppSettings.anyImageKey) private var anyImage = false
     @State private var selecting = false
     @State private var selection = Set<String>()
     @State private var confirmingReplace = false
@@ -517,7 +518,7 @@ struct AssetGridView<Empty: View>: View {
                 )
             }
             .modernProminentButton()
-            .disabled(!selectedAssets.contains { HEICCache.peek($0) ?? true })
+            .disabled(selectedAssets.isEmpty || !anyImage && !selectedAssets.contains { HEICCache.peek($0) ?? true })
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -537,7 +538,8 @@ struct AssetGridView<Empty: View>: View {
     }
 
     private func start() {
-        let chosen = selectedAssets.filter(PhotoLibraryService.isHEIC)
+        // Any Image converts the rest; otherwise only HEIC photos can be styled.
+        let chosen = anyImage ? selectedAssets : selectedAssets.filter(PhotoLibraryService.isHEIC)
         queue?.port(chosen)
         withAnimation {
             selecting = false

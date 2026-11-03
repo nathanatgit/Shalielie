@@ -26,6 +26,17 @@ enum Graft {
     }
 
     /// StyleDeltaMap size for a primary of this stored size, or nil when none is known.
+    /// For a converted picture of any size (RasterImport): the native 2880x2160 map (2160x2880
+    /// upright) fitted to its aspect ratio and never larger than it, as PR #4 does. Native files
+    /// of other sizes have not been seen, so this is a guess.
+    static func fittedStyleDeltaSize(width: Int, height: Int) -> (Int, Int) {
+        let landscape = width >= height
+        let (boundW, boundH) = landscape ? (2880.0, 2160.0) : (2160.0, 2880.0)
+        let scale = min(boundW / Double(width), boundH / Double(height), 1)
+        func even(_ value: Int) -> Int { max(2, Int((Double(value) * scale / 2).rounded()) * 2) }
+        return (even(width), even(height))
+    }
+
     static func styleDeltaSize(width: Int?, height: Int?) -> (Int, Int)? {
         guard let width, let height else { return nil }
         for (w, h, dw, dh) in styleDeltaSizes {
@@ -146,12 +157,13 @@ enum Graft {
         makerNote54: Bytes,
         makerNoteType: Int,
         linearThumbnail: LinearThumbnail,
-        texture: Bool
+        texture: Bool,
+        deltaSize: (Int, Int)? = nil
     ) throws -> (Bytes, [Int], String) {
         let properties = discovery.properties
         let primary = discovery.primary
         let dimensions = HEIF.dimensions(properties, itemID: primary)
-        guard let size = styleDeltaSize(width: dimensions.0, height: dimensions.1),
+        guard let size = deltaSize ?? styleDeltaSize(width: dimensions.0, height: dimensions.1),
               let exifItem = discovery.exifItem else {
             throw StylePortError.unsupportedPhoto
         }

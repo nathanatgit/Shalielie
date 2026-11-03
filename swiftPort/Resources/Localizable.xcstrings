@@ -4677,23 +4677,6 @@
         }
       }
     },
-    "Also style photos without an HDR gain map, such as photos from older iPhones or re-saved by other apps. The style is attached to the main image only. Untested: Photos may not offer the styles, or may render them differently.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Also style photos without an HDR gain map, such as photos from older iPhones or re-saved by other apps. The style is attached to the main image only. Untested: Photos may not offer the styles, or may render them differently."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "也处理没有 HDR 增益图的照片，例如旧款 iPhone 拍摄或被其他 App 重新保存过的照片。风格只附加到主图上。尚未验证：“照片”可能不会提供风格，或渲染效果不同。"
-          }
-        }
-      }
-    },
     "SDR, experimental": {
       "extractionState": "manual",
       "localizations": {
@@ -5200,6 +5183,91 @@
           "stringUnit": {
             "state": "translated",
             "value": "已存为新照片，原图保持不变。实况照片会存为静态照片。"
+          }
+        }
+      }
+    },
+    "Any Image": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Any Image"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任意图片"
+          }
+        }
+      }
+    },
+    "SDR Photos: also style photos without an HDR gain map, such as photos from older iPhones or re-saved by other apps; the style is attached to the main image only. Any Image: convert JPEG, PNG, screenshots and other pictures to an iPhone-style HEIC first. Both are untested: Photos may not offer the styles, or may render them differently. The Backup Bin keeps the original file.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SDR Photos: also style photos without an HDR gain map, such as photos from older iPhones or re-saved by other apps; the style is attached to the main image only. Any Image: convert JPEG, PNG, screenshots and other pictures to an iPhone-style HEIC first. Both are untested: Photos may not offer the styles, or may render them differently. The Backup Bin keeps the original file."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SDR 照片：也处理没有 HDR 增益图的照片，例如旧款 iPhone 拍摄或被其他 App 重新保存过的照片；风格只附加到主图上。任意图片：先把 JPEG、PNG、截图等图片转换成 iPhone 式 HEIC。两者均未经验证：“照片”可能不会提供风格，或渲染效果不同。备份会保留原始文件。"
+          }
+        }
+      }
+    },
+    "Converted to HEIC, experimental": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converted to HEIC, experimental"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已转换为 HEIC，实验性"
+          }
+        }
+      }
+    },
+    "Converted to HEIC first (experimental)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converted to HEIC first (experimental)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会先转换为 HEIC（实验性）"
+          }
+        }
+      }
+    },
+    "Import Images…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import Images…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入图片…"
           }
         }
       }

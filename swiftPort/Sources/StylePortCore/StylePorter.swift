@@ -14,12 +14,17 @@ public struct StylePortOptions: Sendable {
     /// Experimental: also port an SDR photo, one without an HDR gain map. Its style items are
     /// attached to the primary image only (the CLI's `--sdr`); untested in Photos.
     public var sdr: Bool
+    /// The photo was converted by `RasterImport`: it is SDR, and any size gets a StyleDeltaMap
+    /// fitted to it (the CLI's `--any-image`).
+    public var converted: Bool
 
-    public init(analyzePhoto: Bool = true, texture: Bool = true, livePhoto: Bool = false, sdr: Bool = false) {
+    public init(analyzePhoto: Bool = true, texture: Bool = true, livePhoto: Bool = false, sdr: Bool = false,
+                converted: Bool = false) {
         self.analyzePhoto = analyzePhoto
         self.texture = texture
         self.livePhoto = livePhoto
         self.sdr = sdr
+        self.converted = converted
     }
 }
 
@@ -49,6 +54,8 @@ public struct StylePortReport: Sendable {
     public var texture: String
     /// Ported experimentally as an SDR photo (no HDR gain map).
     public var sdr: Bool
+    /// Converted from another picture format first (RasterImport).
+    public var converted: Bool
 
     init(version: String, mode: Mode) {
         self.version = version
@@ -66,6 +73,7 @@ public struct StylePortReport: Sendable {
         styleDeltaMap = []
         texture = "off"
         sdr = false
+        converted = false
     }
 
     /// Whether Texture/Grain (iOS 27) was added.
@@ -109,6 +117,12 @@ public struct StylePorter: Sendable {
         discovery.hdrGrid == nil || discovery.hdrTiles.isEmpty
     }
 
+    func fittedDeltaSize(_ discovery: HEIF.Discovery) -> (Int, Int)? {
+        let size = HEIF.dimensions(discovery.properties, itemID: discovery.primary)
+        guard let width = size.0, let height = size.1 else { return nil }
+        return Graft.fittedStyleDeltaSize(width: width, height: height)
+    }
+
     static func hasStyleDeltaSize(_ discovery: HEIF.Discovery) -> Bool {
         let size = HEIF.dimensions(discovery.properties, itemID: discovery.primary)
         return Graft.styleDeltaSize(width: size.0, height: size.1) != nil
@@ -133,14 +147,15 @@ public struct StylePorter: Sendable {
         guard target.thumbnail != nil, target.exifItem != nil else {
             throw StylePortError.unsupportedPhoto
         }
-        let graftable = Self.hasStyleDeltaSize(target)
+        let graftable = Self.hasStyleDeltaSize(target) || options.converted
         if Self.isSDR(target) {
             // Only the photo's own graph takes an SDR photo: the donor graph needs HDR tiles.
-            guard options.sdr, graftable else { throw StylePortError.unsupportedPhoto }
+            guard options.sdr || options.converted, graftable else { throw StylePortError.unsupportedPhoto }
             let profile = try DonorProfileLoader.load(named: "48-12")
             let result = try patchOnPhotoGraph(targetBytes, target: target, profile: profile, options: options)
             var report = result.report
             report.sdr = true
+            report.converted = options.converted
             report.warnings.append("SDR photo: no HDR gain map, styles attached to the primary only (experimental)")
             return StylePortResult(data: result.data, report: report)
         }
@@ -216,7 +231,8 @@ extension StylePorter {
             makerNote54: profile.makerNote54,
             makerNoteType: profile.manifest.smartStyleMakerNoteType,
             linearThumbnail: linearThumbnail,
-            texture: options.texture
+            texture: options.texture,
+            deltaSize: options.converted && !Self.hasStyleDeltaSize(target) ? fittedDeltaSize(target) : nil
         )
         report.styleDeltaMap = grafted.1
         report.texture = grafted.2

@@ -244,7 +244,7 @@ final class PortQueue: ObservableObject {
                     update(jobID) { $0.phase = .porting }
                     let (original, eligibility) = try await Task.detached(priority: .userInitiated) {
                         let original = try Self.readFiles(item)
-                        return (original, StylePorter.eligibility(of: original.data, allowSDR: AppSettings.sdr))
+                        return (original, StylePorter.eligibility(of: original.portData, allowSDR: AppSettings.sdr))
                     }.value
                     let output: PortOutput
                     if original.video != nil, [.alreadyStyled, .addTexture].contains(eligibility) {
@@ -352,7 +352,9 @@ final class PortQueue: ObservableObject {
                     ?? UTType.quickTimeMovie.identifier
             )
         }
-        return OriginalPhoto(data: data, filename: item.photo.lastPathComponent, video: video, hasEdits: false)
+        let converted = try PhotoLibraryService.convertedForPort(data, captureDate: nil)
+        return OriginalPhoto(data: data, filename: item.photo.lastPathComponent,
+                             video: converted == nil ? video : nil, hasEdits: false, converted: converted)
     }
 
     /// A styled photo saved as chosen, with its video given the style parts it lacks
@@ -392,10 +394,11 @@ final class PortQueue: ObservableObject {
         options: StylePortOptions
     ) async throws -> PortOutput {
         let porter = porter
-        let data = original.data
+        let data = original.portData
         var options = options
         // A Live Photo's still gets the styles schema native Live Photos have.
         options.livePhoto = original.video != nil
+        options.converted = original.converted != nil
         let result = try await Task.detached(priority: .userInitiated) {
             try porter.patch(data, options: options)
         }.value
@@ -428,7 +431,9 @@ struct OutputNames {
 
     init(original: OriginalPhoto, replace: Bool, textureOnly: Bool) {
         if replace {
-            photo = original.filename
+            // A converted picture becomes a HEIC, whatever it was.
+            photo = original.converted == nil ? original.filename
+                : (original.filename as NSString).deletingPathExtension + ".HEIC"
             video = original.video?.filename
             return
         }
