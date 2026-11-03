@@ -72,7 +72,7 @@ enum MediaPipeFaces {
             }
             var planes: [[Float]] = []
             for mask in masks {
-                guard let data = mask.float32Data else { return .failure(.segmentation) }
+                let data = mask.float32Data
                 planes.append(Array(UnsafeBufferPointer(start: data, count: mask.width * mask.height)))
             }
             let planeWidth = masks[0].width, planeHeight = masks[0].height
