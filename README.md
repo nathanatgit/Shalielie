@@ -65,7 +65,9 @@ hold a button in the viewer to compare with the original. Batches keep going in 
 and notify you when done. It also adds an "Add Photographic Style" action to Shortcuts and a
 **Palettify** entry to the Share sheet in Photos. The experimental **Any Image** setting matches
 the CLI's `--any-image`: it styles SDR photos as they are and converts any other picture (JPEG,
-PNG, screenshots) to a HEIC first. Like Photos, the library shows the oldest photos at the top
+PNG, screenshots) to a HEIC first, keeping its camera, date and location data. The experimental
+**Find Faces for Soft Skin** setting finds faces and people on the device for photos without
+Apple's own people data. Like Photos, the library shows the oldest photos at the top
 and opens on the newest at the bottom. Its source is in [`swiftPort/`](swiftPort/).
 
 **[Download the iOS app](https://github.com/nathanatgit/Shalielie/releases/latest)** —
@@ -244,7 +246,9 @@ device — is documented in **[facts.md](facts.md)**.
 - **Soft Skin needs Apple's own people data in the photo:** face regions, a skin matte and a
   Portrait matte, as in Portrait-mode shots and iPhone 16+ photos of people. Faces are never
   detected, so photos without that data keep a Soft Skin that looks like Standard. Strongly
-  turned faces (beyond ~30°) get less accurate face data.
+  turned faces (beyond ~30°) get less accurate face data. The exception is the iOS app's
+  experimental *Find Faces for Soft Skin* setting, which estimates the missing data on the
+  device (untested in Photos; see [facts.md](facts.md) §7).
 - **The look after editing is not identical to a native photo.** The port uses neutral defaults
   where Apple's capture-time values cannot be reproduced, and a few values still come from the
   donor profile. More native samples are needed.
@@ -255,7 +259,8 @@ device — is documented in **[facts.md](facts.md)**.
   no-encoder mode.
 - **Texture/Grain needs iOS 27** on the phone that opens the photo.
 - **A normal photo cannot be turned into a "people" photo.** Portrait data is only ever copied
-  from the photo itself, never invented.
+  from the photo itself, never invented. Anything that adds data the photo did not have (Any
+  Image, Find Faces for Soft Skin) is an experimental option, off by default.
 - **Not validated by Apple, and results vary by photo.** Try the flags above before concluding
   it does not work.
 - **The [iOS app](#ios-app)** is a pre-release, co-authored by

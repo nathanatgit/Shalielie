@@ -83,14 +83,17 @@ iPhone 18 Pro photo of a similar scene is needed to tell.
 - **Albums** tab: your albums and the media-type albums, each in the same grid.
 - **Backup Bin** tab: originals kept by replace mode, to restore or delete.
 - **Settings** tab: save-as-new or replace mode, photo analysis, Texture & Grain, the About
-  page (features and privacy) and the repository link.
+  page (features and privacy) and the repository link. Its **Experimental** section holds what
+  adds data the photo did not have, all off by default and all on the device: **Any Image**
+  (SDR photos, and other pictures converted to HEIC with their own metadata) and **Find Faces
+  for Soft Skin** (faces and people found with Vision, skin estimated from their colour).
 
 Select photos and tap **Add Style**, or open a photo and add it there. A Live Photo keeps its
 motion: the video is saved with the styled photo. Each photo gets:
 
 | Photo | Result |
 |---|---|
-| HEIC from an iPhone before 16 | The Photographic Styles palette, plus iOS 27 Texture & Grain (and Soft Skin for portraits with face data) |
+| HEIC from an iPhone before 16 | The Photographic Styles palette, plus iOS 27 Texture & Grain (and Soft Skin for portraits with face data, or with faces found on the device under the experimental setting) |
 | HEIC from iPhone 16 or 17 with a style | Just Texture & Grain |
 | Already has both, or not a HEIC | Not selectable |
 

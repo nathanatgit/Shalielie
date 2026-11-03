@@ -91,6 +91,7 @@ struct ActivitySheet: View {
             if job.isLivePhoto { parts.append(L("Live Photo kept")) }
             if report.converted { parts.append(L("Converted to HEIC, experimental")) }
             else if report.sdr { parts.append(L("SDR, experimental")) }
+            if report.estimatedPeople { parts.append(L("Soft Skin estimated, experimental")) }
             return parts.joined(separator: " · ")
         }
     }

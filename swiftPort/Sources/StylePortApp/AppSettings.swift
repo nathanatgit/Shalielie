@@ -12,6 +12,7 @@ enum AppSettings {
     /// Retired: its setting moved into Any Image (see registerDefaults).
     static let sdrKey = "experimentalSDR"
     static let anyImageKey = "experimentalAnyImage"
+    static let detectPeopleKey = "experimentalDetectPeople"
     static let styleFilterKey = "libraryStyleFilter"
     static let notifyWhenDoneKey = "notifyWhenDone"
     /// Days the Backup Bin keeps an original; 0 keeps it until deleted by hand.
@@ -34,6 +35,7 @@ enum AppSettings {
             // Oldest at the top, newest at the bottom, as in Photos.
             libraryAscendingKey: true,
             anyImageKey: false,
+            detectPeopleKey: false,
             notifyWhenDoneKey: true,
             backupRetentionKey: 0
         ])
@@ -49,6 +51,9 @@ enum AppSettings {
     /// Experimental: style SDR photos as they are, and convert any other picture to an
     /// iPhone-shaped HEIC, then style it.
     static var anyImage: Bool { UserDefaults.standard.bool(forKey: anyImageKey) }
+    /// Experimental: find faces and people with Vision, on the device, so Soft Skin works on
+    /// photos without Apple's own people data.
+    static var detectPeople: Bool { UserDefaults.standard.bool(forKey: detectPeopleKey) }
 
     static var styleFilter: StyleFilter {
         StyleFilter(rawValue: UserDefaults.standard.string(forKey: styleFilterKey) ?? "") ?? .all
@@ -56,7 +61,7 @@ enum AppSettings {
 
     /// The porter options from the current settings.
     static var portOptions: StylePortOptions {
-        StylePortOptions(analyzePhoto: analyzePhoto, texture: texture, sdr: sdr)
+        StylePortOptions(analyzePhoto: analyzePhoto, texture: texture, sdr: sdr, detectPeople: detectPeople)
     }
 
     static var displayName: String {

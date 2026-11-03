@@ -5170,6 +5170,57 @@
         }
       }
     },
+    "Find Faces for Soft Skin": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find Faces for Soft Skin"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为“柔肤”识别人脸"
+          }
+        }
+      }
+    },
+    "For photos without Apple's own people data, Palettify finds faces and people on the device and estimates the skin, so Soft Skin can work. The estimate is not the camera's own data and is untested in Photos. Needs Texture & Grain.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For photos without Apple's own people data, Palettify finds faces and people on the device and estimates the skin, so Soft Skin can work. The estimate is not the camera's own data and is untested in Photos. Needs Texture & Grain."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "对于没有 Apple 自带人物数据的照片，⌈盘它⌋会在设备上识别人脸和人物并估算皮肤区域，让“柔肤”可以使用。估算结果并非相机自身的数据，也尚未在“照片”中验证。需要开启“添加质感与颗粒”。"
+          }
+        }
+      }
+    },
+    "Soft Skin estimated, experimental": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soft Skin estimated, experimental"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“柔肤”为估算，实验性"
+          }
+        }
+      }
+    },
     "Any Image": {
       "extractionState": "manual",
       "localizations": {

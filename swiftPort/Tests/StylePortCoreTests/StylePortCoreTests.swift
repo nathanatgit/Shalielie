@@ -199,4 +199,49 @@ final class StylePortCoreTests: XCTestCase {
         }
         XCTAssertNil(RasterImport.carryExif(tiff: Array("not a tiff".utf8), width: 8, height: 8))
     }
+
+    #if canImport(Vision)
+    /// Faces and masks found on the upright picture land on the photo's own (stored) pixels for
+    /// every irot, and the generated mattes have the native 768x576 shape.
+    func testDetectedPeopleGeometry() {
+        XCTAssertTrue(PeopleDetection.matteSize(width: 4032, height: 3024) == (768, 576))
+        XCTAssertTrue(PeopleDetection.matteSize(width: 3024, height: 4032) == (576, 768))
+        XCTAssertTrue(PeopleDetection.matteSize(width: 1920, height: 1080) == (768, 432))
+
+        // Stored 3x2 pixels 0...5, turned anticlockwise by irot into the upright picture.
+        let stored: [UInt8] = [0, 1, 2, 3, 4, 5]
+        let upright: [Int: (Int, Int, [UInt8])] = [
+            0: (3, 2, [0, 1, 2, 3, 4, 5]),
+            90: (2, 3, [2, 5, 1, 4, 0, 3]),
+            180: (3, 2, [5, 4, 3, 2, 1, 0]),
+            270: (2, 3, [3, 0, 4, 1, 5, 2])
+        ]
+        for (irot, (width, height, pixels)) in upright {
+            XCTAssertEqual(PeopleDetection.toStored(pixels, channels: 1, uprightWidth: width,
+                                                    uprightHeight: height, irot: irot), stored, "irot \(irot)")
+            for y in 0..<height {
+                for x in 0..<width {
+                    let point = PeopleDetection.storedPoint((Double(x) + 0.5) / Double(width),
+                                                            (Double(y) + 0.5) / Double(height), irot: irot)
+                    let index = Int(point.1 * 2) * 3 + Int(point.0 * 3)
+                    XCTAssertEqual(stored[index], pixels[y * width + x], "irot \(irot) at \(x),\(y)")
+                }
+            }
+            let face = PeopleDetection.storedFace(box: CGRect(x: 0.1, y: 0.2, width: 0.3, height: 0.4),
+                                                  yaw: nil, roll: 0, irot: irot)
+            XCTAssertEqual(face.roll, Double(irot))
+            XCTAssertEqual(face.w, irot % 180 == 0 ? 0.3 : 0.4, accuracy: 1e-9)
+        }
+
+        // Whether this system's ImageIO writes a matte as one image, as Photos stores them.
+        let gradient = (0..<(768 * 576)).map { UInt8($0 % 768 / 3) }
+        if let matte = PeopleDetection.encodeMatte(gradient, width: 768, height: 576) {
+            XCTAssertEqual(Array(matte.ispe.suffix(8)), bigEndianBytes(768, count: 4) + bigEndianBytes(576, count: 4))
+            print("encodeMatte: hvcC", matte.hvcC.prefix(32).map { String(format: "%02x", $0) }.joined(),
+                  "pixi", matte.pixi.map { String(format: "%02x", $0) }.joined(), "bytes", matte.payload.count)
+        } else {
+            print("encodeMatte: no single-image matte from ImageIO on this system")
+        }
+    }
+    #endif
 }

@@ -158,7 +158,8 @@ enum Graft {
         makerNoteType: Int,
         linearThumbnail: LinearThumbnail,
         texture: Bool,
-        deltaSize: (Int, Int)? = nil
+        deltaSize: (Int, Int)? = nil,
+        detectPeople: Bool = false
     ) throws -> (Bytes, [Int], String) {
         let properties = discovery.properties
         let primary = discovery.primary
@@ -264,7 +265,7 @@ enum Graft {
             let added = try Texture.addItems(
                 to: meta,
                 primary: primary,
-                people: Texture.softSkinPeople(data, discovery),
+                people: Texture.softSkinPeople(data, discovery, detect: detectPeople),
                 grainSeed: Texture.filmGrainSeed(data, discovery)
             )
             meta = added.0

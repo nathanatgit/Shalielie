@@ -18,11 +18,12 @@
 		B10000000000000000000009 /* LinearThumbnailEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000009 /* LinearThumbnailEncoder.swift */; };
 		B1000000000000000000000A /* LivePhotoAperture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000A /* LivePhotoAperture.swift */; };
 		B1000000000000000000000B /* LivePhotoVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000B /* LivePhotoVideo.swift */; };
-		B1000000000000000000000C /* RasterImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000C /* RasterImport.swift */; };
-		B1000000000000000000000D /* StyleMaps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000D /* StyleMaps.swift */; };
-		B1000000000000000000000E /* StylePortError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000E /* StylePortError.swift */; };
-		B1000000000000000000000F /* StylePorter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000F /* StylePorter.swift */; };
-		B10000000000000000000010 /* Texture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000010 /* Texture.swift */; };
+		B1000000000000000000000C /* PeopleDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000C /* PeopleDetection.swift */; };
+		B1000000000000000000000D /* RasterImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000D /* RasterImport.swift */; };
+		B1000000000000000000000E /* StyleMaps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000E /* StyleMaps.swift */; };
+		B1000000000000000000000F /* StylePortError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000F /* StylePortError.swift */; };
+		B10000000000000000000010 /* StylePorter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000010 /* StylePorter.swift */; };
+		B10000000000000000000011 /* Texture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000011 /* Texture.swift */; };
 		B20000000000000000000001 /* ActivitySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000001 /* ActivitySheet.swift */; };
 		B20000000000000000000002 /* AlbumsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* AlbumsTab.swift */; };
 		B20000000000000000000003 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000003 /* AppSettings.swift */; };
@@ -125,11 +126,12 @@
 		C00000000000000000000009 /* LinearThumbnailEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinearThumbnailEncoder.swift; sourceTree = "<group>"; };
 		C0000000000000000000000A /* LivePhotoAperture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePhotoAperture.swift; sourceTree = "<group>"; };
 		C0000000000000000000000B /* LivePhotoVideo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePhotoVideo.swift; sourceTree = "<group>"; };
-		C0000000000000000000000C /* RasterImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RasterImport.swift; sourceTree = "<group>"; };
-		C0000000000000000000000D /* StyleMaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StyleMaps.swift; sourceTree = "<group>"; };
-		C0000000000000000000000E /* StylePortError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePortError.swift; sourceTree = "<group>"; };
-		C0000000000000000000000F /* StylePorter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePorter.swift; sourceTree = "<group>"; };
-		C00000000000000000000010 /* Texture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Texture.swift; sourceTree = "<group>"; };
+		C0000000000000000000000C /* PeopleDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleDetection.swift; sourceTree = "<group>"; };
+		C0000000000000000000000D /* RasterImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RasterImport.swift; sourceTree = "<group>"; };
+		C0000000000000000000000E /* StyleMaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StyleMaps.swift; sourceTree = "<group>"; };
+		C0000000000000000000000F /* StylePortError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePortError.swift; sourceTree = "<group>"; };
+		C00000000000000000000010 /* StylePorter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePorter.swift; sourceTree = "<group>"; };
+		C00000000000000000000011 /* Texture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Texture.swift; sourceTree = "<group>"; };
 		A00000000000000000000001 /* ActivitySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivitySheet.swift; sourceTree = "<group>"; };
 		A00000000000000000000002 /* AlbumsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumsTab.swift; sourceTree = "<group>"; };
 		A00000000000000000000003 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
@@ -197,11 +199,12 @@
 				C00000000000000000000009 /* LinearThumbnailEncoder.swift */,
 				C0000000000000000000000A /* LivePhotoAperture.swift */,
 				C0000000000000000000000B /* LivePhotoVideo.swift */,
-				C0000000000000000000000C /* RasterImport.swift */,
-				C0000000000000000000000D /* StyleMaps.swift */,
-				C0000000000000000000000E /* StylePortError.swift */,
-				C0000000000000000000000F /* StylePorter.swift */,
-				C00000000000000000000010 /* Texture.swift */,
+				C0000000000000000000000C /* PeopleDetection.swift */,
+				C0000000000000000000000D /* RasterImport.swift */,
+				C0000000000000000000000E /* StyleMaps.swift */,
+				C0000000000000000000000F /* StylePortError.swift */,
+				C00000000000000000000010 /* StylePorter.swift */,
+				C00000000000000000000011 /* Texture.swift */,
 			);
 			path = Sources/StylePortCore;
 			sourceTree = "<group>";
@@ -399,11 +402,12 @@
 				B10000000000000000000009 /* LinearThumbnailEncoder.swift in Sources */,
 				B1000000000000000000000A /* LivePhotoAperture.swift in Sources */,
 				B1000000000000000000000B /* LivePhotoVideo.swift in Sources */,
-				B1000000000000000000000C /* RasterImport.swift in Sources */,
-				B1000000000000000000000D /* StyleMaps.swift in Sources */,
-				B1000000000000000000000E /* StylePortError.swift in Sources */,
-				B1000000000000000000000F /* StylePorter.swift in Sources */,
-				B10000000000000000000010 /* Texture.swift in Sources */,
+				B1000000000000000000000C /* PeopleDetection.swift in Sources */,
+				B1000000000000000000000D /* RasterImport.swift in Sources */,
+				B1000000000000000000000E /* StyleMaps.swift in Sources */,
+				B1000000000000000000000F /* StylePortError.swift in Sources */,
+				B10000000000000000000010 /* StylePorter.swift in Sources */,
+				B10000000000000000000011 /* Texture.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

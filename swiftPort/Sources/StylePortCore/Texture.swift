@@ -33,6 +33,8 @@ enum Texture {
     // v0.6.0 Soft Skin constants; see SOFT_SKIN_* in the Python source.
     static let softSkinSkinURIs = ["semanticskinmattev2", "semanticfaceskinmatte"]
         .map { "tag:apple.com,2026:photo:aux:\($0)" }
+    /// Marks a Texture summary whose Soft Skin data was estimated (PeopleDetection).
+    static let estimatedPeopleNote = " (estimated on the device)"
     static let softSkinPersonURI = "tag:apple.com,2026:photo:aux:semanticpersonmatte"
     static let softSkinInstanceKeys = ["FSINCInstanceMask9"]
         + (0..<9).map { "FSINCInstanceMask\($0)" }
@@ -88,6 +90,8 @@ enum Texture {
         let entries: [BinaryPlistValue]
         let mattes: [String: MatteSource]
         let instances: [(String, MatteSource)]
+        /// Experimental: some of it was estimated on the device (PeopleDetection).
+        var detected = false
     }
 
     struct Face {
@@ -270,9 +274,10 @@ enum Texture {
 
     /// Everything Soft Skin needs, taken from the photo, or nil when the photo lacks any of
     /// it (face regions, semanticskinmatte, portraiteffectsmatte). nil keeps the v0.5 output.
-    static func softSkinPeople(_ data: Bytes, _ discovery: HEIF.Discovery) throws -> People? {
-        let faces = xmpFaceRegions(data, discovery)
-        guard !faces.isEmpty, faces.count <= softSkinInstanceKeys.count,
+    /// `detect` (experimental, iOS): estimate on the device whatever the photo lacks.
+    static func softSkinPeople(_ data: Bytes, _ discovery: HEIF.Discovery, detect: Bool = false) throws -> People? {
+        var faces = xmpFaceRegions(data, discovery)
+        guard faces.count <= softSkinInstanceKeys.count, !faces.isEmpty || detect,
               let skinURI = HEIF.matteURIs["semanticskinmatte"],
               let personURI = HEIF.matteURIs["portraiteffectsmatte"] else { return nil }
         var found: [String: Int] = [:]
@@ -293,7 +298,7 @@ enum Texture {
                 )
             }
             guard let ispe = try box("ispe"), let pixi = try box("pixi"),
-                  let hvcC = try box("hvcC") else { return nil }
+                  let hvcC = try box("hvcC") else { continue }
             sources[uri] = MatteSource(
                 payload: try HEIF.extractItem(data, locations: discovery.locations, itemID: itemID),
                 ispe: ispe,
@@ -301,7 +306,6 @@ enum Texture {
                 hvcC: hvcC
             )
         }
-        guard let skin = sources[skinURI], let person = sources[personURI] else { return nil }
         let dimensions = HEIF.dimensions(discovery.properties, itemID: discovery.primary)
         guard let width = dimensions.0, let height = dimensions.1 else { return nil }
         let irot = try HEIF.rotationAngle(
@@ -309,15 +313,30 @@ enum Texture {
             table: discovery.properties,
             itemID: discovery.primary
         )
-        var mattes: [String: MatteSource] = [softSkinPersonURI: person]
-        for uri in softSkinSkinURIs { mattes[uri] = skin }
+        var skin = sources[skinURI]
+        var person = sources[personURI]
+        var detected = false
+        #if canImport(Vision)
+        if detect, faces.isEmpty || skin == nil || person == nil,
+           try HEIF.mirrorAxis(data, table: discovery.properties, itemID: discovery.primary) == nil,
+           let estimate = PeopleDetection.detect(data, irot: irot, width: width, height: height, faces: faces) {
+            detected = true
+            if faces.isEmpty { faces = estimate.faces }
+            skin = skin ?? estimate.skin
+            person = person ?? estimate.person
+        }
+        #endif
+        guard !faces.isEmpty, let skinMatte = skin, let personMatte = person else { return nil }
+        var mattes: [String: MatteSource] = [softSkinPersonURI: personMatte]
+        for uri in softSkinSkinURIs { mattes[uri] = skinMatte }
         return People(
             faces: faces.count,
             entries: faces.enumerated().map {
                 peopleEntry($0.element, index: $0.offset, irot: irot, width: width, height: height)
             },
             mattes: mattes,
-            instances: faces.indices.map { (softSkinInstanceKeys[$0], person) }
+            instances: faces.indices.map { (softSkinInstanceKeys[$0], personMatte) },
+            detected: detected
         )
     }
 
@@ -491,7 +510,7 @@ enum Texture {
                 payloads[instances.1["instance\(index)"]!] = instance.1.payload
                 payloads[sidecars.1["xmp\(index)"]!] = instanceXMP(key: instance.0)
             }
-            summary += ", Soft Skin for \(people.faces) face(s)"
+            summary += ", Soft Skin for \(people.faces) face(s)" + (people.detected ? estimatedPeopleNote : "")
         }
         return (meta, payloads, summary)
     }

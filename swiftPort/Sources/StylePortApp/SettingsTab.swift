@@ -8,6 +8,7 @@ struct SettingsTab: View {
     @AppStorage(AppSettings.analyzePhotoKey) private var analyzePhoto = true
     @AppStorage(AppSettings.textureKey) private var texture = true
     @AppStorage(AppSettings.anyImageKey) private var anyImage = false
+    @AppStorage(AppSettings.detectPeopleKey) private var detectPeople = false
     @AppStorage(AppSettings.notifyWhenDoneKey) private var notifyWhenDone = true
     @AppStorage(AppSettings.backupRetentionKey) private var retentionDays = 0
     @State private var access = PhotoLibraryService.status
@@ -120,6 +121,15 @@ struct SettingsTab: View {
                     Text("Experimental")
                 } footer: {
                     Text("Also style photos without an HDR gain map, such as photos from older iPhones, and convert JPEG, PNG, screenshots and other pictures to an iPhone-style HEIC first. Works in Photos in tests so far, but still experimental. The Backup Bin keeps the original file.")
+                }
+
+                Section {
+                    Toggle(isOn: $detectPeople) {
+                        Label("Find Faces for Soft Skin", systemImage: "face.smiling")
+                    }
+                    .disabled(!texture)
+                } footer: {
+                    Text("For photos without Apple's own people data, Palettify finds faces and people on the device and estimates the skin, so Soft Skin can work. The estimate is not the camera's own data and is untested in Photos. Needs Texture & Grain.")
                 }
 
                 Section {

@@ -18,14 +18,19 @@ public struct StylePortOptions: Sendable {
     /// The photo was converted by `RasterImport`: it is SDR, and any size gets a StyleDeltaMap
     /// fitted to it (the CLI's `--any-image`).
     public var converted: Bool
+    /// Experimental: for a photo without Apple's own people data, find the faces and people on
+    /// the device with Vision and estimate the skin, so Soft Skin works (with `texture`). The
+    /// data is estimated, not the camera's own; whatever the photo has is used first.
+    public var detectPeople: Bool
 
     public init(analyzePhoto: Bool = true, texture: Bool = true, livePhoto: Bool = false, sdr: Bool = false,
-                converted: Bool = false) {
+                converted: Bool = false, detectPeople: Bool = false) {
         self.analyzePhoto = analyzePhoto
         self.texture = texture
         self.livePhoto = livePhoto
         self.sdr = sdr
         self.converted = converted
+        self.detectPeople = detectPeople
     }
 }
 
@@ -76,6 +81,9 @@ public struct StylePortReport: Sendable {
         sdr = false
         converted = false
     }
+
+    /// Experimental: Soft Skin got faces or mattes estimated on the device.
+    public var estimatedPeople: Bool { texture.hasSuffix(Texture.estimatedPeopleNote) }
 
     /// Whether Texture/Grain (iOS 27) was added.
     public var addedTexture: Bool { texture != "off" }
@@ -233,7 +241,8 @@ extension StylePorter {
             makerNoteType: profile.manifest.smartStyleMakerNoteType,
             linearThumbnail: linearThumbnail,
             texture: options.texture,
-            deltaSize: options.converted && !Self.hasStyleDeltaSize(target) ? fittedDeltaSize(target) : nil
+            deltaSize: options.converted && !Self.hasStyleDeltaSize(target) ? fittedDeltaSize(target) : nil,
+            detectPeople: options.detectPeople
         )
         report.styleDeltaMap = grafted.1
         report.texture = grafted.2
@@ -512,7 +521,7 @@ extension StylePorter {
                 let added = try Texture.addItems(
                     to: metadata,
                     primary: manifest.donorPrimaryItem,
-                    people: Texture.softSkinPeople(targetBytes, target),
+                    people: Texture.softSkinPeople(targetBytes, target, detect: options.detectPeople),
                     grainSeed: Texture.filmGrainSeed(targetBytes, target)
                 )
                 metadata = added.0

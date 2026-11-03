@@ -506,6 +506,22 @@ Photos without face regions or either matte are left exactly as v0.5.1 wrote the
 detected or invented. 🔍 Open: turned faces (the template is frontal), measured `instanceROI`,
 and whether the colour statistics matter; a measured `instanceROI` was not needed.
 
+**Experimental: estimated people data (iOS app only, off by default).** The app's *Find Faces
+for Soft Skin* setting fills in what a photo lacks, on the device, instead of leaving it as
+above. It breaks "nothing is invented", so it stays experimental: 🔍 untested in Photos.
+- Face regions: the photo's own MWG regions when it has them, otherwise Vision's face rectangles
+  (up to 10, largest first), turned into stored orientation like an MWG region. Roll and yaw come
+  from Vision, so `AngleInfoRoll` = irot − Vision's roll.
+- Person matte: the photo's `portraiteffectsmatte` when present, otherwise Vision's person
+  segmentation.
+- Skin matte: the photo's `semanticskinmatte` when present, otherwise the person matte weighted by
+  how close each pixel's chroma is to the colour sampled in the middle of each face.
+- Generated mattes are 768×576 (the native 2026 matte size, at the photo's aspect), stored like the
+  photo's own (stored orientation, the primary's `irot`), encoded by ImageIO as a skin matte with
+  its own `ispe`/`pixi`/`hvcC`. When this system's ImageIO writes no single-image matte, nothing
+  is estimated.
+- The Texture summary ends in "(estimated on the device)", and the app labels the result.
+
 ---
 
 ## 8. Donor-derived data: open issues 🔍
