@@ -12,7 +12,8 @@ public struct StylePortOptions: Sendable {
     /// it Photos aborts on Edit.
     public var livePhoto: Bool
     /// Experimental: also port an SDR photo, one without an HDR gain map. Its style items are
-    /// attached to the primary image only (the CLI's `--sdr`); untested in Photos.
+    /// attached to the primary image only (the CLI's `--sdr`). Phone-tested on iPhone 11
+    /// photos, stills and Live Photos.
     public var sdr: Bool
     /// The photo was converted by `RasterImport`: it is SDR, and any size gets a StyleDeltaMap
     /// fitted to it (the CLI's `--any-image`).

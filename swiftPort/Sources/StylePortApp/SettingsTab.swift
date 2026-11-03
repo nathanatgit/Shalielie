@@ -123,7 +123,7 @@ struct SettingsTab: View {
                 } header: {
                     Text("Experimental")
                 } footer: {
-                    Text("SDR Photos: also style photos without an HDR gain map, such as photos from older iPhones or re-saved by other apps; the style is attached to the main image only. Any Image: convert JPEG, PNG, screenshots and other pictures to an iPhone-style HEIC first. Both are untested: Photos may not offer the styles, or may render them differently. The Backup Bin keeps the original file.")
+                    Text("SDR Photos: also style photos without an HDR gain map, such as photos from older iPhones or re-saved by other apps; the style is attached to the main image only. Any Image: convert JPEG, PNG, screenshots and other pictures to an iPhone-style HEIC first. Both work in Photos in tests so far, but are still experimental. The Backup Bin keeps the original file.")
                 }
 
                 Section {

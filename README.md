@@ -193,8 +193,8 @@ Useful flags:
 | `--scene-stats donor`            | Fall back to donor tone anchors if colours look wrong              |
 | `--linear-thumb reuse-thumbnail` | Skip the encoder entirely                                          |
 | `--texture off`                  | Leave out the iOS 27 Texture/Grain items (v0.4.4 output)           |
-| `--sdr`                          | **Experimental:** also port an SDR photo (no HDR gain map), untested on the phone |
-| `--any-image`                    | **Experimental:** convert any picture (JPEG, PNG, WebP, screenshots) to an iPhone-style HEIC first, then port it; needs Pillow, untested on the phone |
+| `--sdr`                          | **Experimental:** also port an SDR photo (no HDR gain map), e.g. from an iPhone 11; phone-tested ✅ |
+| `--any-image`                    | **Experimental:** convert any picture (JPEG, PNG, WebP, screenshots) to an iPhone-style HEIC first, then port it; needs Pillow; phone-tested ✅ |
 
 By default the only file written is the output HEIC. A run summary is printed to the terminal;
 pass `--report` or `--zip` to save it as JSON too.
@@ -319,7 +319,7 @@ thumbnail differently. Only the no-encoder mode is reproducible byte for byte, a
 | v0.6.3      | 48 MP photos (8064×6048) on the photo's own item graph                       | 48 MP photos from older iPhones port, with and without an encoder ✅ |
 | v0.7.0      | Live Photos: a dropped HEIC + MOV pair; the video gets the iOS 27 style tracks and timed metadata | Photos' editor opens iPhone 15 Pro Live Photos with style and motion (iOS 27.0.1) ✅ |
 | v0.7.1      | The iOS app Palettify (盘它) joins the main branch; the browser build is renamed to match | Porting unchanged from v0.7.0; app builds in CI ☑️ |
-| v0.7.3      | iOS app: dark/tinted icons, Share sheet, styled-photo marks and filter, compare, Undo, background batches, Backup Bin auto-clean, memory-bounded batches; experimental SDR (`--sdr`) and any-image input (`--any-image`, after PR #4) | Porting unchanged for HDR photos; SDR untested on the phone 🔍; app builds in CI ☑️ |
+| v0.7.3      | iOS app: dark/tinted icons, Share sheet, styled-photo marks and filter, compare, Undo, background batches, Backup Bin auto-clean, memory-bounded batches; experimental SDR (`--sdr`) and any-image input (`--any-image`, after PR #4) | Porting unchanged for HDR photos; SDR photos (iPhone 11, CLI and app, also Live Photos) and converted JPEG/screenshots (CLI) offer the styles in Photos and keep them ✅; the app's Any Image setting 🔍 |
 
 **Reverse-engineering tests of key assumptions**
 
