@@ -44,7 +44,8 @@ enum AppSettings {
 
     /// Copies the settings the Share extension follows into the App Group it can read.
     static func mirrorToShared() {
-        SharedSettings.mirror(analyzePhoto: analyzePhoto, texture: texture, anyImage: anyImage)
+        SharedSettings.mirror(analyzePhoto: analyzePhoto, texture: texture, anyImage: anyImage,
+                              detectPeople: detectPeople)
     }
 
     static var replaceOriginals: Bool { UserDefaults.standard.bool(forKey: replaceOriginalsKey) }

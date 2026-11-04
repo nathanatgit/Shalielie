@@ -9,9 +9,11 @@ struct StylePortApp: App {
 
     init() {
         AppSettings.registerDefaults()
-        // Keep the Share extension's copy of the settings current.
+        // Keep the Share extension's copy of the settings current. Only the app's own defaults:
+        // writing the shared suite posts this notification too, and observing that as well
+        // would call mirrorToShared again without end.
         NotificationCenter.default.addObserver(
-            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+            forName: UserDefaults.didChangeNotification, object: UserDefaults.standard, queue: .main
         ) { _ in AppSettings.mirrorToShared() }
     }
 

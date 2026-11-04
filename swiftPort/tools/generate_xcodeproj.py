@@ -203,7 +203,7 @@ w(f"\t\t{INFO_VG} /* InfoPlist.strings */ = {{\n\t\t\tisa = PBXVariantGroup;\n\t
 w("/* End PBXVariantGroup section */\n")
 
 VERSION = "0.7.5"
-BUILD = "7"
+BUILD = "8"
 
 
 def settings(cid, name, pairs):

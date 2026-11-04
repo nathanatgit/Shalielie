@@ -314,3 +314,6 @@
 316,Settings page,Find Faces for Soft Skin,为“柔肤”识别人脸
 317,Settings page,"For photos without Apple's own people data, Palettify finds faces and people on the device and estimates the skin, so Soft Skin can work. The estimate is not the camera's own data. Needs Texture & Grain.",对于没有 Apple 自带人物数据的照片，⌈盘它⌋会在设备上识别人脸和人物并估算皮肤区域，让“柔肤”可以使用。估算结果并非相机自身的数据。需要开启“添加质感与颗粒”。
 318,Activity and status,"Soft Skin estimated, experimental",“柔肤”为估算，实验性
+319,Share sheet,Style %lld Photos,处理 %lld 张照片
+320,Share sheet,Ready,就绪
+321,Share sheet,These settings come from Palettify and apply to this share. Photos are saved as new photos; originals are never replaced.,这些设置来自“盘它”，仅用于本次共享。照片会存为新照片，不会替换原图。
