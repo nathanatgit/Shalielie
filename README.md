@@ -130,6 +130,34 @@ check which release you have.
 The default mode still calls `ffmpeg` and `heif-convert`. For a completely standalone run, use
 the [no-encoder mode](#no-encoder-mode).
 
+**Using ffmpeg and heif-convert on Windows** (only for the default mode, and for photos without
+an embedded thumbnail; drag and drop picks full mode automatically once both are on PATH):
+
+1. **ffmpeg** (with libx265): open PowerShell and run `winget install Gyan.FFmpeg`, then open a
+   new PowerShell window so PATH is refreshed.
+2. **heif-convert:** Windows has no libheif package, so use the stand-in in this repo's
+   [`tools/`](tools/) folder, which decodes with Python's pillow-heif. Install
+   [Python](https://www.python.org/downloads/) 3.10 or later, then run:
+
+   ```powershell
+   py -m pip install pillow-heif
+   ```
+
+   Download `heif-convert.cmd` and `heif_convert_shim.py` from [`tools/`](tools/) into one new
+   folder, for example `C:\tools\heif`.
+3. **Put that folder on PATH.** For the current PowerShell window:
+
+   ```powershell
+   $env:PATH = "C:\tools\heif;$env:PATH"
+   ```
+
+   To keep it, add the folder to **Path** under *Settings → System → About → Advanced system
+   settings → Environment Variables*, and reopen PowerShell.
+4. **Check** that both are found: `where.exe ffmpeg heif-convert` should list one path each.
+
+Then `photographic-style-port.exe patch IN.HEIC OUT.HEIC` runs in the default mode, and
+dropping files onto the exe uses full mode instead of the no-encoder mode.
+
 ### Drag and drop
 
 Drop HEIC photos, or a folder of them, onto `photographic-style-port.exe` (or pass file paths

@@ -106,6 +106,34 @@ photographic-style-port patch IN.HEIC OUT.HEIC
 默认的 patch 模式仍会调用 `ffmpeg` 和 `heif-convert`。如果想完全独立运行，
 请使用已验证的免编码器模式：
 
+**在 Windows 上使用 ffmpeg 和 heif-convert**（仅默认模式需要，处理没有内嵌缩略图的照片时也需要；
+两者都在 PATH 中后，拖放会自动使用完整模式）：
+
+1. **ffmpeg**（需带 libx265）：打开 PowerShell，运行 `winget install Gyan.FFmpeg`，然后新开一个
+   PowerShell 窗口，让 PATH 生效。
+2. **heif-convert：** Windows 上没有 libheif 包，请使用本仓库 [`tools/`](tools/) 文件夹里的替代品，
+   它通过 Python 的 pillow-heif 解码。先安装 [Python](https://www.python.org/downloads/)
+   3.10 或更高版本，然后运行：
+
+   ```powershell
+   py -m pip install pillow-heif
+   ```
+
+   把 [`tools/`](tools/) 里的 `heif-convert.cmd` 和 `heif_convert_shim.py` 下载到同一个新文件夹，
+   例如 `C:\tools\heif`。
+3. **把该文件夹加入 PATH。** 仅当前 PowerShell 窗口生效：
+
+   ```powershell
+   $env:PATH = "C:\tools\heif;$env:PATH"
+   ```
+
+   想长期生效：在“设置 → 系统 → 系统信息 → 高级系统设置 → 环境变量”中，把该文件夹加到 **Path**，
+   然后重新打开 PowerShell。
+4. **检查**两者都能找到：运行 `where.exe ffmpeg heif-convert`，应各列出一个路径。
+
+之后 `photographic-style-port.exe patch IN.HEIC OUT.HEIC` 就会使用默认模式；把文件拖到 exe 上时，
+也会使用完整模式，而不是免编码器模式。
+
 ```bash
 photographic-style-port patch IN.HEIC OUT.HEIC \
   --linear-thumb reuse-thumbnail --scene-stats donor --light-maps flat
