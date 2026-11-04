@@ -1,6 +1,6 @@
 import { loadProfile } from "./src/zip.js";
 import { patch, profileFor, VERSION, UNSUPPORTED } from "./src/port.js";
-import { discoverHeic } from "./src/heif.js";
+import { discoverHeic, dimensionsForItem, irotAngleForItem, displayDimensions } from "./src/heif.js";
 import { addTexture, hasTexture } from "./src/texture.js";
 import { decodeToRgb, loadLibheif } from "./src/decode.js";
 import { convertToHeic, isAppleShapedHeic, canConvert } from "./src/raster.js";
@@ -71,13 +71,18 @@ function sniff(b) {
 function row(name) {
   const el = document.createElement("div");
   el.className = "row";
-  el.innerHTML = `<div class="name"></div><div class="status"></div><div class="act"></div>`;
+  el.innerHTML = `<div class="thumb"></div><div class="name"></div><div class="status"></div><div class="act"></div>`;
   el.querySelector(".name").textContent = name;
   el.querySelector(".name").title = name;
   list.appendChild(el);
   // Keep the newest row on screen as its status and buttons fill in.
   new ResizeObserver(() => el.scrollIntoView({ block: "nearest", behavior: "smooth" })).observe(el);
   return {
+    thumb(url) {
+      const t = el.querySelector(".thumb");
+      t.style.backgroundImage = `url("${url}")`;
+      t.classList.add("has-image");
+    },
     set(text, cls) {
       const s = el.querySelector(".status");
       // Only T() strings, which may hold a link; the span keeps it inline in the flex row.
@@ -106,6 +111,48 @@ function row(name) {
   };
 }
 
+/**
+ * A square thumbnail (an object URL) for the row, or null. Pictures the browser can draw come
+ * straight from it; a HEIC it can't (most browsers outside Safari) is drawn by the decoder the
+ * analysis already uses, from the HEIC's own embedded thumbnail, when that is available.
+ */
+async function thumbnailUrl(file, bytes, canvas = null) {
+  const SIZE = 104;
+  const square = (draw, w, h) => {
+    const c = document.createElement("canvas");
+    c.width = SIZE; c.height = SIZE;
+    const ctx = c.getContext("2d");
+    const scale = Math.max(SIZE / w, SIZE / h);
+    ctx.imageSmoothingQuality = "high";
+    draw(ctx, (SIZE - w * scale) / 2, (SIZE - h * scale) / 2, w * scale, h * scale);
+    return new Promise((resolve) => c.toBlob((b) => resolve(b ? URL.createObjectURL(b) : null), "image/jpeg", 0.82));
+  };
+  try {
+    if (canvas) return await square((ctx, x, y, w, h) => ctx.drawImage(canvas, x, y, w, h), canvas.width, canvas.height);
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    try { return await square((ctx, x, y, w, h) => ctx.drawImage(bitmap, x, y, w, h), bitmap.width, bitmap.height); }
+    finally { bitmap.close?.(); }
+  } catch { /* not drawable here: try the decoder */ }
+  try {
+    if (sniff(bytes) !== "heic" || !quality.checked || !(await ensureDecode(bytes))) return null;
+    const d = discoverHeic(bytes);
+    const [pw, ph] = dimensionsForItem(d.props, d.primary);
+    const angle = irotAngleForItem(bytes, d.props, d.primary);
+    const [dw, dh] = displayDimensions(pw, ph, angle);
+    const k = SIZE / Math.min(dw, dh);
+    const w = Math.max(2, Math.round(dw * k)), h = Math.max(2, Math.round(dh * k));
+    const rgb = await decodeToRgb(bytes, { width: w, height: h, angle: 0 });
+    const small = document.createElement("canvas");
+    small.width = w; small.height = h;
+    const image = small.getContext("2d").createImageData(w, h);
+    for (let i = 0, p = 0; p < image.data.length; i += 3, p += 4) {
+      image.data[p] = rgb[i]; image.data[p + 1] = rgb[i + 1]; image.data[p + 2] = rgb[i + 2]; image.data[p + 3] = 255;
+    }
+    small.getContext("2d").putImageData(image, 0, 0);
+    return await square((ctx, x, y, ww, hh) => ctx.drawImage(small, x, y, ww, hh), w, h);
+  } catch { return null; }
+}
+
 /** Packed RGB of the canvas scaled to width x height, for the analysis of a converted picture. */
 async function canvasRgb(canvas, { width, height }) {
   const small = document.createElement("canvas");
@@ -126,6 +173,7 @@ async function handleFile(file) {
   try {
     ui.set(T("st.reading"));
     const bytes = new Uint8Array(await file.arrayBuffer());
+    thumbnailUrl(file, bytes).then((url) => url && ui.thumb(url));
     const isHeic = sniff(bytes) === "heic";
     if (!isHeic && !anyImage.checked) { ui.set(T("err.notheic"), "err"); return; }
 
@@ -143,6 +191,7 @@ async function handleFile(file) {
         return;
       }
       source = converted.heic;
+      thumbnailUrl(file, bytes, converted.canvas).then((url) => url && ui.thumb(url));
       if (findFaces.checked) {
         ui.set(T("st.findfaces"));
         const found = await estimatePeople(converted.canvas, ({ stage }) =>

@@ -61,15 +61,19 @@ export const STRINGS = {
       + "original HEIC instead of a converted JPEG. If a photo is still rejected, choose "
       + "<b>Browse</b> and pick it from Files.",
     "more": "Tips and options",
-    "opt.quality": "Analyze each photo so the style data matches its tones. Downloads a small "
-      + "image decoder on first use. Can be slow on iPhone; turn it off if the page freezes.",
 
-    "opt.anyimage": "Any Image (experimental): also style JPEG, PNG and WebP pictures, and HEIC photos from "
-      + "other phones. They are converted to an iPhone-shaped HEIC in your browser first, which needs a "
-      + "browser that can encode HEVC (Chrome or Edge on a computer, or Safari).",
-    "opt.faces": "Find Faces (experimental, with Any Image): find faces and people on this device so "
-      + "Soft Skin has data to work with. Downloads about 20 MB of models from this site on first use. "
-      + "The estimate is not the camera’s own data.",
+
+    "opt.quality": "Analyze each photo",
+    "opt.qualityNote": "Makes the style data match the photo’s own tones. Downloads a small image decoder on "
+      + "first use. Can be slow on iPhone; turn it off if the page freezes.",
+    "opt.anyimage": "Any Image (experimental)",
+    "opt.anyimageNote": "Also styles JPEG, PNG and WebP pictures, and HEIC photos from other phones. They are "
+      + "converted to an iPhone-shaped HEIC in your browser first, which needs a browser that can encode "
+      + "HEVC (Chrome or Edge on a computer, or Safari).",
+    "opt.faces": "Find Faces (experimental)",
+    "opt.facesNote": "Needs Any Image. Finds faces and people on this device so Soft Skin has data to work "
+      + "with. Downloads about 20 MB of models from this site on first use. The estimate is not the "
+      + "camera’s own data.",
 
     "sum.working": "Styling {n} of {total}…",
     "sum.one": "1 photo ready",
@@ -165,13 +169,17 @@ export const STRINGS = {
       + "<b>格式</b> → <b>当前</b>，即可上传 HEIC 原图，而不是转换后的 JPEG。若仍被拒绝，"
       + "请改选<b>浏览</b>，从“文件”中选取。",
     "more": "提示和选项",
-    "opt.quality": "分析每张照片，使风格数据与照片的影调相匹配。首次使用时会下载一个小型图像解码组件。"
-      + "在 iPhone 上可能较慢；若页面卡住，请关闭此项。",
 
-    "opt.anyimage": "任意图片（实验性）：也处理 JPEG、PNG、WebP 图片，以及其他手机拍摄的 HEIC 照片。"
-      + "它们会先在浏览器中转换为 iPhone 样式的 HEIC，需要支持 HEVC 编码的浏览器（电脑上的 Chrome 或 Edge，或 Safari）。",
-    "opt.faces": "识别人脸（实验性，需开启任意图片）：在本机识别人脸和人物，让“柔肤”有数据可用。"
-      + "首次使用会从本站下载约 20 MB 的模型。估算结果并非相机自身的数据。",
+
+    "opt.quality": "分析每张照片",
+    "opt.qualityNote": "使风格数据与照片自身的影调相匹配。首次使用时会下载一个小型图像解码组件。"
+      + "在 iPhone 上可能较慢；若页面卡住，请关闭此项。",
+    "opt.anyimage": "任意图片（实验性）",
+    "opt.anyimageNote": "也处理 JPEG、PNG、WebP 图片，以及其他手机拍摄的 HEIC 照片。它们会先在浏览器中转换为 "
+      + "iPhone 样式的 HEIC，需要支持 HEVC 编码的浏览器（电脑上的 Chrome 或 Edge，或 Safari）。",
+    "opt.faces": "识别人脸（实验性）",
+    "opt.facesNote": "需开启任意图片。在本机识别人脸和人物，让“柔肤”有数据可用。首次使用会从本站下载约 20 MB 的模型。"
+      + "估算结果并非相机自身的数据。",
 
     "sum.working": "正在处理第 {n} 张，共 {total} 张…",
     "sum.one": "1 张照片已就绪",

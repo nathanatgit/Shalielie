@@ -77,14 +77,13 @@
 
   /* Title bar: About on the left, the title centred, the language switch on the right */
   .top {
-    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .5rem;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .5rem;
     min-height: 44px; padding: 0 .1rem;
   }
-  .title { display: flex; align-items: center; justify-content: center; gap: .5rem; min-width: 0; }
-  .logo { width: 26px; height: 26px; flex: none; border-radius: 6px; }
-  h1 { font-size: 1.06rem; line-height: 1.2; margin: 0; font-weight: 600; white-space: nowrap; }
-  .tagline { text-align: center; margin: -.4rem 0 0; font-size: .85rem; color: var(--muted); text-wrap: balance; }
-  #about { justify-self: start; font-size: 1rem; white-space: nowrap; }
+  .title { display: flex; align-items: center; justify-content: flex-start; gap: .6rem; min-width: 0; }
+  .logo { width: 30px; height: 30px; flex: none; border-radius: 6px; }
+  h1 { font-size: 1.25rem; line-height: 1.2; margin: 0; font-weight: 600; white-space: nowrap; }
+  .tagline { text-align: left; margin: -.4rem 0 0; font-size: .85rem; color: var(--muted); text-wrap: balance; }
   #lang {
     justify-self: end; display: inline-flex; align-items: center; gap: .3rem;
     font: inherit; font-size: 1rem; font-weight: 600; color: var(--accent-text);
@@ -93,7 +92,7 @@
   #lang svg { width: 15px; height: 15px; }
   #lang:hover { opacity: .75; }
   #lang:focus-visible, #about:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
-  .sub { color: var(--muted); margin: 0; font-size: .86rem; text-align: center; text-wrap: balance; }
+  .sub { color: var(--muted); margin: 0; font-size: .86rem; text-align: left; text-wrap: balance; }
 
   /* Notices: an inset grouped card with a coloured symbol */
   .notice { padding: .9rem 1rem; }
@@ -126,9 +125,11 @@
 
   /* Switches, as in Settings */
   .opts { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
-  .opt { display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; gap: .75rem; padding: .7rem 1rem; }
-  .opt + .opt { border-top: 1px solid var(--line); }
-  .opt label { color: var(--fg); font-size: .88rem; cursor: pointer; line-height: 1.35; }
+  .opt-group { display: flex; flex-direction: column; gap: .4rem; }
+  .opt { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .55rem 1rem; min-height: 44px; }
+  .opt label { color: var(--fg); font-size: 1rem; cursor: pointer; line-height: 1.3; flex: 1; }
+  /* The explanation sits outside the card, below it, like a Settings section footer */
+  .opt-note { margin: 0; padding: 0 1rem; font-size: .8rem; line-height: 1.4; color: var(--muted); }
   .opt input {
     flex: none; appearance: none; -webkit-appearance: none; margin: 0; cursor: pointer;
     width: 51px; height: 31px; border-radius: 999px; position: relative;
@@ -146,7 +147,7 @@
           background: none; font: inherit; font-size: .9rem; color: var(--accent-text); cursor: pointer; }
   #more:hover { text-decoration: underline; }
   main.folded #more { display: block; }
-  main.folded .tip, main.folded .opts { display: none; }
+  main.folded .tip, main.folded .opt-group { display: none; }
 
   /* The batch, like the Share sheet: progress while styling, a check when done */
   #summary { display: none; flex-direction: column; align-items: center; gap: .55rem; text-align: center;
@@ -169,21 +170,32 @@
           overflow: hidden; }
   #list:empty { display: none; }
   .row {
-    display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: .1rem .7rem; align-items: center;
-    padding: .7rem 1rem;
+    display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: .1rem .8rem; align-items: center;
+    padding: .65rem 1rem;
   }
   .row + .row { border-top: 1px solid var(--line); }
+  .thumb {
+    grid-column: 1; grid-row: 1 / span 2; position: relative; width: 52px; height: 52px; border-radius: 8px;
+    background: var(--fill) center / cover no-repeat;
+  }
+  /* Shown until the picture can be drawn (a HEIC this browser can't decode) */
+  .thumb:not(.has-image)::before {
+    content: ""; position: absolute; inset: 0; background: var(--muted); opacity: .55;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 4h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3Zm3.5 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2ZM4 17l5-5 3 3 3-3 5 5Z'/%3E%3C/svg%3E") center / 26px no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 4h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3Zm3.5 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2ZM4 17l5-5 3 3 3-3 5 5Z'/%3E%3C/svg%3E") center / 26px no-repeat; }
   .row .name { grid-column: 2; min-width: 0; font-size: .93rem; font-weight: 600;
-               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: end; }
   .row .status { grid-column: 2; display: block; min-width: 0; color: var(--muted); font-size: .8rem;
-                 overflow-wrap: anywhere; }
-  .row::before { content: ""; grid-column: 1; grid-row: 1 / span 2; width: 20px; height: 20px;
-                 border-radius: 50%; border: 2.5px solid var(--fill); border-top-color: var(--accent);
-                 animation: spin .8s linear infinite; }
-  .row:has(.status.ok)::before { animation: none; border: 0; background: var(--ok);
+                 overflow-wrap: anywhere; align-self: start; }
+  /* Status badge on the thumbnail's corner: spinner, check or warning */
+  .thumb::after { content: ""; position: absolute; right: -6px; bottom: -6px; width: 22px; height: 22px;
+                  border-radius: 50%; border: 3px solid var(--surface); background: var(--surface);
+                  box-shadow: inset 0 0 0 2.5px var(--fill); animation: spin .8s linear infinite;
+                  border-top-color: var(--accent); }
+  .row:has(.status.ok) .thumb::after { animation: none; border: 0; box-shadow: none; background: var(--ok);
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.4-4-4 1.4-1.4 2.6 2.6 5.4-5.4 1.4 1.4Z'/%3E%3C/svg%3E") center / contain no-repeat;
             mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.4-4-4 1.4-1.4 2.6 2.6 5.4-5.4 1.4 1.4Z'/%3E%3C/svg%3E") center / contain no-repeat; }
-  .row:has(.status.err)::before { animation: none; border: 0; background: var(--warn);
+  .row:has(.status.err) .thumb::after { animation: none; border: 0; box-shadow: none; background: var(--warn);
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3 1.5 21h21Zm-1 6h2v6h-2Zm0 8h2v2h-2Z'/%3E%3C/svg%3E") center / contain no-repeat;
             mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3 1.5 21h21Zm-1 6h2v6h-2Zm0 8h2v2h-2Z'/%3E%3C/svg%3E") center / contain no-repeat; }
   .row .status.ok { color: var(--ok-text); }
@@ -201,8 +213,8 @@
   .dl.alt { background: var(--accent-soft); color: var(--accent-text); }
   .dl.alt:hover { background: var(--fill); }
   @media (max-width: 30rem) {
-    .row { grid-template-columns: 22px minmax(0, 1fr); }
-    .row .act { grid-column: 2; grid-row: auto; flex-wrap: wrap; margin: .45rem 0 .1rem; }
+    .row { grid-template-columns: 52px minmax(0, 1fr); }
+    .row .act { grid-column: 1 / -1; grid-row: auto; flex-wrap: wrap; margin: .45rem 0 .1rem; }
     .row .act .dl { flex: 1 1 7rem; }
   }
 
@@ -224,6 +236,7 @@
   .bullets li::before { content: ""; position: absolute; left: .1rem; top: .62em; width: 5px; height: 5px;
                         border-radius: 50%; background: var(--muted); }
   footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: .3rem; }
+  footer #about { white-space: nowrap; }
   footer #version { font-family: var(--mono); color: var(--fg); }
   #boot:empty { display: none; }
   .err { color: var(--err); }
@@ -233,10 +246,8 @@
 <body>
 <main>
   <header class="top">
-    <a id="about" data-i18n="about.name" data-i18n-href="about.href" target="_blank" rel="noopener"
-       href="about.html">About this page</a>
     <div class="title">
-      <img class="logo" src="icons/icon-192.png" width="26" height="26" alt="" aria-hidden="true">
+      <img class="logo" src="icons/icon-192.png" width="30" height="30" alt="" aria-hidden="true">
       <h1 data-i18n="meta.title">Palettify</h1>
     </div>
     <button id="lang" type="button">
@@ -280,13 +291,28 @@
     </div>
   </div>
 
-  <div class="opts card">
-    <div class="opt"><input type="checkbox" id="quality" role="switch" checked>
-      <label for="quality" data-i18n="opt.quality"></label></div>
-    <div class="opt"><input type="checkbox" id="anyimage" role="switch">
-      <label for="anyimage" data-i18n="opt.anyimage"></label></div>
-    <div class="opt"><input type="checkbox" id="findfaces" role="switch">
-      <label for="findfaces" data-i18n="opt.faces"></label></div>
+  <div class="opt-group">
+    <div class="opts card">
+      <div class="opt"><label for="quality" data-i18n="opt.quality"></label>
+        <input type="checkbox" id="quality" role="switch" checked></div>
+    </div>
+    <p class="opt-note" data-i18n="opt.qualityNote"></p>
+  </div>
+
+  <div class="opt-group">
+    <div class="opts card">
+      <div class="opt"><label for="anyimage" data-i18n="opt.anyimage"></label>
+        <input type="checkbox" id="anyimage" role="switch"></div>
+    </div>
+    <p class="opt-note" data-i18n="opt.anyimageNote"></p>
+  </div>
+
+  <div class="opt-group">
+    <div class="opts card">
+      <div class="opt"><label for="findfaces" data-i18n="opt.faces"></label>
+        <input type="checkbox" id="findfaces" role="switch"></div>
+    </div>
+    <p class="opt-note" data-i18n="opt.facesNote"></p>
   </div>
 
   <div id="summary" class="card" aria-live="polite">
@@ -333,7 +359,8 @@
     </section>
   </div>
 
-  <footer><span data-i18n="p.version"></span> <span id="version"></span> · <a href="https://github.com/nathanatgit/Shalielie">GitHub</a></footer>
+  <footer><a id="about" data-i18n="about.name" data-i18n-href="about.href" target="_blank" rel="noopener"
+       href="about.html">About this page</a> · <span data-i18n="p.version"></span> <span id="version"></span> · <a href="https://github.com/nathanatgit/Shalielie">GitHub</a></footer>
 </main>
 <script type="module" src="app.js"></script>
 </body>
