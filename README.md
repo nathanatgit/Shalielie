@@ -4,7 +4,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-Current version: v0.7.4
+Current version: v0.7.5
 
 This is an experimental tool that takes a HEIC from an iPhone **older than the iPhone 16**
 (iPhone 15, 14, 13 … — any model whose photos match a supported tile layout) and adds the
@@ -329,6 +329,7 @@ thumbnail differently. Only the no-encoder mode is reproducible byte for byte, a
 | v0.7.1      | The iOS app Palettify (盘它) joins the main branch; the browser build is renamed to match | Porting unchanged from v0.7.0; app builds in CI ☑️ |
 | v0.7.3      | iOS app: dark/tinted icons, Share sheet, styled-photo marks and filter, compare, Undo, background batches, Backup Bin auto-clean, memory-bounded batches; experimental SDR (`--sdr`) and any-image input (`--any-image`, after PR #4) that keeps the picture's metadata; experimental Find Faces for Soft Skin (app) | Porting unchanged for HDR photos; SDR photos (iPhone 11, CLI and app, also Live Photos) and converted JPEG/screenshots (CLI and app) offer the styles in Photos and keep them ✅; metadata carry-over and Find Faces 🔍 |
 | v0.7.4      | iOS app: the Find Faces notice no longer calls the feature untested | Porting unchanged; SDR, any-image and Find Faces are phone-tested on iOS ✅ |
+| v0.7.5      | iOS app: the Share sheet follows Analyze Each Photo, Texture & Grain and Any Image (shared through an App Group), and converts JPEG/PNG when Any Image is on | Porting unchanged; Share-sheet behaviour needs a phone test 🔍 |
 
 **Reverse-engineering tests of key assumptions**
 

@@ -6,8 +6,9 @@ import UniformTypeIdentifiers
 
 /// "Palettify" in the Share sheet: adds the Photographic Style to the shared photos and saves
 /// each as a new photo, like the Shortcuts action. It never replaces a photo, and Live Photos
-/// are saved as stills: the Share sheet hands over the still only. The app's settings live in
-/// the app's own container, so the defaults are used (analyze each photo, Texture & Grain).
+/// are saved as stills: the Share sheet hands over the still only. The app mirrors Analyze Each
+/// Photo, Texture & Grain and Any Image into an App Group (`SharedSettings`), which this follows;
+/// with Any Image on, JPEGs, PNGs and other pictures are converted to HEIC first.
 final class ShareViewController: UIViewController {
     private let model = ShareModel()
 
@@ -56,21 +57,33 @@ final class ShareModel: ObservableObject {
     }
 
     private static func style(_ provider: NSItemProvider) async throws {
-        let data = try await loadHEIC(provider)
+        var settings = SharedSettings.porterOptions()
+        let anyImage = settings.sdr
+        let original = try await loadImage(provider, anyImage: anyImage)
+        var converted: Data?
+        if anyImage {
+            converted = try RasterImport.convertedForPort(original, captureDate: nil, allowSDR: true)
+        }
+        settings.converted = converted != nil
+        let options = settings
+        let data = converted ?? original
         let result = try await Task.detached(priority: .userInitiated) {
-            try StylePorter().patch(data, options: StylePortOptions())
+            try StylePorter().patch(data, options: options)
         }.value
         let base = ((provider.suggestedName ?? "Photo") as NSString).deletingPathExtension
         let suffix = result.report.mode == .addTexture ? "_TextureGrain" : "_PhotographicStyle"
         try await save(result.data, filename: base + suffix + ".HEIC")
     }
 
-    private static func loadHEIC(_ provider: NSItemProvider) async throws -> Data {
-        guard let type = provider.registeredTypeIdentifiers.first(where: {
-            UTType($0).map { $0.conforms(to: .heic) || $0.conforms(to: .heif) } ?? false
-        }) else { throw ShareError.notHEIC }
+    /// The shared picture's file. HEIC only, unless Any Image is on: then any image type.
+    private static func loadImage(_ provider: NSItemProvider, anyImage: Bool) async throws -> Data {
+        let types = provider.registeredTypeIdentifiers.compactMap(UTType.init)
+        let heic = types.first { $0.conforms(to: .heic) || $0.conforms(to: .heif) }
+        guard let type = heic ?? (anyImage ? types.first { $0.conforms(to: .image) } : nil) else {
+            throw ShareError.notHEIC
+        }
         return try await withCheckedThrowingContinuation { continuation in
-            _ = provider.loadFileRepresentation(forTypeIdentifier: type) { url, error in
+            _ = provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, error in
                 // The file only exists during this callback.
                 if let url, let data = try? Data(contentsOf: url) {
                     continuation.resume(returning: data)

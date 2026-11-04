@@ -1,3 +1,4 @@
+import StylePortCore
 import SwiftUI
 
 @main
@@ -8,6 +9,10 @@ struct StylePortApp: App {
 
     init() {
         AppSettings.registerDefaults()
+        // Keep the Share extension's copy of the settings current.
+        NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+        ) { _ in AppSettings.mirrorToShared() }
     }
 
     var body: some Scene {

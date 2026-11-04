@@ -12,6 +12,44 @@ public enum RasterImport {
     static let maxTiles = 48
     static let thumbnailEdge = 416
 
+    /// A picture the porter can't take as it is (JPEG, PNG, a screenshot, a HEIC from another
+    /// phone) converted to an iPhone-shaped HEIC; nil when it is already a HEIC the porter takes.
+    /// Shared by the app and the Share extension, each deciding itself whether Any Image is on.
+    public static func convertedForPort(_ data: Data, captureDate: Date?, allowSDR: Bool) throws -> Data? {
+        if isHEIF(data), StylePorter.eligibility(of: data, allowSDR: allowSDR) != .unsupported {
+            return nil
+        }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else {
+            throw StylePortError.invalidData(String(localized: "The photo couldn't be read."))
+        }
+        let width = properties[kCGImagePropertyPixelWidth] as? Int ?? 0
+        let height = properties[kCGImagePropertyPixelHeight] as? Int ?? 0
+        // Full size, with its orientation applied.
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(width, height, 1)
+        ] as CFDictionary) else {
+            throw StylePortError.invalidData(String(localized: "The photo couldn't be read."))
+        }
+        return try heic(from: image, captureDate: captureDate, source: data)
+    }
+
+    public static func isHEIF(_ data: Data) -> Bool {
+        let bytes = [UInt8](data.prefix(128))
+        guard bytes.count >= 12, String(bytes: bytes[4..<8], encoding: .ascii) == "ftyp" else { return false }
+        let knownBrands: Set<String> = ["heic", "heix", "hevc", "hevx", "heim", "heis", "mif1", "msf1"]
+        var cursor = 8
+        while cursor + 4 <= bytes.count {
+            if let brand = String(bytes: bytes[cursor..<(cursor + 4)], encoding: .ascii), knownBrands.contains(brand) {
+                return true
+            }
+            cursor += 4
+        }
+        return false
+    }
+
     /// The HEIC for an upright picture (orientation already applied). `source` is the original
     /// file, whose Exif (location, camera, lens, dates) is carried over when it can be read.
     public static func heic(from image: CGImage, captureDate: Date?, source: Data? = nil) throws -> Data {

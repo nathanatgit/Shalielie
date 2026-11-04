@@ -49,6 +49,17 @@ jobs:
           -destination 'generic/platform=iOS'
           -derivedDataPath "$RUNNER_TEMP/StylePort-iOS"
           CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+      # An unsigned build carries no entitlements, so the App Group the Share extension reads
+      # the app's settings through would be lost. Ad-hoc sign with the entitlements (inside out);
+      # the sideloading tool replaces this signature with the installer's own.
+      - name: Ad-hoc sign with the App Group entitlement
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/StylePort-iOS/Build/Products/Release-iphoneos/StylePort.app"
+          for fw in "$app"/Frameworks/*.framework; do codesign -f -s - "$fw"; done
+          codesign -f -s - --entitlements Sources/ShareExtension/PalettifyShare.entitlements "$app/PlugIns/PalettifyShare.appex"
+          codesign -f -s - --entitlements Sources/StylePortApp/Palettify.entitlements "$app"
+          codesign -d --entitlements - "$app" | grep -q application-groups
       - name: Package unsigned app bundles
         run: |
           set -euo pipefail
@@ -69,7 +80,7 @@ jobs:
       - name: Verify packaged app identity
         run: |
           app="$RUNNER_TEMP/StylePort-iOS/Build/Products/Release-iphoneos/StylePort.app"
-          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Info.plist")" = "0.7.4"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Info.plist")" = "0.7.5"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$app/Info.plist")" = "7"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleDisplayName' "$app/Info.plist")" = "Palettify"
       - name: Upload unsigned iOS and iPadOS Simulator app

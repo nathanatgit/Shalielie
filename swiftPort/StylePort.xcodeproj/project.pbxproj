@@ -20,6 +20,7 @@
 		B1000000000000000000000B /* LivePhotoVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000B /* LivePhotoVideo.swift */; };
 		B1000000000000000000000C /* PeopleDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000C /* PeopleDetection.swift */; };
 		B1000000000000000000009A /* MediaPipeFaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000009A /* MediaPipeFaces.swift */; };
+		B1000000000000000000009B /* SharedSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000009B /* SharedSettings.swift */; };
 		B1000000000000000000000D /* RasterImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000D /* RasterImport.swift */; };
 		B1000000000000000000000E /* StyleMaps.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000E /* StyleMaps.swift */; };
 		B1000000000000000000000F /* StylePortError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0000000000000000000000F /* StylePortError.swift */; };
@@ -131,6 +132,7 @@
 		C0000000000000000000000B /* LivePhotoVideo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePhotoVideo.swift; sourceTree = "<group>"; };
 		C0000000000000000000000C /* PeopleDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleDetection.swift; sourceTree = "<group>"; };
 		C0000000000000000000009A /* MediaPipeFaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipeFaces.swift; sourceTree = "<group>"; };
+		C0000000000000000000009B /* SharedSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedSettings.swift; sourceTree = "<group>"; };
 		C0000000000000000000000D /* RasterImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RasterImport.swift; sourceTree = "<group>"; };
 		C0000000000000000000000E /* StyleMaps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StyleMaps.swift; sourceTree = "<group>"; };
 		C0000000000000000000000F /* StylePortError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StylePortError.swift; sourceTree = "<group>"; };
@@ -206,6 +208,7 @@
 				C0000000000000000000000B /* LivePhotoVideo.swift */,
 				C0000000000000000000000C /* PeopleDetection.swift */,
 				C0000000000000000000009A /* MediaPipeFaces.swift */,
+				C0000000000000000000009B /* SharedSettings.swift */,
 				C0000000000000000000000D /* RasterImport.swift */,
 				C0000000000000000000000E /* StyleMaps.swift */,
 				C0000000000000000000000F /* StylePortError.swift */,
@@ -417,6 +420,7 @@
 				B1000000000000000000000B /* LivePhotoVideo.swift in Sources */,
 				B1000000000000000000000C /* PeopleDetection.swift in Sources */,
 				B1000000000000000000009A /* MediaPipeFaces.swift in Sources */,
+				B1000000000000000000009B /* SharedSettings.swift in Sources */,
 				B1000000000000000000000D /* RasterImport.swift in Sources */,
 				B1000000000000000000000E /* StyleMaps.swift in Sources */,
 				B1000000000000000000000F /* StylePortError.swift in Sources */,
@@ -530,7 +534,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.7.4;
+				MARKETING_VERSION = 0.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nathanhanapps.styleport.core;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -552,7 +556,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.7.4;
+				MARKETING_VERSION = 0.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nathanhanapps.styleport.core;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -567,6 +571,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Sources/StylePortApp/Palettify.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -583,7 +588,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				MARKETING_VERSION = 0.7.4;
+				MARKETING_VERSION = 0.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nathanhanapps.styleport;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -599,6 +604,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Sources/StylePortApp/Palettify.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -615,7 +621,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				MARKETING_VERSION = 0.7.4;
+				MARKETING_VERSION = 0.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nathanhanapps.styleport;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -663,6 +669,7 @@
 		600000000000000000000009 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Sources/ShareExtension/PalettifyShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -671,7 +678,7 @@
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Palettify saves the styled photos to your library.";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 0.7.4;
+				MARKETING_VERSION = 0.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nathanhanapps.styleport.share;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -685,6 +692,7 @@
 		60000000000000000000000A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Sources/ShareExtension/PalettifyShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -693,7 +701,7 @@
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Palettify saves the styled photos to your library.";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 0.7.4;
+				MARKETING_VERSION = 0.7.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.nathanhanapps.styleport.share;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;

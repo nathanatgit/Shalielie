@@ -39,6 +39,12 @@ enum AppSettings {
             notifyWhenDoneKey: true,
             backupRetentionKey: 0
         ])
+        mirrorToShared()
+    }
+
+    /// Copies the settings the Share extension follows into the App Group it can read.
+    static func mirrorToShared() {
+        SharedSettings.mirror(analyzePhoto: analyzePhoto, texture: texture, anyImage: anyImage)
     }
 
     static var replaceOriginals: Bool { UserDefaults.standard.bool(forKey: replaceOriginalsKey) }

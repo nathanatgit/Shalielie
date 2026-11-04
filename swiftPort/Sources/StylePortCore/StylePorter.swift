@@ -101,7 +101,7 @@ public struct StylePortResult: Sendable {
 }
 
 public struct StylePorter: Sendable {
-    public static let version = "0.7.4-swift"
+    public static let version = "0.7.5-swift"
     /// Styles key `0` of native iOS 27 Live Photos (phone-tested 2026-10-10); the donors carry 14.
     public static let livePhotoStylesSchema: Int64 = 16
 

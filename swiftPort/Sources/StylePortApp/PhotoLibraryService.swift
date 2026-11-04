@@ -162,24 +162,7 @@ struct PhotoLibraryService: Sendable {
     /// setting is off or the photo is already a HEIC the porter takes.
     static func convertedForPort(_ data: Data, captureDate: Date?) throws -> Data? {
         guard AppSettings.anyImage else { return nil }
-        if isHEIF(data), StylePorter.eligibility(of: data, allowSDR: AppSettings.sdr) != .unsupported {
-            return nil
-        }
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else {
-            throw LibraryError.saveFailed(L("The photo couldn't be read."))
-        }
-        let width = properties[kCGImagePropertyPixelWidth] as? Int ?? 0
-        let height = properties[kCGImagePropertyPixelHeight] as? Int ?? 0
-        // Full size, with its orientation applied.
-        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: max(width, height, 1)
-        ] as CFDictionary) else {
-            throw LibraryError.saveFailed(L("The photo couldn't be read."))
-        }
-        return try RasterImport.heic(from: image, captureDate: captureDate, source: data)
+        return try RasterImport.convertedForPort(data, captureDate: captureDate, allowSDR: AppSettings.sdr)
     }
 
     /// What the port would do with this photo, read from the original only when it is on the
@@ -485,25 +468,7 @@ private extension PhotoLibraryService {
         }
     }
 
-    static func isHEIF(_ data: Data) -> Bool {
-        let bytes = [UInt8](data.prefix(128))
-        guard bytes.count >= 12,
-              String(bytes: bytes[4..<8], encoding: .ascii) == "ftyp" else {
-            return false
-        }
-        let knownBrands: Set<String> = [
-            "heic", "heix", "hevc", "hevx", "heim", "heis", "mif1", "msf1"
-        ]
-        var cursor = 8
-        while cursor + 4 <= bytes.count {
-            if let brand = String(bytes: bytes[cursor..<(cursor + 4)], encoding: .ascii),
-               knownBrands.contains(brand) {
-                return true
-            }
-            cursor += 4
-        }
-        return false
-    }
+    static func isHEIF(_ data: Data) -> Bool { RasterImport.isHEIF(data) }
 }
 
 /// Per-job scratch folders under the app's temporary directory.
