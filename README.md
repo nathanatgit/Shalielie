@@ -4,7 +4,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-Current version: v0.7.6
+Current version: v0.7.5
 
 This is an experimental tool that takes a HEIC from an iPhone **older than the iPhone 16**
 (iPhone 15, 14, 13 … — any model whose photos match a supported tile layout) and adds the
@@ -344,8 +344,7 @@ thumbnail differently. Only the no-encoder mode is reproducible byte for byte, a
 | v0.7.1      | The iOS app Palettify (盘它) joins the main branch; the browser build is renamed to match | Porting unchanged from v0.7.0; app builds in CI ☑️ |
 | v0.7.3      | iOS app: dark/tinted icons, Share sheet, styled-photo marks and filter, compare, Undo, background batches, Backup Bin auto-clean, memory-bounded batches; experimental SDR (`--sdr`) and any-image input (`--any-image`, after PR #4) that keeps the picture's metadata; experimental Find Faces for Soft Skin (app) | Porting unchanged for HDR photos; SDR photos (iPhone 11, CLI and app, also Live Photos) and converted JPEG/screenshots (CLI and app) offer the styles in Photos and keep them ✅; metadata carry-over and Find Faces 🔍 |
 | v0.7.4      | iOS app: the Find Faces notice no longer calls the feature untested | Porting unchanged; SDR, any-image and Find Faces are phone-tested on iOS ✅ |
-| v0.7.5      | Browser build: Any Image (JPEG, PNG, WebP, other phones' HEIC) and Find Faces for Soft Skin, with the MediaPipe models and runtime served from the site; the page is laid out like the iOS Share sheet, with photo thumbnails | Porting unchanged; Any Image needs a browser with an HEVC encoder (tested with Node and a stand-in encoder, not yet in a real encoder) 🔍 |
-| v0.7.6      | iOS app: the Share sheet opens on a review list (thumbnail, name, status) with Analyze, Texture & Grain, Any Image and Find Faces switches, follows the app's settings through an App Group, and converts JPEG/PNG when Any Image is on; fixes a launch loop in the first 0.7.5 test build | Porting unchanged; Share-sheet behaviour needs a phone test 🔍 |
+| v0.7.5      | Browser build: Any Image (JPEG, PNG, WebP, other phones' HEIC) and Find Faces for Soft Skin, with the MediaPipe models and runtime served from the site; the page is laid out like the iOS Share sheet, with photo thumbnails; iOS app: the Share sheet opens on a review list (thumbnail, name, status) with Analyze, Texture & Grain, Any Image and Find Faces switches, follows the app's settings through an App Group, and converts JPEG/PNG when Any Image is on; fixes a launch loop in the first 0.7.5 test build | Porting unchanged; Any Image needs a browser with an HEVC encoder (tested with Node and a stand-in encoder, not yet in a real encoder) 🔍; the Share sheet needs a phone test 🔍 |
 
 **Reverse-engineering tests of key assumptions**
 
