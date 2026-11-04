@@ -53,6 +53,25 @@ const same = (a, b) => !!a && !!b && a.length === b.length && a.every((v, i) => 
 const ascii = (s) => Uint8Array.from(s, (c) => c.charCodeAt(0));
 
 /** StyleDeltaMap size for a primary of this stored size, or null when none is known. */
+/**
+ * StyleDeltaMap size for a primary of any size (Any Image): the native 2880x2160 map (2160x2880
+ * upright) scaled to the photo's aspect ratio, never larger than the photo, as PR #4's import
+ * does. Native files of other sizes have not been seen, so this is a guess. See
+ * generic_style_delta_size in photographic_style_port.py.
+ */
+/** Python's round(): halves go to the even neighbour, so both builds pick the same size. */
+export function roundHalfEven(x) {
+  const r = Math.round(x);
+  return Math.abs(x % 1) === 0.5 && r % 2 !== 0 ? r - 1 : r;
+}
+
+export function genericStyleDeltaSize(width, height) {
+  const [bw, bh] = width >= height ? [2880, 2160] : [2160, 2880];
+  const scale = Math.min(bw / width, bh / height, 1);
+  const even = (n) => Math.max(2, roundHalfEven(n * scale / 2) * 2);
+  return [even(width), even(height)];
+}
+
 export function styleDeltaSize(width, height) {
   for (const [w, h, dw, dh] of STYLE_DELTA_SIZES) {
     if (w === width && h === height) return [dw, dh];
@@ -149,11 +168,12 @@ function rebuildHeic(data, d, ftyp, meta, payloads) {
 }
 
 /** graft_style_graph: returns [bytes, report]. */
-export function graftStyleGraph(targetData, td, stylesBlob, mn54, mn54Type, linearThumb, texture = true) {
+export function graftStyleGraph(targetData, td, stylesBlob, mn54, mn54Type, linearThumb, texture = true,
+  extra = {}) {
   const props = td.props;
   const primary = td.primary;
   const [pw, ph] = dimensionsForItem(props, primary);
-  const size = styleDeltaSize(pw, ph);
+  const size = extra.generic ? genericStyleDeltaSize(pw, ph) : styleDeltaSize(pw, ph);
   if (!size) throw new Error(`No StyleDeltaMap size known for a ${pw}x${ph} primary`);
   const [dw, dh] = size;
   const cols = Math.ceil(dw / 512), rows = Math.ceil(dh / 512);
@@ -198,7 +218,7 @@ export function graftStyleGraph(targetData, td, stylesBlob, mn54, mn54Type, line
   const report = { graph: "photo", styleDeltaMap: [dw, dh, rows, cols] };
   if (texture) {
     let texPayloads, summary;
-    [meta, texPayloads, summary] = addTextureItems(meta, primary, softSkinPeople(targetData, td),
+    [meta, texPayloads, summary] = addTextureItems(meta, primary, extra.people || softSkinPeople(targetData, td),
       filmGrainSeed(targetData, td));
     for (const [iid, blob] of texPayloads) payloads.set(iid, blob);
     report.texture = summary;
@@ -268,6 +288,7 @@ export async function graftPatch(targetData, profile, opts = {}) {
     neutralized: [], emptied: [],
   };
   const [data, gr] = graftStyleGraph(targetData, td, blob, profile.mn54,
-    Number(manifest.smartstyle_makernote_type ?? 7), linearThumb, opts.texture !== false);
+    Number(manifest.smartstyle_makernote_type ?? 7), linearThumb, opts.texture !== false,
+    { generic: !!opts.generic, people: opts.people });
   return { data, report: { ...report, ...gr } };
 }

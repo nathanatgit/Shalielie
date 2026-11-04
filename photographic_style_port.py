@@ -109,7 +109,7 @@ import zlib
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
-VERSION = "0.7.5"
+VERSION = "0.7.6"
 
 URI_HDR_GAIN = "urn:com:apple:photo:2020:aux:hdrgainmap"
 URI_LINEAR_THUMB = "tag:apple.com,2023:photo:aux:linearthumbnail"

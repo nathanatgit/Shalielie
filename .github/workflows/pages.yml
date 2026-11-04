@@ -53,6 +53,11 @@ jobs:
             test -s "$f" || { echo "::error::missing $f"; exit 1; }
           done
 
+      # Any Image and Find Faces run from this site, not a CDN: the two MediaPipe models (hash-checked)
+      # and the MediaPipe runtime (integrity-checked npm release) are fetched into web/ here.
+      - name: Fetch the Find Faces models and runtime
+        run: python3 tools/build_web_assets.py
+
       - name: Check the PWA is internally consistent
         run: node tests/web/check-pwa.mjs
 

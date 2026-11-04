@@ -99,11 +99,11 @@ export function filmGrainSeed(data, d) {
 // mattes are real. Everything comes from the photo: its face-region XMP, semanticskinmatte
 // and portraiteffectsmatte. Values are rounded and typed exactly as the Python build writes
 // them, so both produce the same bytes.
-const URI_PERSON_INSTANCES = "tag:apple.com,2026:photo:aux:semanticpersoninstances";
-const SOFT_SKIN_SKIN_URIS = ["semanticskinmattev2", "semanticfaceskinmatte"]
+export const URI_PERSON_INSTANCES = "tag:apple.com,2026:photo:aux:semanticpersoninstances";
+export const SOFT_SKIN_SKIN_URIS = ["semanticskinmattev2", "semanticfaceskinmatte"]
   .map((n) => `tag:apple.com,2026:photo:aux:${n}`);
-const SOFT_SKIN_PERSON_URI = "tag:apple.com,2026:photo:aux:semanticpersonmatte";
-const SOFT_SKIN_INSTANCE_KEYS = ["FSINCInstanceMask9",
+export const SOFT_SKIN_PERSON_URI = "tag:apple.com,2026:photo:aux:semanticpersonmatte";
+export const SOFT_SKIN_INSTANCE_KEYS = ["FSINCInstanceMask9",
   ...Array.from({ length: 9 }, (_, i) => `FSINCInstanceMask${i}`)];
 const TEXTURE_STYLES_HEADER = [["Preset", "Standard"], ["CaptureType", "LF"],
   ["CaptureMode", "Still"], ["PortType", "PortTypeBack"], ["HardwareModel", "iPhone19,2"],

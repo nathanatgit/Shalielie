@@ -90,6 +90,9 @@ if (!shellMatch) {
       .filter((path) => normalize(path) !== normalize(join(WEB, "sw.js")))
       // Rendered at deploy by tools/render-about.mjs; cached when visited, not precached.
       .filter((path) => !/[\\/]about(?:\.zh)?\.html$/.test(path))
+      // The MediaPipe runtime and models (Any Image, Find Faces) are about 40 MB: cached the
+      // first time they are used, not on install.
+      .filter((path) => !/[\\/]web[\\/](?:vendor|models)[\\/]/.test(path))
       .map((path) => `./${normalize(path).slice(normalize(WEB).length + 1).replaceAll("\\", "/")}`)
   );
   for (const asset of shouldCache) {

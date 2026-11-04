@@ -28,7 +28,7 @@ import {
   linearLumaFromRgb, LIGHTMAP_N,
 } from "./styles.js";
 
-export const VERSION = "0.7.5-web";
+export const VERSION = "0.7.6-web";
 
 // Every rejection a visitor can hit reduces to one of two things: the file is not a
 // HEIC at all, or it is a HEIC this build cannot handle. Nothing else is actionable.
@@ -61,15 +61,20 @@ export function profileFor(index, d) {
  * @param profile     from loadProfile()
  * @param opts.decode async (targetData, {width,height,angle,mirror}) -> Uint8Array RGB,
  *                    or null to skip target-derived statistics and light maps
+ * @param opts.generic the photo was converted by raster.js: its own StyleDeltaMap size, no HDR
+ * @param opts.sdr    also port a photo without an HDR gain map (its size must be known)
+ * @param opts.people Soft Skin data found by faces.js, for a picture that has none of its own
  * @param opts.texture false to leave out the iOS 27 Texture/Grain set (v0.4.4 output)
  */
 export async function patch(targetData, profile, opts = {}) {
   const td = discoverHeic(targetData);
-  if (td.hdrGrid === null || !td.hdrTiles.length) throw new Error(UNSUPPORTED);
+  // Any Image (opts.generic) and native SDR photos (opts.sdr) have no HDR gain map.
+  if ((td.hdrGrid === null || !td.hdrTiles.length) && !opts.sdr && !opts.generic)
+    throw new Error(UNSUPPORTED);
   if (td.thumbnail === null || td.exifItem === null) throw new Error(UNSUPPORTED);
 
   // v0.6.2: the photo's own item graph whenever its StyleDeltaMap size is known.
-  if (opts.graph !== "donor" && styleDeltaSize(...dimensionsForItem(td.props, td.primary))) {
+  if (opts.generic || (opts.graph !== "donor" && styleDeltaSize(...dimensionsForItem(td.props, td.primary)))) {
     const out = await graftPatch(targetData, profile, opts);
     out.report.version = VERSION;
     return out;

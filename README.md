@@ -4,7 +4,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-Current version: v0.7.5
+Current version: v0.7.6
 
 This is an experimental tool that takes a HEIC from an iPhone **older than the iPhone 16**
 (iPhone 15, 14, 13 … — any model whose photos match a supported tile layout) and adds the
@@ -46,9 +46,24 @@ patched one back. It runs entirely on your machine; nothing is uploaded.
 
 **https://nathanatgit.github.io/Shalielie/**
 
-The browser build includes Texture/Grain and native-photo mode. The one thing it cannot do is
-patch a photo without an embedded thumbnail, because the browser has no HEVC encoder to create
-one; use the command-line tool for those.
+The browser build includes Texture/Grain and native-photo mode. Since v0.7.5 it also has two
+experimental switches, both off by default:
+
+- **Any Image** also styles JPEG, PNG and WebP pictures, and HEIC photos from other phones. The
+  picture is converted to an iPhone-shaped HEIC in your browser first (the same method as the
+  command line's `--any-image`), which needs a browser that can encode HEVC with WebCodecs:
+  Safari, or Chrome/Edge on a machine with a hardware HEVC encoder.
+- **Find Faces** (needs Any Image) finds faces and people on the device with MediaPipe, so Soft
+  Skin has data to work with (PR #4's method, as in the command line's `--find-faces`). The
+  two models and the MediaPipe runtime are served from the site itself, not a CDN, and are
+  downloaded (about 20 MB) the first time they are used. The data is estimated, not the
+  camera's own.
+
+The page is laid out like the iOS app's Share sheet: a thumbnail, name and status for every
+photo, a progress bar and a count while it works.
+
+What it cannot do is patch a HEIC photo without an embedded thumbnail, unless Any Image converts
+it: otherwise the browser has no encoder to create one, so use the command-line tool.
 
 It runs the same porting logic as the Python tool, checked against it item by item (byte for byte where the plist packing allows) — see
 [`web/README.md`](web/README.md) for how that is verified, and for the two iPhone quirks it
@@ -329,7 +344,8 @@ thumbnail differently. Only the no-encoder mode is reproducible byte for byte, a
 | v0.7.1      | The iOS app Palettify (盘它) joins the main branch; the browser build is renamed to match | Porting unchanged from v0.7.0; app builds in CI ☑️ |
 | v0.7.3      | iOS app: dark/tinted icons, Share sheet, styled-photo marks and filter, compare, Undo, background batches, Backup Bin auto-clean, memory-bounded batches; experimental SDR (`--sdr`) and any-image input (`--any-image`, after PR #4) that keeps the picture's metadata; experimental Find Faces for Soft Skin (app) | Porting unchanged for HDR photos; SDR photos (iPhone 11, CLI and app, also Live Photos) and converted JPEG/screenshots (CLI and app) offer the styles in Photos and keep them ✅; metadata carry-over and Find Faces 🔍 |
 | v0.7.4      | iOS app: the Find Faces notice no longer calls the feature untested | Porting unchanged; SDR, any-image and Find Faces are phone-tested on iOS ✅ |
-| v0.7.5      | iOS app: the Share sheet follows Analyze Each Photo, Texture & Grain and Any Image (shared through an App Group), and converts JPEG/PNG when Any Image is on | Porting unchanged; Share-sheet behaviour needs a phone test 🔍 |
+| v0.7.5      | Browser build: Any Image (JPEG, PNG, WebP, other phones' HEIC) and Find Faces for Soft Skin, with the MediaPipe models and runtime served from the site; the page is laid out like the iOS Share sheet, with photo thumbnails | Porting unchanged; Any Image needs a browser with an HEVC encoder (tested with Node and a stand-in encoder, not yet in a real encoder) 🔍 |
+| v0.7.6      | iOS app: the Share sheet opens on a review list (thumbnail, name, status) with Analyze, Texture & Grain, Any Image and Find Faces switches, follows the app's settings through an App Group, and converts JPEG/PNG when Any Image is on; fixes a launch loop in the first 0.7.5 test build | Porting unchanged; Share-sheet behaviour needs a phone test 🔍 |
 
 **Reverse-engineering tests of key assumptions**
 

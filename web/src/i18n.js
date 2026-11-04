@@ -48,7 +48,11 @@ export const STRINGS = {
 
     "h.notice": "Before you start",
     "n.1": "Experimental, unofficial software, not affiliated with Apple.",
-    "n.2": "An Apple HEIC holds only the still image. Keep your original photos.",
+    "n.2": "An Apple HEIC holds only the still image. For Live Photos, consider the "
+      + '<a href="https://github.com/nathanatgit/Shalielie/releases/latest" target="_blank" rel="noopener">iOS sideload version</a>'
+      + " or the "
+      + '<a href="https://github.com/nathanatgit/Shalielie/releases/latest" target="_blank" rel="noopener">command-line version</a>'
+      + ". Always keep your original photos.",
     "n.3": "This page runs entirely in your browser: photos are processed on this device and "
       + "never uploaded.",
     "app.lede": "Adds the Photographic Styles palette, introduced with iPhone 16, to HEIC "
@@ -61,10 +65,32 @@ export const STRINGS = {
       + "original HEIC instead of a converted JPEG. If a photo is still rejected, choose "
       + "<b>Browse</b> and pick it from Files.",
     "more": "Tips and options",
-    "opt.quality": "Analyze each photo so the style data matches its tones. Downloads a small "
-      + "image decoder on first use. Can be slow on iPhone; turn it off if the page freezes.",
+
+
+    "opt.quality": "Analyze each photo",
+    "opt.qualityNote": "Makes the style data match the photo’s own tones. Downloads a small image decoder on "
+      + "first use. Can be slow on iPhone; turn it off if the page freezes.",
+    "opt.anyimage": "Any Image (experimental)",
+    "opt.anyimageNote": "Supports JPEG, PNG and WebP pictures, and HEIC photos from other phones. They are "
+      + "converted to an iPhone-shaped HEIC in your browser first, which needs a browser that can encode HEVC.",
+    "opt.faces": "Find Faces (experimental)",
+    "opt.facesNote": "Turn on Any Image first. Finds faces and people on this device and tries to add Soft Skin "
+      + "data. Downloads about 20 MB of models from this site on first use.",
+
+    "sum.working": "Styling {n} of {total}…",
+    "sum.one": "1 photo ready",
+    "sum.many": "{n} photos ready",
+    "sum.partial": "{n} of {total} photos ready",
+    "sum.note": "Saved as new files; your originals are unchanged. Nothing is uploaded.",
 
     "st.reading": "Reading…",
+    "st.converting": "Converting to HEIC…",
+    "st.findfaces": "Finding faces…",
+    "st.converted": "converted to HEIC, experimental",
+    "st.faces": "Soft Skin for the faces found",
+    "st.nofaces": "no face found, Soft Skin left out",
+    "err.noencoder": "This browser can’t encode HEVC, which Any Image needs. Try Chrome or Edge on a computer, or Safari.",
+    "err.badimage": "This picture couldn’t be read.",
     "st.working": "Processing…",
     "st.ready": "Ready",
     "st.matched": "matched to this photo’s tones",
@@ -134,7 +160,11 @@ export const STRINGS = {
 
     "h.notice": "注意事项",
     "n.1": "实验性非官方工具，与 Apple 无关。",
-    "n.2": "Apple 的 HEIC 文件只包含静态图像，请保留原图。",
+    "n.2": "Apple 的 HEIC 文件只包含静态图像，如需实况图片，请考虑使用"
+      + '<a href="https://github.com/nathanatgit/Shalielie/releases/latest" target="_blank" rel="noopener">iOS 侧载版本</a>'
+      + "或"
+      + '<a href="https://github.com/nathanatgit/Shalielie/releases/latest" target="_blank" rel="noopener">命令行版本</a>'
+      + "。请务必保留原图。",
     "n.3": "网页版为纯前端，照片处理在本设备上完成，照片不会上传。",
     "app.lede": "为 iPhone 16 之前机型拍摄的 HEIC 照片加上 iPhone 16 引入的摄影风格调色板，"
       + "并在 iOS 27 上加上质感与颗粒控制。",
@@ -145,10 +175,31 @@ export const STRINGS = {
       + "<b>格式</b> → <b>当前</b>，即可上传 HEIC 原图，而不是转换后的 JPEG。若仍被拒绝，"
       + "请改选<b>浏览</b>，从“文件”中选取。",
     "more": "提示和选项",
-    "opt.quality": "分析每张照片，使风格数据与照片的影调相匹配。首次使用时会下载一个小型图像解码组件。"
+
+
+    "opt.quality": "分析每张照片",
+    "opt.qualityNote": "使风格数据与照片自身的影调相匹配。首次使用时会下载一个小型图像解码组件。"
       + "在 iPhone 上可能较慢；若页面卡住，请关闭此项。",
+    "opt.anyimage": "任意图片（实验性）",
+    "opt.anyimageNote": "支持处理 JPEG、PNG、WebP 图片，以及其他手机拍摄的 HEIC 照片。它们会先在浏览器中转换为 "
+      + "iPhone 样式的 HEIC，需要支持 HEVC 编码的浏览器。",
+    "opt.faces": "识别人脸（实验性）",
+    "opt.facesNote": "需先开启任意图片，在本机识别人脸和人物，尝试添加“柔肤”数据。首次使用会从本站下载约 20 MB 的模型。",
+
+    "sum.working": "正在处理第 {n} 张，共 {total} 张…",
+    "sum.one": "1 张照片已就绪",
+    "sum.many": "{n} 张照片已就绪",
+    "sum.partial": "{n}/{total} 张照片已就绪",
+    "sum.note": "结果为新文件，原照片不会改动。不会上传任何内容。",
 
     "st.reading": "读取中…",
+    "st.converting": "正在转换为 HEIC…",
+    "st.findfaces": "正在识别人脸…",
+    "st.converted": "已转换为 HEIC（实验性）",
+    "st.faces": "已为识别到的人脸添加柔肤",
+    "st.nofaces": "未识别到人脸，未添加柔肤",
+    "err.noencoder": "此浏览器无法进行 HEVC 编码，而“任意图片”需要它。请在电脑上使用 Chrome 或 Edge，或使用 Safari。",
+    "err.badimage": "无法读取这张图片。",
     "st.working": "处理中…",
     "st.ready": "已完成",
     "st.matched": "已匹配照片影调",

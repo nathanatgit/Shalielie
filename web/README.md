@@ -15,8 +15,11 @@ nothing here depends on either.
 ## Deploying
 
 `.github/workflows/pages.yml` publishes this directory on every push that touches it. Enable
-it once under **Settings → Pages → Source → GitHub Actions**. There is no build step; the
-workflow checks three things before uploading:
+it once under **Settings → Pages → Source → GitHub Actions**. The workflow first runs
+`tools/build_web_assets.py`, which puts the two MediaPipe models (`web/models/`) and the
+MediaPipe runtime (`web/vendor/`) next to the site for Any Image and Find Faces; both are
+pinned and hash-checked, and neither is committed. It then checks three things before
+uploading:
 
 - no `.heic`/`.heif` anywhere under `web/` — a guard against publishing a personal photo
 - the two donor profiles are present and non-empty
@@ -25,6 +28,7 @@ workflow checks three things before uploading:
 To serve it locally instead:
 
 ```bash
+python tools/build_web_assets.py   # once: models and MediaPipe runtime for Any Image / Find Faces
 python -m http.server -d web 8000
 ```
 
