@@ -27,7 +27,7 @@ struct StylePortApp: App {
                 .onReceive(backups.$entries) { StyleRecords.shared.sync(with: $0) }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { backups.purgeExpired() }
+            if phase == .active { backups.purgeExpired(); queue.dropDeletedOutputs() }
         }
     }
 }

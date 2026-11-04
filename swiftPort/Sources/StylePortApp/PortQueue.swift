@@ -25,6 +25,9 @@ struct PortJob: Identifiable {
     var warnings: [String] = []
     /// For a file import: the result, to share.
     var outputURL: URL?
+    /// Save-as-new: the library photo this job created. The job is dropped when that photo is
+    /// deleted, so the original no longer shows as styled.
+    var createdIdentifier: String?
 
     var isFinished: Bool {
         switch phase {
@@ -75,8 +78,31 @@ final class PortQueue: ObservableObject {
         let jobIDs: [UUID]
     }
 
+    private lazy var watcher = LibraryWatcher { [weak self] in
+        Task { @MainActor in self?.dropDeletedOutputs() }
+    }
+
     init() {
         TemporaryFiles.purge()
+        PHPhotoLibrary.shared().register(watcher)
+    }
+
+    /// Forget the finished jobs whose styled photo has been deleted from the library: their
+    /// originals go back to "not styled" (no check mark, "Add" instead of "Add Again").
+    func dropDeletedOutputs() {
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        guard status == .authorized || status == .limited else { return }
+        let created = jobs.compactMap { job -> String? in
+            if case .done = job.phase { return job.createdIdentifier }
+            return nil
+        }
+        guard !created.isEmpty else { return }
+        let alive = PHAsset.fetchAssets(withLocalIdentifiers: created, options: nil)
+        var existing = Set<String>()
+        alive.enumerateObjects { asset, _, _ in existing.insert(asset.localIdentifier) }
+        let gone = Set(created).subtracting(existing)
+        guard !gone.isEmpty else { return }
+        jobs.removeAll { $0.createdIdentifier.map(gone.contains) ?? false }
     }
 
     /// One line for the floating status capsule; nil hides it.
@@ -279,6 +305,9 @@ final class PortQueue: ObservableObject {
                 try await replace(ported)
             } else {
                 let created = try await library.saveNew(ported.map { $0.output })
+                for (item, identifier) in zip(ported, created) {
+                    update(item.jobID) { $0.createdIdentifier = identifier }
+                }
                 StyleRecords.shared.record(zip(ported, created).map { item, identifier in
                     let source: StyleRecords.Source
                     if let asset = item.asset { source = .asset(asset.localIdentifier) } else { source = .noOriginal }
@@ -565,4 +594,13 @@ enum Notifier {
         let request = UNNotificationRequest(identifier: "batch-finished", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
+}
+
+/// Calls back when the photo library changes (a styled photo deleted in Photos, say).
+private final class LibraryWatcher: NSObject, PHPhotoLibraryChangeObserver {
+    private let onChange: () -> Void
+
+    init(onChange: @escaping () -> Void) { self.onChange = onChange }
+
+    func photoLibraryDidChange(_ changeInstance: PHChange) { onChange() }
 }
