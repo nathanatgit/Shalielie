@@ -48,7 +48,11 @@ export const STRINGS = {
 
     "h.notice": "Before you start",
     "n.1": "Experimental, unofficial software, not affiliated with Apple.",
-    "n.2": "An Apple HEIC holds only the still image. Keep your original photos.",
+    "n.2": "An Apple HEIC holds only the still image. For Live Photos, consider the "
+      + '<a href="https://github.com/nathanatgit/Shalielie/releases/latest" target="_blank" rel="noopener">iOS sideload version</a>'
+      + " or the "
+      + '<a href="https://github.com/nathanatgit/Shalielie/releases/latest" target="_blank" rel="noopener">command-line version</a>'
+      + ". Always keep your original photos.",
     "n.3": "This page runs entirely in your browser: photos are processed on this device and "
       + "never uploaded.",
     "app.lede": "Adds the Photographic Styles palette, introduced with iPhone 16, to HEIC "
@@ -156,7 +160,11 @@ export const STRINGS = {
 
     "h.notice": "注意事项",
     "n.1": "实验性非官方工具，与 Apple 无关。",
-    "n.2": "Apple 的 HEIC 文件只包含静态图像，请保留原图。",
+    "n.2": "Apple 的 HEIC 文件只包含静态图像，如需实况图片，请考虑使用"
+      + '<a href="https://github.com/nathanatgit/Shalielie/releases/latest" target="_blank" rel="noopener">iOS 侧载版本</a>'
+      + "或"
+      + '<a href="https://github.com/nathanatgit/Shalielie/releases/latest" target="_blank" rel="noopener">命令行版本</a>'
+      + "。请务必保留原图。",
     "n.3": "网页版为纯前端，照片处理在本设备上完成，照片不会上传。",
     "app.lede": "为 iPhone 16 之前机型拍摄的 HEIC 照片加上 iPhone 16 引入的摄影风格调色板，"
       + "并在 iOS 27 上加上质感与颗粒控制。",
