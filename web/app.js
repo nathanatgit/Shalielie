@@ -3,6 +3,8 @@ import { patch, profileFor, VERSION, UNSUPPORTED } from "./src/port.js";
 import { discoverHeic } from "./src/heif.js";
 import { addTexture, hasTexture } from "./src/texture.js";
 import { decodeToRgb, loadLibheif } from "./src/decode.js";
+import { convertToHeic, isAppleShapedHeic, canConvert } from "./src/raster.js";
+import { estimatePeople } from "./src/faces.js";
 import { pickLanguage, rememberLanguage, applyLanguage, t } from "./src/i18n.js";
 
 const $ = (id) => document.getElementById(id);
@@ -14,6 +16,14 @@ const fileInput = $("file"), drop = $("drop"), list = $("list"), quality = $("qu
 const warmDecoder = () => { if (quality.checked) loadLibheif().catch(() => {}); };
 quality.addEventListener("change", warmDecoder);
 for (const ev of ["pointerdown", "dragenter", "focus"]) drop.addEventListener(ev, warmDecoder, { once: true });
+
+const anyImage = $("anyimage"), findFaces = $("findfaces");
+// Any Image takes any picture; otherwise only HEIC photos are offered.
+const syncAccept = () => {
+  fileInput.accept = anyImage.checked ? "image/*,.heic,.heif" : "image/heic,image/heif,.heic,.heif";
+};
+anyImage.addEventListener("change", syncAccept);
+syncAccept();
 
 let lang = pickLanguage();
 const T = (key) => t(lang, key);
@@ -96,14 +106,53 @@ function row(name) {
   };
 }
 
+/** Packed RGB of the canvas scaled to width x height, for the analysis of a converted picture. */
+async function canvasRgb(canvas, { width, height }) {
+  const small = document.createElement("canvas");
+  small.width = width; small.height = height;
+  const ctx = small.getContext("2d", { willReadFrequently: true });
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(canvas, 0, 0, width, height);
+  const { data } = ctx.getImageData(0, 0, width, height);
+  const rgb = new Uint8Array(width * height * 3);
+  for (let i = 0, p = 0; p < data.length; i += 3, p += 4) {
+    rgb[i] = data[p]; rgb[i + 1] = data[p + 1]; rgb[i + 2] = data[p + 2];
+  }
+  return rgb;
+}
+
 async function handleFile(file) {
   const ui = row(file.name);
   try {
     ui.set(T("st.reading"));
     const bytes = new Uint8Array(await file.arrayBuffer());
-    if (sniff(bytes) !== "heic") { ui.set(T("err.notheic"), "err"); return; }
+    const isHeic = sniff(bytes) === "heic";
+    if (!isHeic && !anyImage.checked) { ui.set(T("err.notheic"), "err"); return; }
 
-    const d = discoverHeic(bytes);
+    // Any Image: a picture that isn't an iPhone-shaped HEIC is converted to one first.
+    let source = bytes, converted = null, people = null, peopleNote = null;
+    if (anyImage.checked && !(isHeic && isAppleShapedHeic(bytes))) {
+      if (!(await canConvert())) { ui.set(T("err.noencoder"), "err"); return; }
+      ui.set(T("st.converting"));
+      try {
+        converted = await convertToHeic(file, bytes, ({ done, total }) =>
+          ui.set(`${T("st.converting")} ${done}/${total}`));
+      } catch (e) {
+        console.error("could not convert", file.name, e);
+        ui.set(T("err.badimage"), "err");
+        return;
+      }
+      source = converted.heic;
+      if (findFaces.checked) {
+        ui.set(T("st.findfaces"));
+        const found = await estimatePeople(converted.canvas, ({ stage }) =>
+          ui.set(`${T("st.findfaces")} ${stage}`));
+        if (found.people) people = found.people;
+        else { peopleNote = T("st.nofaces"); console.warn("Find Faces:", found.why); }
+      }
+    }
+
+    const d = discoverHeic(source);
     const sep = lang === "zh" ? "、" : ", ";
     let data, bits, suffix;
     if (d.stylesItem !== null) {
@@ -111,22 +160,27 @@ async function handleFile(file) {
       // style data); it only gets the iOS 27 Texture/Grain set added.
       if (hasTexture(d.infos)) { ui.set(T("err.hastexture"), "err"); return; }
       ui.set(T("st.working"));
-      ({ data } = addTexture(bytes));
+      ({ data } = addTexture(source));
       bits = [T("st.native"), T("st.texture")];
       suffix = "_TextureGrain.HEIC";
     } else {
       // No encoder in the browser, so a photo without a thumbnail needs the desktop tool.
       if (d.thumbnail === null) { ui.set(T("err.nothumb"), "err"); return; }
-      const name = profileFor(profileIndex, d);
+      // A converted picture only uses the profile's styles plist, so any layout will do.
+      const name = converted ? "48-12" : profileFor(profileIndex, d);
       const profile = await getProfile(name);
 
-      const canDecode = quality.checked ? await ensureDecode(bytes) : false;
+      // A converted picture is analysed from its own canvas; the decoder is for real HEICs.
+      const canDecode = quality.checked ? (converted ? true : await ensureDecode(bytes)) : false;
       ui.set(T("st.working"));
+      const decode = converted ? (_data, req) => canvasRgb(converted.canvas, req) : decodeToRgb;
       const opts = canDecode
-        ? { decode: decodeToRgb, sceneStats: "target", lightMaps: "target" }
+        ? { decode, sceneStats: "target", lightMaps: "target" }
         : { sceneStats: "donor" };
+      if (converted) { opts.generic = true; if (people) opts.people = people; }
+      else if (anyImage.checked) opts.sdr = true;
       let report;
-      ({ data, report } = await patch(bytes, profile, opts));
+      ({ data, report } = await patch(source, profile, opts));
       // patch() degrades rather than failing when the decoder misbehaves, so trust
       // what it reports it actually did, not what we asked for.
       if (report.decodeError) console.warn("decoder unavailable:", report.decodeError);
@@ -135,16 +189,20 @@ async function handleFile(file) {
       if (report.mattes.added.some((m) => m.startsWith("depth"))) bits.push(T("st.portrait"));
       else if (report.mattes.transplanted.length) bits.push(T("st.people"));
       if (report.texture !== "off") bits.push(T("st.texture"));
+      if (converted) bits.unshift(T("st.converted"));
+      if (people) bits.push(T("st.faces"));
+      else if (peopleNote) bits.push(peopleNote);
       suffix = "_PhotographicStyle.HEIC";
     }
     ui.set(`${T("st.ready")} — ${bits.join(sep)}`, "ok");
 
-    const outName = file.name.replace(/\.(heic|heif)$/i, "") + suffix;
+    const outName = file.name.replace(/\.[A-Za-z0-9]+$/, "") + suffix;
     // On iPhone the share sheet lands the file straight in Photos; elsewhere a plain
     // download is the shorter route.
     const shareFile = new File([data], outName, { type: "image/heic" });
     if (navigator.canShare && navigator.canShare({ files: [shareFile] })) ui.share(shareFile);
     ui.link(new Blob([data], { type: "image/heic" }), outName);
+    return true;
   } catch (e) {
     // Past the format sniff, every remaining rejection means the same thing to a
     // visitor: this is a HEIC, but not one this build can handle. The real reason
@@ -155,9 +213,39 @@ async function handleFile(file) {
   }
 }
 
+const CHECK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.4-4-4 1.4-1.4 2.6 2.6 5.4-5.4 1.4 1.4Z"/></svg>';
+const WARN = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 1.5 21h21Zm-1 6h2v6h-2Zm0 8h2v2h-2Z"/></svg>';
+const fill = (text, values) => text.replace(/\{(\w+)\}/g, (_, k) => values[k]);
+
+/** The batch, as in the Share sheet: a progress bar while styling, then a check and a count. */
+function showSummary(done, total, ready, finished) {
+  const box = $("summary");
+  box.classList.add("show");
+  $("sumbar").hidden = finished;
+  $("sumbar").value = done;
+  $("sumbar").max = Math.max(total, 1);
+  const icon = $("sumicon");
+  icon.hidden = !finished;
+  icon.className = ready === total ? "ok" : "warn";
+  icon.innerHTML = ready === total ? CHECK : WARN;
+  $("sumhead").textContent = !finished
+    ? fill(T("sum.working"), { n: Math.min(done + 1, total), total })
+    : ready === total
+      ? (ready === 1 ? T("sum.one") : fill(T("sum.many"), { n: ready }))
+      : fill(T("sum.partial"), { n: ready, total });
+  $("sumnote").textContent = finished ? T("sum.note") : "";
+  $("sumnote").hidden = !finished;
+}
+
 async function handleFiles(files) {
-  if (files.length) document.querySelector("main").classList.add("folded");
-  for (const f of files) await handleFile(f);
+  if (!files.length) return;
+  document.querySelector("main").classList.add("folded");
+  let ready = 0;
+  showSummary(0, files.length, 0, false);
+  for (const [index, f] of files.entries()) {
+    if (await handleFile(f)) ready++;
+    showSummary(index + 1, files.length, ready, index + 1 === files.length);
+  }
 }
 
 drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });

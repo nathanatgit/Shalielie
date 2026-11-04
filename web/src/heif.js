@@ -469,3 +469,34 @@ export function addItems(meta, specs) {
     rebuilt.push(swap[b.type] || slice(meta, b.off, b.size));
   return [box("meta", concat(rebuilt)), assigned];
 }
+
+/** Map a normalized point from the encoded item's stored coordinates to displayed coordinates. */
+export function storedPointToDisplay(x, y, angle, mirror = null) {
+  if (mirror === 0) x = 1 - x;
+  else if (mirror === 1) y = 1 - y;
+  if (angle === 90) return { x: y, y: 1 - x };
+  if (angle === 180) return { x: 1 - x, y: 1 - y };
+  if (angle === 270) return { x: 1 - y, y: x };
+  return { x, y };
+}
+
+/** Inverse of storedPointToDisplay, used before writing display-space detections to HEIF. */
+export function displayPointToStored(x, y, angle, mirror = null) {
+  let stored;
+  if (angle === 90) stored = { x: 1 - y, y: x };
+  else if (angle === 180) stored = { x: 1 - x, y: 1 - y };
+  else if (angle === 270) stored = { x: y, y: 1 - x };
+  else stored = { x, y };
+  if (mirror === 0) stored.x = 1 - stored.x;
+  else if (mirror === 1) stored.y = 1 - stored.y;
+  return stored;
+}
+
+export function transformNormalizedRect(rect, pointTransform) {
+  const points = [pointTransform(rect.x, rect.y), pointTransform(rect.x + rect.width, rect.y),
+    pointTransform(rect.x, rect.y + rect.height),
+    pointTransform(rect.x + rect.width, rect.y + rect.height)];
+  const xs = points.map((p) => p.x), ys = points.map((p) => p.y);
+  const x = Math.min(...xs), y = Math.min(...ys);
+  return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+}

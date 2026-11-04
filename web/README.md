@@ -25,6 +25,7 @@ workflow checks three things before uploading:
 To serve it locally instead:
 
 ```bash
+python tools/build_web_assets.py   # once: models and MediaPipe runtime for Any Image / Find Faces
 python -m http.server -d web 8000
 ```
 
