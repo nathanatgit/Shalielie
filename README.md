@@ -59,9 +59,6 @@ experimental switches, both off by default:
   downloaded (about 20 MB) the first time they are used. The data is estimated, not the
   camera's own.
 
-The page is laid out like the iOS app's Share sheet: a thumbnail, name and status for every
-photo, a progress bar and a count while it works.
-
 What it cannot do is patch a HEIC photo without an embedded thumbnail, unless Any Image converts
 it: otherwise the browser has no encoder to create one, so use the command-line tool.
 
