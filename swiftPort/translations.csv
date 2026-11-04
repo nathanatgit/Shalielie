@@ -312,5 +312,5 @@
 314,Photo viewer,Converted to HEIC first (experimental),会先转换为 HEIC（实验性）
 315,Library,Import Images…,导入图片…
 316,Settings page,Find Faces for Soft Skin,为“柔肤”识别人脸
-317,Settings page,"For photos without Apple's own people data, Palettify finds faces and people on the device and estimates the skin, so Soft Skin can work. The estimate is not the camera's own data and is untested in Photos. Needs Texture & Grain.",对于没有 Apple 自带人物数据的照片，⌈盘它⌋会在设备上识别人脸和人物并估算皮肤区域，让“柔肤”可以使用。估算结果并非相机自身的数据，也尚未在“照片”中验证。需要开启“添加质感与颗粒”。
+317,Settings page,"For photos without Apple's own people data, Palettify finds faces and people on the device and estimates the skin, so Soft Skin can work. The estimate is not the camera's own data. Needs Texture & Grain.",对于没有 Apple 自带人物数据的照片，⌈盘它⌋会在设备上识别人脸和人物并估算皮肤区域，让“柔肤”可以使用。估算结果并非相机自身的数据。需要开启“添加质感与颗粒”。
 318,Activity and status,"Soft Skin estimated, experimental",“柔肤”为估算，实验性

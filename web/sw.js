@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "photographic-style-port-";
-const CACHE_NAME = `${CACHE_PREFIX}v9`;
+const CACHE_NAME = `${CACHE_PREFIX}v10`;
 
 // Keep this list self-contained so a successful installation guarantees that
 // the converter and both supported donor profiles can run without a network.

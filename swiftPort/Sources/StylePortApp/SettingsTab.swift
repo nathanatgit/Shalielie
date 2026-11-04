@@ -129,7 +129,7 @@ struct SettingsTab: View {
                     }
                     .disabled(!texture)
                 } footer: {
-                    Text("For photos without Apple's own people data, Palettify finds faces and people on the device and estimates the skin, so Soft Skin can work. The estimate is not the camera's own data and is untested in Photos. Needs Texture & Grain.")
+                    Text("For photos without Apple's own people data, Palettify finds faces and people on the device and estimates the skin, so Soft Skin can work. The estimate is not the camera's own data. Needs Texture & Grain.")
                 }
 
                 Section {
